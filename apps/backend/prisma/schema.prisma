@@ -1,0 +1,62 @@
+// apps/backend/prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  name          String?
+  passwordHash  String?
+  metaAdAccountId String?
+  metaAccessToken String?   // encrypted
+  spotifyArtistId String?
+  campaigns     Campaign[]
+  createdAt     DateTime    @default(now())
+}
+
+model Campaign {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  name          String
+  metaCampaignId String?    // after creation on Meta
+  status        CampaignStatus @default(DRAFT)
+  budget        Float
+  startDate     DateTime?
+  endDate       DateTime?
+  adCreatives   AdCreative[]
+  metrics       CampaignMetric[]
+  createdAt     DateTime    @default(now())
+}
+
+model AdCreative {
+  id           String   @id @default(cuid())
+  campaignId   String
+  campaign     Campaign @relation(fields: [campaignId], references: [id])
+  videoUrl     String?  // S3/GCS url
+  lyricsJson   Json?    // transcribed lyrics with timestamps
+  status       CreativeStatus @default(PENDING)
+}
+
+model CampaignMetric {
+  id             String   @id @default(cuid())
+  campaignId     String
+  campaign       Campaign @relation(fields: [campaignId], references: [id])
+  date           DateTime
+  spend          Float
+  impressions    Int
+  clicks         Int
+  // Spotify side
+  streamsBefore  Int?
+  streamsAfter   Int?
+  costPerStream  Float?   // computed: spend / (streamsAfter - streamsBefore)
+}
+
+enum CampaignStatus { DRAFT ACTIVE PAUSED COMPLETED }
+enum CreativeStatus { PENDING PROCESSING READY FAILED }
