@@ -3,18 +3,19 @@ import Link from "next/link";
 
 export default function LandingPage() {
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+    <div style={{ minHeight: "100vh", background: "#F1F5F3" }}>
       {/* Navbar */}
       <nav style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "1.25rem 2rem", borderBottom: "1px solid var(--border)",
+        padding: "1rem 2.5rem", borderBottom: "1px solid #E8E8EC",
         position: "sticky", top: 0, zIndex: 50,
-        background: "rgba(10,10,10,0.85)", backdropFilter: "blur(12px)",
+        background: "rgba(255,255,255,0.9)", backdropFilter: "blur(12px)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <div style={{
             width: 32, height: 32, borderRadius: 8,
-            background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
+            background: "linear-gradient(135deg,#3A60E7,#4C1AEA)",
+            display: "flex", alignItems: "center", justifyContent: "center",
           }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 18V5l12-2v13" />
@@ -22,13 +23,13 @@ export default function LandingPage() {
               <circle cx="18" cy="16" r="3" />
             </svg>
           </div>
-          <span style={{ fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)" }}>Escalium</span>
+          <span style={{ fontWeight: 700, fontSize: "1.1rem", color: "#1C1C1E" }}>Escalium</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
-          <a href="#features" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "0.875rem" }}>Features</a>
-          <a href="#pricing" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "0.875rem" }}>Pricing</a>
-          <Link href="/login" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "0.875rem" }}>Sign In</Link>
-          <Link href="/register" className="btn btn-primary btn-sm">Get Started</Link>
+        <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
+          <a href="#features" style={{ color: "#4A5370", textDecoration: "none", fontSize: "0.875rem", fontWeight: 500 }}>Features</a>
+          <a href="#pricing" style={{ color: "#4A5370", textDecoration: "none", fontSize: "0.875rem", fontWeight: 500 }}>Pricing</a>
+          <Link href="/login" style={{ color: "#4A5370", textDecoration: "none", fontSize: "0.875rem", fontWeight: 500 }}>Sign In</Link>
+          <Link href="/register" style={{ background: "#1C1C1E", color: "#fff", padding: "0.5rem 1.25rem", borderRadius: 99, fontSize: "0.875rem", fontWeight: 600, textDecoration: "none" }}>Get Started</Link>
         </div>
       </nav>
 
