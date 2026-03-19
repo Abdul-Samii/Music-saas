@@ -34,14 +34,14 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.accessToken = (user as Record<string, unknown>).accessToken as string;
+        token.accessToken = (user as unknown as Record<string, unknown>).accessToken as string;
         token.id = user.id;
       }
       return token;
     },
     async session({ session, token }) {
-      (session as Record<string, unknown>).accessToken = token.accessToken;
-      if (session.user) (session.user as Record<string, unknown>).id = token.id;
+      (session as unknown as Record<string, unknown>).accessToken = token.accessToken;
+      if (session.user) (session.user as unknown as Record<string, unknown>).id = token.id;
       return session;
     },
   },
