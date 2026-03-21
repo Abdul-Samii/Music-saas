@@ -62,6 +62,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { data: session } = useSession({ required: false });
   const router = useRouter();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { theme, toggleTheme } = useAppStore();
 
   function isActive(href: string) {
@@ -72,8 +73,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg)" }}>
 
+      {/* ── Mobile overlay ── */}
+      {sidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
+      )}
+
       {/* ── Dark Sidebar ── */}
-      <aside style={{
+      <aside className={`sidebar-desktop${sidebarOpen ? " open" : ""}`} style={{
         width: 260,
         flexShrink: 0,
         background: "#1C1C1E",
@@ -253,7 +259,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* ── Main content ── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: "var(--bg)" }}>
-        <main style={{ flex: 1, padding: "2rem 2rem", overflowY: "auto" }}>
+        {/* Mobile top bar */}
+        <div className="mobile-topbar" style={{ alignItems: "center", gap: "0.75rem", padding: "0.875rem 1rem", borderBottom: "1px solid var(--border)", background: "var(--bg-card)" }}>
+          <button
+            onClick={() => setSidebarOpen(true)}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-primary)", display: "flex", alignItems: "center" }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+          <span style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)" }}>Escalium</span>
+        </div>
+        <main className="dash-main" style={{ flex: 1, padding: "2rem", overflowY: "auto" }}>
           {children}
         </main>
       </div>
