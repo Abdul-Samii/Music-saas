@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell,
+  AreaChart, Area, Tooltip,
 } from "recharts";
 
 /* ── Mock data ── */
@@ -25,79 +26,84 @@ const topCampaigns = [
   { name: "Spotify Push",       streams: 890,  change: "+7%",  up: true },
 ];
 
+/* ── Sparkline data per metric (7 days) ── */
 const METRICS = [
   {
     label: "Total Ad Spend",
-    value: "465",
-    unit: "$",
-    change: "+7%",
-    up: true,
-    sub: "+$38 this week",
-    progress: 72,
-    pct: "72%",
+    value: "465", unit: "$", change: "+7%", up: true, sub: "+$38 this week",
+    color: "#1877F2",
+    iconBg: "rgba(24,119,242,0.12)",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="10" fill="#1877F2" opacity="0.15"/>
-        <path d="M13.5 8H11a1 1 0 0 0-1 1v1h3.5M11 12h2.5" stroke="#1877F2" strokeWidth="1.8" strokeLinecap="round"/>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="9" stroke="#1877F2" strokeWidth="1.5" fill="none"/>
+        <path d="M13.5 8H11a1 1 0 0 0-1 1v1h3.5M11 12h2.5" stroke="#1877F2" strokeWidth="1.8" strokeLinecap="round"/>
       </svg>
     ),
-    iconBg: "#EBF1FF",
-    barColors: ["#f97316", "#f97316", "#3A60E7", "#3A60E7", "#3A60E7", "#12B76A"],
+    spark: [
+      { d: "M", v: 280 }, { d: "T", v: 320 }, { d: "W", v: 290 },
+      { d: "T", v: 410 }, { d: "F", v: 380 }, { d: "S", v: 430 }, { d: "S", v: 465 },
+    ],
+    prev: [
+      { d: "M", v: 240 }, { d: "T", v: 270 }, { d: "W", v: 255 },
+      { d: "T", v: 310 }, { d: "F", v: 290 }, { d: "S", v: 360 }, { d: "S", v: 380 },
+    ],
   },
   {
     label: "New Streams",
-    value: "8,260",
-    unit: "",
-    change: "+12%",
-    up: true,
-    sub: "+340 streams",
-    progress: 55,
-    pct: "55%",
+    value: "8,260", unit: "", change: "+12%", up: true, sub: "+340 streams",
+    color: "#1DB954",
+    iconBg: "rgba(29,185,84,0.12)",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="10" fill="#1DB954" opacity="0.15"/>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
         <path d="M8 11.5a5 5 0 0 1 8 0M6.5 9a7.5 7.5 0 0 1 11 0M9.5 14a2.5 2.5 0 0 1 5 0" stroke="#1DB954" strokeWidth="1.8" strokeLinecap="round"/>
       </svg>
     ),
-    iconBg: "#E6F9EE",
-    barColors: ["#f97316", "#3A60E7", "#3A60E7", "#12B76A", "#12B76A", "#12B76A"],
+    spark: [
+      { d: "M", v: 5800 }, { d: "T", v: 6200 }, { d: "W", v: 5900 },
+      { d: "T", v: 7100 }, { d: "F", v: 7400 }, { d: "S", v: 7900 }, { d: "S", v: 8260 },
+    ],
+    prev: [
+      { d: "M", v: 4900 }, { d: "T", v: 5300 }, { d: "W", v: 5100 },
+      { d: "T", v: 6200 }, { d: "F", v: 6500 }, { d: "S", v: 6800 }, { d: "S", v: 7100 },
+    ],
   },
   {
     label: "Cost per Stream",
-    value: "0.056",
-    unit: "$",
-    change: "-8.3%",
-    up: false,
-    sub: "Lower is better",
-    progress: 31,
-    pct: "31%",
+    value: "0.056", unit: "$", change: "-8.3%", up: false, sub: "Lower is better",
+    color: "#3A60E7",
+    iconBg: "rgba(58,96,231,0.12)",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="10" fill="#3A60E7" opacity="0.15"/>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="#3A60E7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
-    iconBg: "#EBF1FF",
-    barColors: ["#12B76A", "#12B76A", "#3A60E7", "#3A60E7", "#f97316", "#f97316"],
+    spark: [
+      { d: "M", v: 0.082 }, { d: "T", v: 0.078 }, { d: "W", v: 0.074 },
+      { d: "T", v: 0.069 }, { d: "F", v: 0.065 }, { d: "S", v: 0.060 }, { d: "S", v: 0.056 },
+    ],
+    prev: [
+      { d: "M", v: 0.095 }, { d: "T", v: 0.091 }, { d: "W", v: 0.088 },
+      { d: "T", v: 0.084 }, { d: "F", v: 0.081 }, { d: "S", v: 0.078 }, { d: "S", v: 0.075 },
+    ],
   },
   {
     label: "Active Campaigns",
-    value: "3",
-    unit: "",
-    change: "+1",
-    up: true,
-    sub: "of 6 total",
-    progress: 54,
-    pct: "54%",
+    value: "3", unit: "", change: "+1", up: true, sub: "of 6 total",
+    color: "#4C1AEA",
+    iconBg: "rgba(76,26,234,0.12)",
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="10" fill="#4C1AEA" opacity="0.15"/>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
         <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" stroke="#4C1AEA" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
-    iconBg: "#F0EBFF",
-    barColors: ["#3A60E7", "#3A60E7", "#12B76A", "#12B76A", "#12B76A", "#12B76A"],
+    spark: [
+      { d: "M", v: 1 }, { d: "T", v: 1 }, { d: "W", v: 2 },
+      { d: "T", v: 2 }, { d: "F", v: 2 }, { d: "S", v: 3 }, { d: "S", v: 3 },
+    ],
+    prev: [
+      { d: "M", v: 0 }, { d: "T", v: 1 }, { d: "W", v: 1 },
+      { d: "T", v: 1 }, { d: "F", v: 2 }, { d: "S", v: 2 }, { d: "S", v: 2 },
+    ],
   },
 ];
 
@@ -121,33 +127,27 @@ export default function DashboardPage() {
     <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
 
       {/* ── Top bar ── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
+      <div className="dash-topbar">
         <div>
-          <h1 style={{ fontSize: "2rem", fontWeight: 700, color: "#1C1C1E", letterSpacing: "-0.02em", lineHeight: 1.2 }}>Overview</h1>
-          <p style={{ color: "#9A9A9E", fontSize: "0.875rem", marginTop: "0.25rem" }}>
+          <h1 className="dash-title">Overview</h1>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", marginTop: "0.25rem" }}>
             Welcome back, {firstName} — here&apos;s your music performance.
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
-          {/* Search */}
           <div style={{ position: "relative" }}>
-            <svg style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "#9A9A9E" }}
+            <svg style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}
               width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
             <input
               type="text" placeholder="Search..." value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{
-                background: "#FFFFFF", border: "1px solid #E8E8EC",
-                borderRadius: 99, padding: "0.5rem 0.875rem 0.5rem 2.25rem",
-                fontSize: "0.875rem", color: "#1C1C1E", outline: "none", width: 200,
-              }}
+              className="dash-search"
             />
           </div>
-          {/* Avatar */}
           <div style={{
-            width: 38, height: 38, borderRadius: "50%",
+            width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
             background: "linear-gradient(135deg,#3A60E7,#4C1AEA)",
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: "0.8125rem", fontWeight: 700, color: "#fff",
@@ -159,64 +159,47 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Tabs + time filters ── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        {/* Tabs */}
-        <div style={{
-          display: "flex", background: "#FFFFFF", borderRadius: 99,
-          padding: "0.25rem", border: "1px solid #E8E8EC", gap: "0.25rem",
-        }}>
+      <div className="dash-filters">
+        <div style={{ display: "flex", background: "var(--bg-card)", borderRadius: 99, padding: "0.25rem", border: "1px solid var(--border)", gap: "0.25rem" }}>
           {(["campaigns", "analytics"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                padding: "0.45rem 1.25rem", borderRadius: 99, border: "none",
-                cursor: "pointer", fontSize: "0.875rem", fontWeight: 500,
-                background: activeTab === tab ? "#1C1C1E" : "transparent",
-                color: activeTab === tab ? "#FFFFFF" : "#9A9A9E",
-                transition: "all 0.15s ease",
-                textTransform: "capitalize",
-              }}
-            >
+            <button key={tab} onClick={() => setActiveTab(tab)} style={{
+              padding: "0.45rem 1.25rem", borderRadius: 99, border: "none", cursor: "pointer",
+              fontSize: "0.875rem", fontWeight: 500, transition: "all 0.15s ease",
+              background: activeTab === tab ? "#1C1C1E" : "transparent",
+              color: activeTab === tab ? "#fff" : "var(--text-muted)",
+              textTransform: "capitalize",
+            }}>
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
         </div>
-
-        {/* Time filters */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
           {TIME_FILTERS.map((f) => (
-            <button
-              key={f}
-              onClick={() => setTimeFilter(f)}
-              style={{
-                padding: "0.45rem 1.1rem", borderRadius: 99, border: "1px solid #E8E8EC",
-                cursor: "pointer", fontSize: "0.8125rem", fontWeight: 500,
-                background: timeFilter === f ? "#1C1C1E" : "#FFFFFF",
-                color: timeFilter === f ? "#FFFFFF" : "#4A4A4E",
-                transition: "all 0.15s ease",
-              }}
-            >
+            <button key={f} onClick={() => setTimeFilter(f)} style={{
+              padding: "0.45rem 1.1rem", borderRadius: 99, border: "1px solid var(--border)",
+              cursor: "pointer", fontSize: "0.8125rem", fontWeight: 500, transition: "all 0.15s ease",
+              background: timeFilter === f ? "#1C1C1E" : "var(--bg-card)",
+              color: timeFilter === f ? "#fff" : "var(--text-secondary)",
+            }}>
               {f}
             </button>
           ))}
-          <button style={{ width: 36, height: 36, borderRadius: 99, background: "#FFFFFF", border: "1px solid #E8E8EC", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#9A9A9E" }}>
+          <button style={{ width: 36, height: 36, borderRadius: 99, background: "var(--bg-card)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-muted)" }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
           </button>
         </div>
       </div>
 
       {/* ── Performance row ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: "1.25rem" }}>
-
+      <div className="dash-perf-grid">
         {/* Bar chart card */}
-        <div style={{ background: "#FFFFFF", borderRadius: 20, padding: "1.75rem", border: "1px solid #F0F0F4", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
+        <div style={{ background: "var(--bg-card)", borderRadius: 20, padding: "1.75rem", border: "1px solid var(--border)", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem", flexWrap: "wrap", gap: "0.5rem" }}>
             <div>
-              <p style={{ fontSize: "2.5rem", fontWeight: 700, color: "#1C1C1E", lineHeight: 1, letterSpacing: "-0.02em" }}>8,260</p>
-              <p style={{ fontSize: "0.8125rem", color: "#9A9A9E", marginTop: "0.3rem" }}>Performance Trends Over Time</p>
+              <p style={{ fontSize: "2.25rem", fontWeight: 700, color: "var(--text-primary)", lineHeight: 1, letterSpacing: "-0.02em" }}>8,260</p>
+              <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "0.3rem" }}>Performance Trends Over Time</p>
             </div>
-            <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#12B76A", background: "#E6F9EE", padding: "0.25rem 0.75rem", borderRadius: 99 }}>
+            <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#12B76A", background: "rgba(18,183,106,0.12)", padding: "0.25rem 0.75rem", borderRadius: 99 }}>
               45% Growth
             </span>
           </div>
@@ -226,23 +209,23 @@ export default function DashboardPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <div style={{ width: 10, height: 10, borderRadius: 3, background: "linear-gradient(90deg,#f97316,#eab308,#22c55e)" }} />
-                <span style={{ fontSize: "0.8125rem", color: "#4A4A4E", fontWeight: 500 }}>Stream tracking</span>
+                <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", fontWeight: 500 }}>Stream tracking</span>
               </div>
-              <span style={{ fontSize: "0.8125rem", color: "#4A4A4E", fontWeight: 600 }}>8,260 streams</span>
+              <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", fontWeight: 600 }}>8,260 streams</span>
             </div>
-            <div style={{ height: 10, background: "#F4F4F6", borderRadius: 99, overflow: "hidden" }}>
+            <div style={{ height: 10, background: "var(--bg-elevated)", borderRadius: 99, overflow: "hidden" }}>
               <div style={{ height: "100%", width: "72%", background: "linear-gradient(90deg,#f97316 0%,#eab308 40%,#22c55e 100%)", borderRadius: 99, position: "relative" }}>
-                <div style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)", width: 4, height: 16, background: "#1C1C1E", borderRadius: 2 }} />
+                <div style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)", width: 4, height: 16, background: "var(--text-primary)", borderRadius: 2 }} />
               </div>
             </div>
           </div>
 
           {/* Legend */}
-          <div style={{ display: "flex", gap: "1.25rem", marginBottom: "1rem" }}>
+          <div style={{ display: "flex", gap: "1.25rem", marginBottom: "1rem", flexWrap: "wrap" }}>
             {[{ color: "#F97316", label: "<500" }, { color: "#EAB308", label: "~1k" }, { color: "#22C55E", label: ">2k" }].map(l => (
               <div key={l.label} style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: l.color }} />
-                <span style={{ fontSize: "0.75rem", color: "#9A9A9E" }}>{l.label}</span>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{l.label}</span>
               </div>
             ))}
           </div>
@@ -250,10 +233,10 @@ export default function DashboardPage() {
           {/* Bar chart */}
           <div style={{ position: "relative" }}>
             <div style={{ position: "absolute", bottom: 32, left: 0 }}>
-              <p style={{ fontSize: "1.25rem", fontWeight: 700, color: "#1C1C1E", lineHeight: 1.2 }}>Trends<br />Over Time</p>
+              <p style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.2 }}>Trends<br />Over Time</p>
             </div>
-            <ResponsiveContainer width="100%" height={130}>
-              <BarChart data={barData} barSize={8} margin={{ left: 80, right: 0, top: 0, bottom: 0 }}>
+            <ResponsiveContainer width="100%" height={120}>
+              <BarChart data={barData} barSize={7} margin={{ left: 80, right: 0, top: 0, bottom: 0 }}>
                 <XAxis dataKey="day" hide />
                 <YAxis hide />
                 <Bar dataKey="v" radius={[4, 4, 0, 0]}>
@@ -267,33 +250,32 @@ export default function DashboardPage() {
         </div>
 
         {/* Top Campaigns list */}
-        <div style={{ background: "#FFFFFF", borderRadius: 20, padding: "1.5rem", border: "1px solid #F0F0F4", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
+        <div style={{ background: "var(--bg-card)", borderRadius: 20, padding: "1.5rem", border: "1px solid var(--border)", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
-            <h2 style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#1C1C1E" }}>Top Campaigns</h2>
-            <Link href="/dashboard/campaigns" style={{ fontSize: "0.75rem", color: "#3A60E7", fontWeight: 600, textDecoration: "none" }}>View all</Link>
+            <h2 style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)" }}>Top Campaigns</h2>
+            <Link href="/dashboard/campaigns" style={{ fontSize: "0.75rem", color: "var(--primary)", fontWeight: 600, textDecoration: "none" }}>View all</Link>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
             {topCampaigns.map((c, i) => (
               <div key={c.name} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                {/* Rank avatar */}
                 <div style={{
-                  width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
-                  background: i === 0 ? "linear-gradient(135deg,#3A60E7,#4C1AEA)" : "#F4F4F6",
+                  width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+                  background: i === 0 ? "linear-gradient(135deg,#3A60E7,#4C1AEA)" : "var(--bg-elevated)",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "0.75rem", fontWeight: 700,
-                  color: i === 0 ? "#fff" : "#4A4A4E",
+                  fontSize: "0.72rem", fontWeight: 700,
+                  color: i === 0 ? "#fff" : "var(--text-secondary)",
                   border: i < 3 ? `2px solid ${["#3A60E7","#9A9A9E","#CD7F32"][i]}` : "2px solid transparent",
                 }}>
                   {String(i + 1).padStart(2, "0")}
                 </div>
                 <div style={{ flex: 1, overflow: "hidden" }}>
-                  <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#1C1C1E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</p>
-                  <p style={{ fontSize: "0.72rem", color: "#9A9A9E" }}>{c.streams.toLocaleString()} streams</p>
+                  <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</p>
+                  <p style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>{c.streams.toLocaleString()} streams</p>
                 </div>
                 <span style={{
                   fontSize: "0.7rem", fontWeight: 600, padding: "0.2rem 0.5rem",
                   borderRadius: 99, flexShrink: 0,
-                  background: c.up ? "#E6F9EE" : "#FFF0F0",
+                  background: c.up ? "rgba(18,183,106,0.12)" : "rgba(244,63,94,0.12)",
                   color: c.up ? "#12B76A" : "#F43F5E",
                 }}>
                   {c.change}
@@ -304,42 +286,77 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Metrics row ── */}
+      {/* ── Metrics row with sparklines ── */}
       <div>
-        <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#1C1C1E", marginBottom: "1rem" }}>Metrics</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "1rem" }}>
+        <h2 style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "1rem" }}>Metrics</h2>
+        <div className="dash-metrics-grid">
           {METRICS.map((m) => (
-            <div key={m.label} style={{ background: "#FFFFFF", borderRadius: 20, padding: "1.25rem", border: "1px solid #F0F0F4", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
-              {/* Icon + label row */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.875rem" }}>
-                <p style={{ fontSize: "0.8125rem", color: "#9A9A9E", fontWeight: 500, lineHeight: 1.3 }}>{m.label}</p>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: m.iconBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <div key={m.label} style={{ background: "var(--bg-card)", borderRadius: 20, padding: "1.25rem", border: "1px solid var(--border)", boxShadow: "0 1px 6px rgba(0,0,0,0.04)", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+
+              {/* Icon + label */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 500 }}>{m.label}</p>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: m.iconBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   {m.icon}
                 </div>
               </div>
 
               {/* Value + change */}
-              <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem", marginBottom: "0.25rem" }}>
-                <p style={{ fontSize: "1.875rem", fontWeight: 700, color: "#1C1C1E", lineHeight: 1, letterSpacing: "-0.02em" }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
+                <p style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--text-primary)", lineHeight: 1, letterSpacing: "-0.02em" }}>
                   {m.unit}{m.value}
                 </p>
                 <span style={{
-                  fontSize: "0.7rem", fontWeight: 700, padding: "0.15rem 0.45rem",
-                  borderRadius: 99,
-                  background: m.up ? "#E6F9EE" : "#FFF0F0",
+                  fontSize: "0.7rem", fontWeight: 700, padding: "0.15rem 0.45rem", borderRadius: 99,
+                  background: m.up ? "rgba(18,183,106,0.12)" : "rgba(244,63,94,0.12)",
                   color: m.up ? "#12B76A" : "#F43F5E",
                 }}>
                   {m.change}
                 </span>
               </div>
-              <p style={{ fontSize: "0.72rem", color: "#9A9A9E", marginBottom: "1rem" }}>{m.sub}</p>
+              <p style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>{m.sub}</p>
 
-              {/* Progress bar */}
-              <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
-                <div style={{ flex: 1, height: 5, background: "#F4F4F6", borderRadius: 99, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${m.progress}%`, background: "linear-gradient(90deg,#f97316,#22c55e)", borderRadius: 99 }} />
+              {/* ── Sparkline chart ── */}
+              <div style={{ marginTop: "auto" }}>
+                <ResponsiveContainer width="100%" height={64}>
+                  <AreaChart data={m.spark} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id={`grad-${m.label}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={m.color} stopOpacity={0.25} />
+                        <stop offset="95%" stopColor={m.color} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <Tooltip
+                      contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: "0.75rem", color: "var(--text-primary)" }}
+                      itemStyle={{ color: m.color }}
+                      formatter={(val) => [`${m.unit}${val}`, m.label]}
+                      labelFormatter={() => ""}
+                    />
+                    {/* Previous period — dashed */}
+                    <AreaChart data={m.prev}>
+                      <Area type="monotone" dataKey="v" stroke={m.color} strokeWidth={1} strokeDasharray="3 3" fill="none" dot={false} />
+                    </AreaChart>
+                    {/* Current period — solid */}
+                    <Area
+                      type="monotone" dataKey="v"
+                      stroke={m.color} strokeWidth={2}
+                      fill={`url(#grad-${m.label})`}
+                      dot={false} activeDot={{ r: 4, fill: m.color, stroke: "var(--bg-card)", strokeWidth: 2 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+
+                {/* Legend */}
+                <div style={{ display: "flex", gap: "1rem", marginTop: "0.375rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                    <div style={{ width: 14, height: 2, background: m.color, borderRadius: 1 }} />
+                    <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>This period</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                    <div style={{ width: 14, height: 2, background: m.color, borderRadius: 1, opacity: 0.4, backgroundImage: `repeating-linear-gradient(to right, ${m.color} 0, ${m.color} 3px, transparent 3px, transparent 6px)` }} />
+                    <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Prev period</span>
+                  </div>
                 </div>
-                <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#4A4A4E" }}>{m.pct}</span>
               </div>
             </div>
           ))}
@@ -347,10 +364,10 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Setup checklist ── */}
-      <div style={{ background: "#FFFFFF", borderRadius: 20, padding: "1.5rem", border: "1px solid #F0F0F4", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
-        <h2 style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#1C1C1E", marginBottom: "0.25rem" }}>Setup Checklist</h2>
-        <p style={{ fontSize: "0.8125rem", color: "#9A9A9E", marginBottom: "1.25rem" }}>Complete these steps to unlock all features.</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.75rem" }}>
+      <div style={{ background: "var(--bg-card)", borderRadius: 20, padding: "1.5rem", border: "1px solid var(--border)", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
+        <h2 style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "0.25rem" }}>Setup Checklist</h2>
+        <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginBottom: "1.25rem" }}>Complete these steps to unlock all features.</p>
+        <div className="dash-checklist-grid">
           {[
             { label: "Create your account",            done: true,  href: null },
             { label: "Connect Meta Ads account",       done: false, href: "/dashboard/settings" },
@@ -360,14 +377,14 @@ export default function DashboardPage() {
             <div key={step.label} style={{
               display: "flex", alignItems: "center", gap: "0.75rem",
               padding: "0.875rem 1rem",
-              background: step.done ? "#F0FBF5" : "#F8F8FA",
-              border: `1px solid ${step.done ? "#BBF0D6" : "#EBEBEF"}`,
+              background: step.done ? "var(--success-light)" : "var(--bg-elevated)",
+              border: `1px solid ${step.done ? "rgba(18,183,106,0.25)" : "var(--border)"}`,
               borderRadius: 12,
             }}>
               <div style={{
                 width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
                 background: step.done ? "#12B76A" : "transparent",
-                border: `2px solid ${step.done ? "#12B76A" : "#D0D0D8"}`,
+                border: `2px solid ${step.done ? "#12B76A" : "var(--border)"}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}>
                 {step.done && (
@@ -377,11 +394,11 @@ export default function DashboardPage() {
                 )}
               </div>
               {step.href && !step.done ? (
-                <Link href={step.href} style={{ fontSize: "0.8125rem", color: "#3A60E7", fontWeight: 500, textDecoration: "none" }}>
+                <Link href={step.href} style={{ fontSize: "0.8125rem", color: "var(--primary)", fontWeight: 500, textDecoration: "none" }}>
                   {step.label} →
                 </Link>
               ) : (
-                <span style={{ fontSize: "0.8125rem", color: step.done ? "#9A9A9E" : "#4A4A4E", textDecoration: step.done ? "line-through" : "none" }}>
+                <span style={{ fontSize: "0.8125rem", color: step.done ? "var(--text-muted)" : "var(--text-secondary)", textDecoration: step.done ? "line-through" : "none" }}>
                   {step.label}
                 </span>
               )}
@@ -389,7 +406,6 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
-
     </div>
   );
 }

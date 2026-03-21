@@ -276,3 +276,73 @@ select.input { cursor: pointer; }
   font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--primary);
 }
+
+/* ═══════════════════════════════════════
+   RESPONSIVE — Dashboard
+═══════════════════════════════════════ */
+
+/* Dashboard layout utility classes */
+.dash-title       { font-size: 2rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; line-height: 1.2; }
+.dash-topbar      { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.dash-filters     { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.dash-search      { background: var(--bg-card); border: 1px solid var(--border); border-radius: 99px; padding: 0.5rem 0.875rem 0.5rem 2.25rem; font-size: 0.875rem; color: var(--text-primary); outline: none; width: 200px; transition: border-color 0.15s; }
+.dash-search:focus { border-color: var(--primary); }
+
+/* Performance row: chart + top campaigns */
+.dash-perf-grid   { display: grid; grid-template-columns: 1fr 300px; gap: 1.25rem; }
+
+/* Metrics 4-col grid */
+.dash-metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+
+/* Checklist */
+.dash-checklist-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; }
+
+/* Sidebar responsive */
+.sidebar-overlay { display: none; }
+
+/* ── Tablet (≤ 1024px) ── */
+@media (max-width: 1024px) {
+  .dash-perf-grid    { grid-template-columns: 1fr; }
+  .dash-metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .dash-search       { width: 160px; }
+}
+
+/* ── Mobile (≤ 768px) ── */
+@media (max-width: 768px) {
+  /* Sidebar becomes off-canvas */
+  .sidebar-desktop { 
+    position: fixed !important; 
+    left: -260px; 
+    top: 0; bottom: 0; 
+    z-index: 100; 
+    transition: left 0.25s ease;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.3);
+  }
+  .sidebar-desktop.open { left: 0; }
+  .sidebar-overlay { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
+
+  /* Main content takes full width */
+  .dash-main { padding: 1rem !important; }
+
+  /* Top bar stacks */
+  .dash-topbar   { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+  .dash-title    { font-size: 1.5rem; }
+  .dash-filters  { flex-direction: column; align-items: flex-start; }
+  .dash-search   { width: 100%; }
+
+  /* Grids go single column */
+  .dash-perf-grid    { grid-template-columns: 1fr; }
+  .dash-metrics-grid { grid-template-columns: 1fr; }
+  .dash-checklist-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Small mobile (≤ 480px) ── */
+@media (max-width: 480px) {
+  .dash-metrics-grid { grid-template-columns: 1fr; }
+}
+
+.mobile-topbar { display: none; }
+
+@media (max-width: 768px) {
+  .mobile-topbar { display: flex; }
+}
