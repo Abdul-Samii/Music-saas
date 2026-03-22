@@ -149,7 +149,7 @@ export default function NewCampaignPage() {
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.375rem" }}>
                 {GENRES.map((g) => (
                   <button key={g} onClick={() => toggleGenre(g)} style={{
-                    padding: "0.4rem 0.875rem", borderRadius: 99, border: "none", cursor: "pointer",
+                    padding: "0.4rem 0.875rem", borderRadius: 99, cursor: "pointer",
                     fontSize: "0.8125rem", fontWeight: 500, transition: "all 0.15s",
                     background: form.genres.includes(g) ? "#1C1C1E" : "var(--bg-elevated)",
                     color: form.genres.includes(g) ? "#fff" : "var(--text-secondary)",
@@ -204,7 +204,7 @@ export default function NewCampaignPage() {
               <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                 {[{ v: "7", l: "7 days" }, { v: "14", l: "14 days" }, { v: "30", l: "30 days" }, { v: "0", l: "Ongoing" }].map((d) => (
                   <button key={d.v} onClick={() => setForm({ ...form, duration: d.v })} style={{
-                    padding: "0.5rem 1rem", borderRadius: 8, border: "none", cursor: "pointer",
+                    padding: "0.5rem 1rem", borderRadius: 8, cursor: "pointer",
                     fontSize: "0.875rem", fontWeight: 500, transition: "all 0.15s",
                     background: form.duration === d.v ? "#1C1C1E" : "var(--bg-elevated)",
                     color: form.duration === d.v ? "#fff" : "var(--text-secondary)",
