@@ -281,7 +281,10 @@ export default function DashboardPage() {
       <div>
         <h2 style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "1rem" }}>Metrics</h2>
         <div className="dash-metrics-grid">
-          {METRICS.map((m) => (
+          {METRICS.map((m) => {
+            const chartColor = m.change.startsWith("-") ? "#F43F5E" : "#3A60E7";
+            const gradId = `grad-${m.label.replace(/\s+/g, "-")}`;
+            return (
             <div key={m.label} style={{ background: "var(--bg-card)", borderRadius: 20, padding: "1.25rem", border: "1px solid var(--border)", boxShadow: "0 1px 6px rgba(0,0,0,0.04)", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
 
               {/* Icon + label */}
@@ -312,23 +315,23 @@ export default function DashboardPage() {
                 <ResponsiveContainer width="100%" height={64}>
                   <AreaChart data={m.sparkData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
                     <defs>
-                      <linearGradient id={`grad-${m.label.replace(/\s+/g, "-")}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={m.color} stopOpacity={0.22} />
-                        <stop offset="95%" stopColor={m.color} stopOpacity={0} />
+                      <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={chartColor} stopOpacity={0.22} />
+                        <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <Tooltip
                       contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: "0.72rem", color: "var(--text-primary)" }}
-                      itemStyle={{ color: m.color }}
+                      itemStyle={{ color: chartColor }}
                       formatter={(val) => [`${m.unit}${val}`, ""]}
                       labelFormatter={() => ""}
                     />
-                    <Area type="monotone" dataKey="prev" stroke={m.color} strokeWidth={1} strokeDasharray="3 3" fill="none" dot={false} strokeOpacity={0.4} />
+                    <Area type="monotone" dataKey="prev" stroke={chartColor} strokeWidth={1} strokeDasharray="3 3" fill="none" dot={false} strokeOpacity={0.4} />
                     <Area
                       type="monotone" dataKey="current"
-                      stroke={m.color} strokeWidth={2}
-                      fill={`url(#grad-${m.label.replace(/\s+/g, "-")})`}
-                      dot={false} activeDot={{ r: 4, fill: m.color, stroke: "var(--bg-card)", strokeWidth: 2 }}
+                      stroke={chartColor} strokeWidth={2}
+                      fill={`url(#${gradId})`}
+                      dot={false} activeDot={{ r: 4, fill: chartColor, stroke: "var(--bg-card)", strokeWidth: 2 }}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -336,17 +339,18 @@ export default function DashboardPage() {
                 {/* Legend */}
                 <div style={{ display: "flex", gap: "1rem", marginTop: "0.375rem" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                    <div style={{ width: 14, height: 2, background: m.color, borderRadius: 1 }} />
+                    <div style={{ width: 14, height: 2, background: chartColor, borderRadius: 1 }} />
                     <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>This period</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                    <div style={{ width: 14, height: 2, background: m.color, borderRadius: 1, opacity: 0.4, backgroundImage: `repeating-linear-gradient(to right, ${m.color} 0, ${m.color} 3px, transparent 3px, transparent 6px)` }} />
+                    <div style={{ width: 14, height: 2, background: chartColor, borderRadius: 1, opacity: 0.4, backgroundImage: `repeating-linear-gradient(to right, ${chartColor} 0, ${chartColor} 3px, transparent 3px, transparent 6px)` }} />
                     <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>Prev period</span>
                   </div>
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

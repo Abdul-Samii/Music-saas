@@ -223,7 +223,9 @@ export default function AnalyticsPage() {
 
       {/* 2×2 big metric + chart cards */}
       <div className="dash-analytics-grid">
-        {BIG_METRICS.map((m) => (
+        {BIG_METRICS.map((m) => {
+          const chartColor = m.change.startsWith("-") ? "#F43F5E" : "#3A60E7";
+          return (
           <div key={m.id} className="card" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             {/* Top row: label + change badge */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.5rem" }}>
@@ -242,7 +244,7 @@ export default function AnalyticsPage() {
               {/* Legend */}
               <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                  <div style={{ width: 20, height: 2.5, background: m.color, borderRadius: 2 }} />
+                  <div style={{ width: 20, height: 2.5, background: chartColor, borderRadius: 2 }} />
                   <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600 }}>2025</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
@@ -257,20 +259,21 @@ export default function AnalyticsPage() {
               <AreaChart data={m.data[period]} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
                 <defs>
                   <linearGradient id={m.gradId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={m.color} stopOpacity="0.22" />
-                    <stop offset="100%" stopColor={m.color} stopOpacity="0" />
+                    <stop offset="0%" stopColor={chartColor} stopOpacity="0.22" />
+                    <stop offset="100%" stopColor={chartColor} stopOpacity="0" />
                   </linearGradient>
                 </defs>
                 <CartesianGrid vertical={false} stroke="var(--border)" strokeOpacity={0.5} />
                 <XAxis dataKey="label" tick={{ fill: "var(--text-muted)", fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--text-muted)", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={m.formatter} width={46} />
-                <Tooltip content={<ChartTooltip color={m.color} />} />
+                <Tooltip content={<ChartTooltip color={chartColor} />} />
                 <Area type="monotone" dataKey="prev" stroke="var(--text-muted)" strokeWidth={1.5} strokeDasharray="6 4" fill="none" dot={false} activeDot={{ r: 3 }} />
-                <Area type="monotone" dataKey="current" stroke={m.color} strokeWidth={2.5} fill={`url(#${m.gradId})`} dot={false} activeDot={{ r: 5, fill: m.color }} />
+                <Area type="monotone" dataKey="current" stroke={chartColor} strokeWidth={2.5} fill={`url(#${m.gradId})`} dot={false} activeDot={{ r: 5, fill: chartColor }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Campaign breakdown table */}
