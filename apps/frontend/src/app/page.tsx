@@ -1,42 +1,118 @@
 "use client";
 import Link from "next/link";
+import { useState } from "react";
 
 export default function LandingPage() {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
 
       {/* ── Navbar ── */}
-      <nav style={{
+      <nav className={isMobileMenuOpen ? "mobile-menu-open" : ""} style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "1rem 2.5rem", borderBottom: "1px solid var(--border)",
-        position: "sticky", top: 0, zIndex: 50,
-        background: "var(--bg-card)", backdropFilter: "blur(12px)",
+        padding: "0.625rem 2.5rem",
+        position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)",
+        zIndex: 50,
+        background: "rgba(255, 255, 255, 0.8)", backdropFilter: "blur(20px)",
+        border: "1px solid rgba(255, 255, 255, 0.2)",
+        borderRadius: 50,
+        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+        width: "calc(70.5% - 4rem)", maxWidth: 850,
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 8,
-            background: "linear-gradient(135deg,#3A60E7,#4C1AEA)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 18V5l12-2v13" />
-              <circle cx="6" cy="18" r="3" />
-              <circle cx="18" cy="16" r="3" />
-            </svg>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <button className="mobile-menu-btn" style={{
+              display: "none",
+              background: "none",
+              border: "none",
+              color: "var(--text-secondary)",
+              fontSize: "1.2rem",
+              cursor: "pointer",
+              padding: "0.5rem",
+            }} onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+              {isMobileMenuOpen ? '✕' : '☰'}
+            </button>
+            <span className="brand-text" style={{ fontWeight: 900, fontSize: "1.43rem", color: "var(--text-primary)" }}>ESCALIUM</span>
           </div>
-          <span style={{ fontWeight: 700, fontSize: "1.1rem", color: "var(--text-primary)" }}>Escalium</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
-          <a href="#features" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "0.875rem", fontWeight: 500 }}>Features</a>
-          <a href="#pricing" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "0.875rem", fontWeight: 500 }}>Pricing</a>
-          <Link href="/login" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "0.875rem", fontWeight: 500 }}>Sign In</Link>
+
+          <div className="nav-links" style={{ display: "flex", alignItems: "center", gap: "2rem", position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
+            <a href="#features" className="nav-link" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "1rem", fontWeight: 500 }}>Features</a>
+            <a href="#pricing" className="nav-link" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "1rem", fontWeight: 500 }}>Pricing</a>
+            <a href="#about" className="nav-link" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "1rem", fontWeight: 500 }}>About</a>
+            <a href="#blog" className="nav-link" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "1rem", fontWeight: 500 }}>Blog</a>
+            <a href="#contact" className="nav-link" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "1rem", fontWeight: 500 }}>Contact</a>
+            <Link href="/login" className="nav-link" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "1rem", fontWeight: 500 }}>Sign In</Link>
+          </div>
+
           <Link href="/register" style={{
-            background: "var(--primary)", color: "#fff",
-            padding: "0.5rem 1.25rem", borderRadius: 99,
-            fontSize: "0.875rem", fontWeight: 600, textDecoration: "none",
-          }}>Get Started</Link>
+            background: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+            color: "#fff",
+            padding: "0.5rem 1.25rem",
+            borderRadius: 99,
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            textDecoration: "none",
+            boxShadow: "0 4px 15px rgba(59, 130, 246, 0.4)",
+            transition: "all 0.3s ease",
+            position: "relative",
+            overflow: "hidden",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = "0 6px 20px rgba(59, 130, 246, 0.6)";
+            e.currentTarget.style.transform = "translateY(-2px)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = "0 4px 15px rgba(59, 130, 246, 0.4)";
+            e.currentTarget.style.transform = "translateY(0)";
+          }}
+          >Start for Free</Link>
         </div>
       </nav>
+
+      <style jsx global>{`
+        @media (max-width: 768px) {
+          nav {
+            width: calc(95% - 2rem) !important;
+            padding: 0.5rem 1.5rem !important;
+          }
+          .nav-links {
+            display: none !important;
+          }
+          .mobile-menu-btn {
+            display: block !important;
+          }
+          .mobile-menu-open .nav-links {
+            display: flex !important;
+            position: absolute !important;
+            top: 100% !important;
+            left: 0 !important;
+            right: 0 !important;
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: 16px !important;
+            padding: 1rem !important;
+            flex-direction: column !important;
+            gap: 1rem !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+            margin-top: 0.5rem !important;
+            transform: none !important;
+          }
+        }
+        @media (max-width: 480px) {
+          nav {
+            width: calc(98% - 1rem) !important;
+            padding: 0.4rem 1rem !important;
+            top: 10px !important;
+          }
+          .brand-text {
+            font-size: 1rem !important;
+          }
+          .nav-link {
+            font-size: 0.85rem !important;
+          }
+        }
+      `}</style>
 
       {/* ── Hero ── */}
       <section style={{ padding: "6rem 2rem 5rem", textAlign: "center", maxWidth: 900, margin: "0 auto", position: "relative" }}>
