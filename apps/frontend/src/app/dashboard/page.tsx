@@ -3,20 +3,44 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell,
-  AreaChart, Area, Tooltip,
+  AreaChart, Area, XAxis, YAxis, ResponsiveContainer,
+  Tooltip, CartesianGrid,
 } from "recharts";
 
+const PERIODS = ["24h", "7d", "30d", "90d", "1y"] as const;
+type Period = typeof PERIODS[number];
+
+const areaData: Record<Period, { label: string; current: number; prev: number }[]> = {
+  "24h": [
+    { label: "00:00", current: 120, prev: 95 },  { label: "04:00", current: 80,  prev: 60  },
+    { label: "08:00", current: 340, prev: 210 }, { label: "12:00", current: 620, prev: 510 },
+    { label: "16:00", current: 740, prev: 600 }, { label: "20:00", current: 510, prev: 430 },
+    { label: "Now",   current: 420, prev: 340 },
+  ],
+  "7d": [
+    { label: "Mon", current: 1200, prev: 980 },  { label: "Tue", current: 1900, prev: 1500 },
+    { label: "Wed", current: 1400, prev: 1100 }, { label: "Thu", current: 2400, prev: 1800 },
+    { label: "Fri", current: 3100, prev: 2400 }, { label: "Sat", current: 2200, prev: 1700 },
+    { label: "Sun", current: 1800, prev: 1400 },
+  ],
+  "30d": [
+    { label: "Jan 1",  current: 8000,  prev: 6000  }, { label: "Jan 8",  current: 12000, prev: 9000  },
+    { label: "Jan 15", current: 9500,  prev: 8000  }, { label: "Jan 22", current: 15000, prev: 11000 },
+    { label: "Jan 29", current: 18000, prev: 13000 }, { label: "Feb 5",  current: 22000, prev: 16000 },
+  ],
+  "90d": [
+    { label: "Oct", current: 42000, prev: 31000 }, { label: "Nov", current: 58000, prev: 44000 },
+    { label: "Dec", current: 51000, prev: 40000 }, { label: "Jan", current: 72380, prev: 55000 },
+  ],
+  "1y": [
+    { label: "Jan", current: 32000, prev: 24000 }, { label: "Mar", current: 41000, prev: 30000 },
+    { label: "May", current: 72000, prev: 53000 }, { label: "Jul", current: 68000, prev: 51000 },
+    { label: "Sep", current: 55000, prev: 42000 }, { label: "Nov", current: 63000, prev: 49000 },
+    { label: "Dec", current: 72380, prev: 55000 },
+  ],
+};
+
 /* ── Mock data ── */
-const barData = [
-  { day: "Mon", v: 800 },  { day: "Tue", v: 1400 }, { day: "Wed", v: 600 },
-  { day: "Thu", v: 1800 }, { day: "Fri", v: 2200 }, { day: "Sat", v: 1100 },
-  { day: "Sun", v: 900 },  { day: "Mon", v: 1600 }, { day: "Tue", v: 2400 },
-  { day: "Wed", v: 700 },  { day: "Thu", v: 2100 }, { day: "Fri", v: 1900 },
-  { day: "Sat", v: 1300 }, { day: "Sun", v: 800 },  { day: "Mon", v: 2600 },
-  { day: "Tue", v: 1700 }, { day: "Wed", v: 900 },  { day: "Thu", v: 2800 },
-  { day: "Fri", v: 3100 }, { day: "Sat", v: 1500 }, { day: "Sun", v: 1100 },
-];
 
 const topCampaigns = [
   { name: "Summer Vibes Promo", streams: 2340, change: "+18%", up: true },
@@ -39,13 +63,11 @@ const METRICS = [
         <path d="M13.5 8H11a1 1 0 0 0-1 1v1h3.5M11 12h2.5" stroke="#1877F2" strokeWidth="1.8" strokeLinecap="round"/>
       </svg>
     ),
-    spark: [
-      { d: "M", v: 280 }, { d: "T", v: 320 }, { d: "W", v: 290 },
-      { d: "T", v: 410 }, { d: "F", v: 380 }, { d: "S", v: 430 }, { d: "S", v: 465 },
-    ],
-    prev: [
-      { d: "M", v: 240 }, { d: "T", v: 270 }, { d: "W", v: 255 },
-      { d: "T", v: 310 }, { d: "F", v: 290 }, { d: "S", v: 360 }, { d: "S", v: 380 },
+    sparkData: [
+      { d: "M", current: 280, prev: 240 }, { d: "T", current: 320, prev: 270 },
+      { d: "W", current: 290, prev: 255 }, { d: "T", current: 410, prev: 310 },
+      { d: "F", current: 380, prev: 290 }, { d: "S", current: 430, prev: 360 },
+      { d: "S", current: 465, prev: 380 },
     ],
   },
   {
@@ -58,13 +80,11 @@ const METRICS = [
         <path d="M8 11.5a5 5 0 0 1 8 0M6.5 9a7.5 7.5 0 0 1 11 0M9.5 14a2.5 2.5 0 0 1 5 0" stroke="#1DB954" strokeWidth="1.8" strokeLinecap="round"/>
       </svg>
     ),
-    spark: [
-      { d: "M", v: 5800 }, { d: "T", v: 6200 }, { d: "W", v: 5900 },
-      { d: "T", v: 7100 }, { d: "F", v: 7400 }, { d: "S", v: 7900 }, { d: "S", v: 8260 },
-    ],
-    prev: [
-      { d: "M", v: 4900 }, { d: "T", v: 5300 }, { d: "W", v: 5100 },
-      { d: "T", v: 6200 }, { d: "F", v: 6500 }, { d: "S", v: 6800 }, { d: "S", v: 7100 },
+    sparkData: [
+      { d: "M", current: 5800, prev: 4900 }, { d: "T", current: 6200, prev: 5300 },
+      { d: "W", current: 5900, prev: 5100 }, { d: "T", current: 7100, prev: 6200 },
+      { d: "F", current: 7400, prev: 6500 }, { d: "S", current: 7900, prev: 6800 },
+      { d: "S", current: 8260, prev: 7100 },
     ],
   },
   {
@@ -77,13 +97,11 @@ const METRICS = [
         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="#3A60E7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
-    spark: [
-      { d: "M", v: 0.082 }, { d: "T", v: 0.078 }, { d: "W", v: 0.074 },
-      { d: "T", v: 0.069 }, { d: "F", v: 0.065 }, { d: "S", v: 0.060 }, { d: "S", v: 0.056 },
-    ],
-    prev: [
-      { d: "M", v: 0.095 }, { d: "T", v: 0.091 }, { d: "W", v: 0.088 },
-      { d: "T", v: 0.084 }, { d: "F", v: 0.081 }, { d: "S", v: 0.078 }, { d: "S", v: 0.075 },
+    sparkData: [
+      { d: "M", current: 0.082, prev: 0.095 }, { d: "T", current: 0.078, prev: 0.091 },
+      { d: "W", current: 0.074, prev: 0.088 }, { d: "T", current: 0.069, prev: 0.084 },
+      { d: "F", current: 0.065, prev: 0.081 }, { d: "S", current: 0.060, prev: 0.078 },
+      { d: "S", current: 0.056, prev: 0.075 },
     ],
   },
   {
@@ -96,29 +114,19 @@ const METRICS = [
         <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" stroke="#4C1AEA" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
-    spark: [
-      { d: "M", v: 1 }, { d: "T", v: 1 }, { d: "W", v: 2 },
-      { d: "T", v: 2 }, { d: "F", v: 2 }, { d: "S", v: 3 }, { d: "S", v: 3 },
-    ],
-    prev: [
-      { d: "M", v: 0 }, { d: "T", v: 1 }, { d: "W", v: 1 },
-      { d: "T", v: 1 }, { d: "F", v: 2 }, { d: "S", v: 2 }, { d: "S", v: 2 },
+    sparkData: [
+      { d: "M", current: 1, prev: 0 }, { d: "T", current: 1, prev: 1 },
+      { d: "W", current: 2, prev: 1 }, { d: "T", current: 2, prev: 1 },
+      { d: "F", current: 2, prev: 2 }, { d: "S", current: 3, prev: 2 },
+      { d: "S", current: 3, prev: 2 },
     ],
   },
 ];
 
-const TIME_FILTERS = ["Last 3 days", "Last Week", "Last Month"];
-
-function getBarColor(v: number) {
-  if (v < 1000) return "#F97316";
-  if (v < 2000) return "#EAB308";
-  return "#22C55E";
-}
-
 export default function DashboardPage() {
   const { data: session } = useSession({ required: false });
   const [activeTab, setActiveTab] = useState<"campaigns" | "analytics">("campaigns");
-  const [timeFilter, setTimeFilter] = useState("Last 3 days");
+  const [period, setPeriod] = useState<Period>("7d");
   const [search, setSearch] = useState("");
 
   const firstName = session?.user?.name?.split(" ")[0] || "Artist";
@@ -158,7 +166,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Tabs + time filters ── */}
+      {/* ── Tabs + period filter ── */}
       <div className="dash-filters">
         <div style={{ display: "flex", background: "var(--bg-card)", borderRadius: 99, padding: "0.25rem", border: "1px solid var(--border)", gap: "0.25rem" }}>
           {(["campaigns", "analytics"] as const).map((tab) => (
@@ -173,80 +181,63 @@ export default function DashboardPage() {
             </button>
           ))}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-          {TIME_FILTERS.map((f) => (
-            <button key={f} onClick={() => setTimeFilter(f)} style={{
-              padding: "0.45rem 1.1rem", borderRadius: 99, border: "1px solid var(--border)",
-              cursor: "pointer", fontSize: "0.8125rem", fontWeight: 500, transition: "all 0.15s ease",
-              background: timeFilter === f ? "#1C1C1E" : "var(--bg-card)",
-              color: timeFilter === f ? "#fff" : "var(--text-secondary)",
-            }}>
-              {f}
-            </button>
+        <div style={{ display: "flex", background: "var(--bg-card)", borderRadius: 99, padding: "0.25rem", border: "1px solid var(--border)", gap: "0.2rem" }}>
+          {PERIODS.map((p) => (
+            <button key={p} onClick={() => setPeriod(p)} style={{
+              padding: "0.4rem 0.875rem", borderRadius: 99, border: "none", cursor: "pointer",
+              fontSize: "0.78rem", fontWeight: 600, transition: "all 0.15s",
+              background: period === p ? "#1C1C1E" : "transparent",
+              color: period === p ? "#fff" : "var(--text-muted)",
+            }}>{p}</button>
           ))}
-          <button style={{ width: 36, height: 36, borderRadius: 99, background: "var(--bg-card)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-muted)" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
-          </button>
         </div>
       </div>
 
       {/* ── Performance row ── */}
       <div className="dash-perf-grid">
-        {/* Bar chart card */}
+        {/* Area chart card */}
         <div style={{ background: "var(--bg-card)", borderRadius: 20, padding: "1.75rem", border: "1px solid var(--border)", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem", flexWrap: "wrap", gap: "0.5rem" }}>
             <div>
               <p style={{ fontSize: "2.25rem", fontWeight: 700, color: "var(--text-primary)", lineHeight: 1, letterSpacing: "-0.02em" }}>8,260</p>
-              <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "0.3rem" }}>Performance Trends Over Time</p>
+              <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "0.3rem" }}>Stream Growth Over Time</p>
             </div>
-            <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#12B76A", background: "rgba(18,183,106,0.12)", padding: "0.25rem 0.75rem", borderRadius: 99 }}>
-              45% Growth
-            </span>
-          </div>
-
-          {/* Progress bar */}
-          <div style={{ marginBottom: "1.25rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <div style={{ width: 10, height: 10, borderRadius: 3, background: "linear-gradient(90deg,#f97316,#eab308,#22c55e)" }} />
-                <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", fontWeight: 500 }}>Stream tracking</span>
-              </div>
-              <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", fontWeight: 600 }}>8,260 streams</span>
-            </div>
-            <div style={{ height: 10, background: "var(--bg-elevated)", borderRadius: 99, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: "72%", background: "linear-gradient(90deg,#f97316 0%,#eab308 40%,#22c55e 100%)", borderRadius: 99, position: "relative" }}>
-                <div style={{ position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)", width: 4, height: 16, background: "var(--text-primary)", borderRadius: 2 }} />
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#12B76A", background: "rgba(18,183,106,0.12)", padding: "0.25rem 0.75rem", borderRadius: 99 }}>
+                +45% Growth
+              </span>
+              <div style={{ display: "flex", gap: "1rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                  <div style={{ width: 20, height: 2.5, background: "#3A60E7", borderRadius: 2 }} />
+                  <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 600 }}>2025</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
+                  <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke="var(--text-muted)" strokeWidth="2" strokeDasharray="4 3"/></svg>
+                  <span style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 600 }}>2024</span>
+                </div>
               </div>
             </div>
           </div>
-
-          {/* Legend */}
-          <div style={{ display: "flex", gap: "1.25rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-            {[{ color: "#F97316", label: "<500" }, { color: "#EAB308", label: "~1k" }, { color: "#22C55E", label: ">2k" }].map(l => (
-              <div key={l.label} style={{ display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: l.color }} />
-                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{l.label}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Bar chart */}
-          <div style={{ position: "relative" }}>
-            <div style={{ position: "absolute", bottom: 32, left: 0 }}>
-              <p style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.2 }}>Trends<br />Over Time</p>
-            </div>
-            <ResponsiveContainer width="100%" height={120}>
-              <BarChart data={barData} barSize={7} margin={{ left: 80, right: 0, top: 0, bottom: 0 }}>
-                <XAxis dataKey="day" hide />
-                <YAxis hide />
-                <Bar dataKey="v" radius={[4, 4, 0, 0]}>
-                  {barData.map((entry, i) => (
-                    <Cell key={i} fill={getBarColor(entry.v)} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={areaData[period]} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="grad-overview" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3A60E7" stopOpacity="0.25" />
+                  <stop offset="100%" stopColor="#3A60E7" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} stroke="var(--border)" strokeOpacity={0.6} />
+              <XAxis dataKey="label" tick={{ fill: "var(--text-muted)", fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: "var(--text-muted)", fontSize: 10 }} axisLine={false} tickLine={false}
+                tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : String(v)} />
+              <Tooltip
+                contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, fontSize: "0.78rem" }}
+                labelStyle={{ color: "var(--text-muted)", fontWeight: 600 }}
+              />
+              <Area type="monotone" dataKey="current" name="2025" stroke="#3A60E7" strokeWidth={2.5} fill="url(#grad-overview)" dot={false} activeDot={{ r: 5, fill: "#3A60E7" }} />
+              <Area type="monotone" dataKey="prev" name="2024" stroke="var(--text-muted)" strokeWidth={1.5} strokeDasharray="6 4" fill="none" dot={false} activeDot={{ r: 4 }} />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
 
         {/* Top Campaigns list */}
@@ -319,28 +310,24 @@ export default function DashboardPage() {
               {/* ── Sparkline chart ── */}
               <div style={{ marginTop: "auto" }}>
                 <ResponsiveContainer width="100%" height={64}>
-                  <AreaChart data={m.spark} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+                  <AreaChart data={m.sparkData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
                     <defs>
-                      <linearGradient id={`grad-${m.label}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={m.color} stopOpacity={0.25} />
+                      <linearGradient id={`grad-${m.label.replace(/\s+/g, "-")}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={m.color} stopOpacity={0.22} />
                         <stop offset="95%" stopColor={m.color} stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <Tooltip
-                      contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: "0.75rem", color: "var(--text-primary)" }}
+                      contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: "0.72rem", color: "var(--text-primary)" }}
                       itemStyle={{ color: m.color }}
-                      formatter={(val) => [`${m.unit}${val}`, m.label]}
+                      formatter={(val) => [`${m.unit}${val}`, ""]}
                       labelFormatter={() => ""}
                     />
-                    {/* Previous period — dashed */}
-                    <AreaChart data={m.prev}>
-                      <Area type="monotone" dataKey="v" stroke={m.color} strokeWidth={1} strokeDasharray="3 3" fill="none" dot={false} />
-                    </AreaChart>
-                    {/* Current period — solid */}
+                    <Area type="monotone" dataKey="prev" stroke={m.color} strokeWidth={1} strokeDasharray="3 3" fill="none" dot={false} strokeOpacity={0.4} />
                     <Area
-                      type="monotone" dataKey="v"
+                      type="monotone" dataKey="current"
                       stroke={m.color} strokeWidth={2}
-                      fill={`url(#grad-${m.label})`}
+                      fill={`url(#grad-${m.label.replace(/\s+/g, "-")})`}
                       dot={false} activeDot={{ r: 4, fill: m.color, stroke: "var(--bg-card)", strokeWidth: 2 }}
                     />
                   </AreaChart>
