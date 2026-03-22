@@ -294,6 +294,9 @@ select.input { cursor: pointer; }
 /* Metrics 4-col grid */
 .dash-metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
 
+/* Analytics 2-col big chart grid */
+.dash-analytics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
+
 /* Checklist */
 .dash-checklist-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; }
 
@@ -302,9 +305,10 @@ select.input { cursor: pointer; }
 
 /* ── Tablet (≤ 1024px) ── */
 @media (max-width: 1024px) {
-  .dash-perf-grid    { grid-template-columns: 1fr; }
-  .dash-metrics-grid { grid-template-columns: repeat(2, 1fr); }
-  .dash-search       { width: 160px; }
+  .dash-perf-grid      { grid-template-columns: 1fr; }
+  .dash-metrics-grid   { grid-template-columns: repeat(2, 1fr); }
+  .dash-analytics-grid { grid-template-columns: 1fr; }
+  .dash-search         { width: 160px; }
 }
 
 /* ── Mobile (≤ 768px) ── */
