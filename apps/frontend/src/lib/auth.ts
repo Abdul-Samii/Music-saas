@@ -17,13 +17,25 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         try {
-          const { data } = await axios.post(
-            `${process.env.BACKEND_URL}/auth/login`,
-            { email: credentials?.email, password: credentials?.password }
-          );
-          if (data.accessToken) {
-            return { ...data.user, accessToken: data.accessToken };
-          }
+          //WE WILL UNCOMMENT IT WHEN THE REAL BACKEND API IS READY
+          // const { data } = await axios.post(
+          //   `${process.env.BACKEND_URL}/auth/login`,
+          //   { email: credentials?.email, password: credentials?.password }
+          // );
+          // if (data.accessToken) {
+          //   return { ...data.user, accessToken: data.accessToken };
+          // }
+           if (
+      credentials?.email === "demo@gmail.com" &&
+      credentials?.password === "demo123"
+    ) {
+      return {
+        id: "1",
+        name: "Demo User",
+        email: "demo@gmail.com",
+        accessToken: "fake-token-123",
+      };
+    }
           return null;
         } catch {
           return null;

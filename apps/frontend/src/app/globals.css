@@ -350,3 +350,19 @@ select.input { cursor: pointer; }
 @media (max-width: 768px) {
   .mobile-topbar { display: flex; }
 }
+
+/* ── Public page responsive grids ── */
+@media (max-width: 900px) {
+  .pricing-grid   { grid-template-columns: 1fr !important; max-width: 440px; margin: 0 auto; }
+  .features-3col  { grid-template-columns: 1fr !important; }
+  .features-4col  { grid-template-columns: repeat(2,1fr) !important; }
+  .steps-3col     { grid-template-columns: 1fr !important; }
+  .features-2col  { grid-template-columns: 1fr !important; }
+  .footer-grid    { grid-template-columns: repeat(2,1fr) !important; }
+}
+@media (max-width: 560px) {
+  .features-4col  { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 480px) {
+  .footer-grid    { grid-template-columns: 1fr !important; }
+}

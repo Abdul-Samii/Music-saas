@@ -19,6 +19,7 @@ export default function LoginPage() {
       email, password, redirect: false,
     });
     setLoading(false);
+    console.log("Login response:", res)
     if (res?.error) {
       setError("Invalid email or password. Please try again.");
     } else {
