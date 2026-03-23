@@ -56,7 +56,7 @@ export default function VideoGeneratorPage() {
           Upload your track, let Whisper AI transcribe it, pick a visual style, and export a 1080p lyric video — ready to use as a Meta Ad creative in minutes.
         </p>
         <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
-          <Link href="/register" className="btn btn-primary btn-lg">Try It Free</Link>
+          <Link href="/signup" className="btn btn-primary btn-lg">Try It Free</Link>
           <Link href="/pricing"  className="btn btn-secondary btn-lg">View Pricing</Link>
         </div>
         <p style={{ marginTop: "1.5rem", fontSize: "0.8rem", color: "var(--text-muted)" }}>
@@ -158,7 +158,7 @@ export default function VideoGeneratorPage() {
         <p style={{ color: "var(--text-secondary)", marginBottom: "2rem", maxWidth: 440, margin: "0 auto 2rem" }}>
           Sign up free — no credit card required. Lyric video creator goes live in Weeks 4–6.
         </p>
-        <Link href="/register" className="btn btn-primary btn-lg">Get Early Access</Link>
+        <Link href="/signup" className="btn btn-primary btn-lg">Get Early Access</Link>
       </section>
 
       <Footer />

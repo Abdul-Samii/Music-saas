@@ -220,7 +220,7 @@ export default function PricingPage() {
         <p style={{ color: "var(--text-secondary)", marginBottom: "2rem", maxWidth: 460, margin: "0 auto 2rem" }}>
           Join 500+ independent artists scaling with data-driven music marketing.
         </p>
-        <Link href="/register" className="btn btn-primary btn-lg">Create Your Free Account</Link>
+        <Link href="/signup" className="btn btn-primary btn-lg">Create Your Free Account</Link>
       </section>
 
       <Footer />

@@ -45,7 +45,7 @@ export default function MusicMarketingPage() {
           Escalium connects your Meta Ads spend to your Spotify stream growth — so you stop guessing and start scaling with data.
         </p>
         <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
-          <Link href="/register" className="btn btn-primary btn-lg">Start Growing Free</Link>
+          <Link href="/signup" className="btn btn-primary btn-lg">Start Growing Free</Link>
           <Link href="/pricing"  className="btn btn-secondary btn-lg">See Pricing</Link>
         </div>
       </section>
@@ -149,7 +149,7 @@ export default function MusicMarketingPage() {
           Join hundreds of independent artists growing with Escalium.
         </p>
         <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
-          <Link href="/register" className="btn btn-primary btn-lg">Start for Free</Link>
+          <Link href="/signup" className="btn btn-primary btn-lg">Start for Free</Link>
           <Link href="/pricing"  className="btn btn-secondary btn-lg">View Pricing</Link>
         </div>
       </section>

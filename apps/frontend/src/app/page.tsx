@@ -46,7 +46,7 @@ export default function LandingPage() {
         </p>
 
         <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
-          <Link href="/register" className="btn btn-primary btn-lg">
+          <Link href="/signup" className="btn btn-primary btn-lg">
             Start Growing Free
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12h14M12 5l7 7-7 7" />
@@ -207,7 +207,7 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/register" className={`btn ${plan.primary ? "btn-primary" : "btn-secondary"}`} style={{ width: "100%", justifyContent: "center" }}>
+              <Link href="/signup" className={`btn ${plan.primary ? "btn-primary" : "btn-secondary"}`} style={{ width: "100%", justifyContent: "center" }}>
                 {plan.cta}
               </Link>
             </div>
@@ -223,7 +223,7 @@ export default function LandingPage() {
         <p style={{ color: "var(--text-secondary)", marginBottom: "2rem", maxWidth: 500, margin: "0 auto 2rem" }}>
           Join hundreds of artists growing with data-driven advertising. Start for free.
         </p>
-        <Link href="/register" className="btn btn-primary btn-lg">Create Your Free Account</Link>
+        <Link href="/signup" className="btn btn-primary btn-lg">Create Your Free Account</Link>
       </section>
 
       <Footer />

@@ -44,7 +44,7 @@ export default function Navbar() {
             >
               {open ? "✕" : "☰"}
             </button>
-            <Link href="/register" style={{
+            <Link href="/signup" style={{
               background: "linear-gradient(135deg, #3A60E7 0%, #4C1AEA 100%)",
               color: "#fff", padding: "0.5rem 1.25rem", borderRadius: 99,
               fontSize: "0.875rem", fontWeight: 600, textDecoration: "none",

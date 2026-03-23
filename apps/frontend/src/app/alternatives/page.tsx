@@ -99,7 +99,7 @@ export default function AlternativesPage() {
         <p style={{ fontSize: "1.0625rem", color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 580, margin: "0 auto 2.5rem" }}>
           Most tools do one thing — edit videos or show analytics. Escalium is the only platform that connects your Meta Ads spend directly to your Spotify stream growth, so you always know your Cost per Stream.
         </p>
-        <Link href="/register" className="btn btn-primary btn-lg">Try Escalium Free</Link>
+        <Link href="/signup" className="btn btn-primary btn-lg">Try Escalium Free</Link>
       </section>
 
       {/* Full comparison table */}
@@ -260,7 +260,7 @@ export default function AlternativesPage() {
           No credit card required. Set up in under 5 minutes.
         </p>
         <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
-          <Link href="/register" className="btn btn-primary btn-lg">Start for Free</Link>
+          <Link href="/signup" className="btn btn-primary btn-lg">Start for Free</Link>
           <Link href="/pricing"  className="btn btn-secondary btn-lg">View Pricing</Link>
         </div>
       </section>
