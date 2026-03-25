@@ -1,14 +1,11 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
 import axios from "axios";
+
+const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:3001/api/v1";
 
 export const authOptions: NextAuthOptions = {
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -16,26 +13,20 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
         try {
-          //WE WILL UNCOMMENT IT WHEN THE REAL BACKEND API IS READY
-          // const { data } = await axios.post(
-          //   `${process.env.BACKEND_URL}/auth/login`,
-          //   { email: credentials?.email, password: credentials?.password }
-          // );
-          // if (data.accessToken) {
-          //   return { ...data.user, accessToken: data.accessToken };
-          // }
-           if (
-      credentials?.email === "demo@gmail.com" &&
-      credentials?.password === "demo123"
-    ) {
-      return {
-        id: "1",
-        name: "Demo User",
-        email: "demo@gmail.com",
-        accessToken: "fake-token-123",
-      };
-    }
+          const { data } = await axios.post(`${BACKEND_URL}/auth/login`, {
+            email: credentials.email,
+            password: credentials.password,
+          });
+          if (data?.token) {
+            return {
+              id: data.user.id,
+              name: data.user.name,
+              email: data.user.email,
+              accessToken: data.token,
+            };
+          }
           return null;
         } catch {
           return null;
@@ -46,14 +37,16 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.accessToken = (user as unknown as Record<string, unknown>).accessToken as string;
+        token.accessToken = (user as { accessToken?: string }).accessToken;
         token.id = user.id;
       }
       return token;
     },
     async session({ session, token }) {
       (session as unknown as Record<string, unknown>).accessToken = token.accessToken;
-      if (session.user) (session.user as unknown as Record<string, unknown>).id = token.id;
+      if (session.user) {
+        (session.user as Record<string, unknown>).id = token.id;
+      }
       return session;
     },
   },
