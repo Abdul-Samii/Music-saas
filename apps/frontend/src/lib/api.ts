@@ -2,7 +2,7 @@ import axios from "axios";
 import { getSession } from "next-auth/react";
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "https://music-saas-backend-git-backend-auth-hackrboys-projects.vercel.app",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api",
 });
 
 api.interceptors.request.use(async (config) => {

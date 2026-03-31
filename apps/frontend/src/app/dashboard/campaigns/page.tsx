@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 
 const ALL_CAMPAIGNS = [
   { id: "1", name: "Summer Vibes Promo",   platform: "Meta",  budget: 1240, spent: 1100, streams: 68421,  cps: 0.018, status: "active",    created: "Jan 12" },
@@ -163,10 +164,10 @@ export default function CampaignsPage() {
                   {filtered.map((c) => (
                     <tr key={c.id}>
                       <td>
-                        <div>
+                        <Link href={`/dashboard/campaigns/${c.id}`} style={{ textDecoration: "none" }}>
                           <p style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: "0.125rem" }}>{c.name}</p>
                           <p style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>{c.platform} · {c.created}</p>
-                        </div>
+                        </Link>
                       </td>
                       <td style={{ fontWeight: 600 }}>${c.budget.toLocaleString()}</td>
                       <td>${c.spent.toLocaleString()}</td>
