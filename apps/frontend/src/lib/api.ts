@@ -2,7 +2,7 @@ import axios from "axios";
 import { getSession } from "next-auth/react";
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://62.72.18.75:3001/api",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "https://api.escalium.io/api",
 });
 
 api.interceptors.request.use(async (config) => {
