@@ -7,7 +7,7 @@ import {
   Query,
   Res,
 } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { EarlyAccessService } from './early-access.service';
 import { EarlyAccessDto } from './dto/early-access.dto';
 
@@ -37,8 +37,7 @@ export class EarlyAccessController {
 
   @Get('google/callback')
   async googleCallback(@Query('code') code: string, @Res() res: Response) {
-    const frontendUrl =
-      process.env.FRONTEND_URL ?? 'https://escalium.io';
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://escalium.io';
 
     try {
       const redirectUri = `${process.env.BACKEND_PUBLIC_URL ?? 'https://api.escalium.io'}/api/v1/early-access/google/callback`;
@@ -73,7 +72,11 @@ export class EarlyAccessController {
         name?: string;
       };
 
-      await this.earlyAccessService.registerGoogle(user.id, user.email, user.name);
+      await this.earlyAccessService.registerGoogle(
+        user.id,
+        user.email,
+        user.name,
+      );
 
       res.redirect(`${frontendUrl}?early_access=success`);
     } catch {
