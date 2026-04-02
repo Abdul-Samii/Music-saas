@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
-import { DM_Sans } from "next/font/google";
+import { DM_Sans, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
+  variable: "--font-instrument",
+});
 
 
 // already optimised for SEO and made the template for further pages, you can add more metadata fields if needed, but this should cover the basics for now.
@@ -60,7 +66,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" data-theme="light" suppressHydrationWarning>
-      <body className={dmSans.variable} suppressHydrationWarning>
+      <body className={`${dmSans.variable} ${instrumentSerif.variable}`} suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>

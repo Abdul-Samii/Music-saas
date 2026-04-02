@@ -10,6 +10,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { MetaAdsModule } from './meta-ads/meta-ads.module';
 import { SpotifyModule } from './spotify/spotify.module';
 import { MediaModule } from './media/media.module';
+import { EarlyAccessModule } from './early-access/early-access.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { MediaModule } from './media/media.module';
     MetaAdsModule,
     SpotifyModule,
     MediaModule,
+    EarlyAccessModule,
   ],
   controllers: [AppController],
   providers: [AppService],
