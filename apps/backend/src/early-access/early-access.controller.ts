@@ -78,9 +78,9 @@ export class EarlyAccessController {
         user.name,
       );
 
-      res.redirect(`${frontendUrl}?early_access=success`);
+      res.redirect(`${frontendUrl}/thankyou`);
     } catch {
-      res.redirect(`${frontendUrl}?early_access=error`);
+      res.redirect(`${frontendUrl}/landing?early_access=error`);
     }
   }
 }

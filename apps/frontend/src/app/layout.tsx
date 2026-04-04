@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
-import { DM_Sans, Instrument_Serif } from "next/font/google";
+import { DM_Sans, DM_Serif_Display, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
+const dmSerifDisplay = DM_Serif_Display({
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
+  variable: "--font-dm-serif",
+});
 const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
   weight: "400",
@@ -66,7 +72,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" data-theme="light" suppressHydrationWarning>
-      <body className={`${dmSans.variable} ${instrumentSerif.variable}`} suppressHydrationWarning>
+      <body className={`${dmSans.variable} ${dmSerifDisplay.variable} ${instrumentSerif.variable}`} suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>
