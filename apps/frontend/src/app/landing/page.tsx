@@ -32,31 +32,14 @@ function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
 }
 
 /* ── Email form ── */
-function EmailForm({ source }: { source: "hero" | "cta" }) {
+function EmailForm() {
   const [email, setEmail] = useState("");
-  const [done, setDone] = useState(false);
   const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(false);
 
-  async function submit() {
+  function submit() {
     if (!email || !email.includes("@")) { setError(true); return; }
-    setError(false); setLoading(true);
-    try {
-      await fetch(`${BACKEND_URL}/early-access`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, source }),
-      });
-    } catch { /* silent */ }
-    setLoading(false);
-    setDone(true);
+    window.location.href = `/signup?email=${encodeURIComponent(email)}`;
   }
-
-  if (done) return (
-    <div className={s.successMsg}>
-      You&apos;re on the list. We&apos;ll reach out before launch. 🎉
-    </div>
-  );
 
   return (
     <div className={s.emailForm}>
@@ -70,7 +53,7 @@ function EmailForm({ source }: { source: "hero" | "cta" }) {
         className={`${s.btnShiny} ${s.emailBtn}`}
         onClick={submit}
       >
-        {loading ? "Saving..." : "Get early access →"}
+        Get early access →
       </button>
     </div>
   );
@@ -116,11 +99,6 @@ const pricing = [
 ];
 
 export default function LandingPage() {
-  const [googleSuccess, setGoogleSuccess] = useState(false);
-  useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
-    if (p.get("early_access") === "success") setTimeout(() => setGoogleSuccess(true), 0);
-  }, []);
   const handleGoogle = () => { window.location.href = `${BACKEND_URL}/early-access/google`; };
 
   return (
@@ -158,15 +136,9 @@ export default function LandingPage() {
             Built for artists, producers and labels.
           </p>
           <div className={s.heroCtaGroup}>
-            {googleSuccess ? (
-              <div className={s.successMsg}>You&apos;re on the list! We&apos;ll reach out before launch. 🎉</div>
-            ) : (
-              <>
-                <GoogleButton onClick={handleGoogle} />
-                <div className={s.divider}>or</div>
-                <EmailForm source="hero" />
-              </>
-            )}
+            <GoogleButton onClick={handleGoogle} />
+            <div className={s.divider}>or</div>
+            <EmailForm />
           </div>
           <p className={s.heroCopy}>Free to join. No credit card required.</p>
         </div>
@@ -293,15 +265,9 @@ export default function LandingPage() {
             <p className={s.ctaSub}>Join the waitlist and get exclusive early access before the public launch.</p>
           </Reveal>
           <Reveal delay={100}>
-            {googleSuccess ? (
-              <div className={s.successMsg}>You&apos;re on the list! We&apos;ll reach out before launch. 🎉</div>
-            ) : (
-              <>
-                <GoogleButton onClick={handleGoogle} />
-                <div className={s.divider} style={{ maxWidth: 360, marginTop: 14 }}>or</div>
-                <div style={{ marginTop: 0 }}><EmailForm source="cta" /></div>
-              </>
-            )}
+            <GoogleButton onClick={handleGoogle} />
+            <div className={s.divider} style={{ maxWidth: 360, marginTop: 14 }}>or</div>
+            <div style={{ marginTop: 0 }}><EmailForm /></div>
           </Reveal>
         </div>
       </section>
