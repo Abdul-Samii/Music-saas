@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import s from "./landing.module.css";
 
@@ -108,7 +107,6 @@ export default function LandingPage() {
       <nav className={s.nav}>
         <a className={s.navLogo} href="#">Escal<span>ium</span></a>
         <div className={s.navRight}>
-          <Link href="/login" className={s.navSignin}>Sign in</Link>
           <button
             className={`${s.btnShiny} ${s.navBtn}`}
             onClick={() => document.getElementById("early-access")?.scrollIntoView({ behavior: "smooth" })}
