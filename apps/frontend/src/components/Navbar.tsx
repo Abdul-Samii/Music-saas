@@ -31,7 +31,6 @@ export default function Navbar() {
             <Link href="/pricing"                   className="nav-link" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "0.9375rem", fontWeight: 500 }}>Pricing</Link>
             <Link href="/alternatives"              className="nav-link" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "0.9375rem", fontWeight: 500 }}>Alternatives</Link>
             <Link href="/article/how-to-promote-your-song" className="nav-link" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "0.9375rem", fontWeight: 500 }}>Blog</Link>
-            <Link href="/login"                     className="nav-link" style={{ color: "var(--text-secondary)", textDecoration: "none", fontSize: "0.9375rem", fontWeight: 500 }}>Sign In</Link>
           </div>
 
           {/* CTA + hamburger */}
@@ -70,7 +69,6 @@ export default function Navbar() {
             { label: "Pricing",      href: "/pricing" },
             { label: "Alternatives", href: "/alternatives" },
             { label: "Blog",         href: "/article/how-to-promote-your-song" },
-            { label: "Sign In",      href: "/login" },
           ].map((l) => (
             <Link key={l.label} href={l.href} onClick={() => setOpen(false)}
               style={{ color: "var(--text-secondary)", textDecoration: "none", fontWeight: 500, fontSize: "0.9375rem" }}>

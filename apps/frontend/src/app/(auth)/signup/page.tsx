@@ -153,10 +153,6 @@ function SignupForm() {
             </form>
           </div>
 
-          <p style={{ textAlign: "center", marginTop: "1.5rem", color: "#9BA3BF", fontSize: "0.875rem" }}>
-            Already have an account?{" "}
-            <Link href="/login" style={{ color: BLUE, textDecoration: "none", fontWeight: 600 }}>Sign in</Link>
-          </p>
           <p style={{ textAlign: "center", marginTop: "0.75rem", color: "#9BA3BF", fontSize: "0.75rem" }}>
             By signing up you agree to our{" "}
             <a href="#" style={{ color: "#4A5370" }}>Terms</a> and{" "}

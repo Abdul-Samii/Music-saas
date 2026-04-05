@@ -72,8 +72,6 @@ export default function Footer() {
             <p style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-muted)", marginBottom: "1rem" }}>Company</p>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
               {[
-                { label: "Sign Up",    href: "/register" },
-                { label: "Sign In",    href: "/login" },
                 { label: "Privacy",    href: "#" },
                 { label: "Terms",      href: "#" },
                 { label: "Contact",    href: "#" },
