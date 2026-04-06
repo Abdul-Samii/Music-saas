@@ -13,7 +13,6 @@ type Stats = {
   totalUsers: number;
   monthlyUsers: number;
   payingUsers: number;
-  earlyAccessTotal: number;
   growth: { day: string; count: number }[];
 };
 
@@ -22,11 +21,10 @@ type User = {
   name: string | null;
   email: string;
   phone: string | null;
-  plan: string;
+  plan: string | null;
   createdAt: string;
   metaAdAccountId: string | null;
   spotifyArtistId: string | null;
-  type: "user" | "early_access";
 };
 
 function fmt(d: string) {
@@ -114,13 +112,12 @@ export default function AdminPage() {
   );
 
   const statCards = [
-    { label: "Total Users",       value: stats?.totalUsers ?? 0,   color: BLUE,      icon: "👥" },
-    { label: "Monthly New Users", value: stats?.monthlyUsers ?? 0,  color: "#12B76A", icon: "📈" },
-    { label: "Paying Users",      value: stats?.payingUsers ?? 0,   color: "#4C1AEA", icon: "💳" },
-    { label: "Early Access",      value: stats?.earlyAccessTotal ?? 0, color: "#F59E0B", icon: "🚀" },
+    { label: "Total Users",       value: stats?.totalUsers ?? 0,  color: BLUE,      icon: "👥" },
+    { label: "Monthly New Users", value: stats?.monthlyUsers ?? 0, color: "#12B76A", icon: "📈" },
+    { label: "Paying Users",      value: stats?.payingUsers ?? 0,  color: "#4C1AEA", icon: "💳" },
   ];
 
-  const HEADERS = ["Name", "Email", "Phone", "Type", "Subscription", "Meta Connected", "Spotify Connected", "Joined"];
+  const HEADERS = ["Name", "Email", "Phone", "Subscription", "Meta Connected", "Spotify Connected", "Joined"];
 
   return (
     <div style={{ minHeight: "100vh", background: "#F8F9FC", fontFamily: "system-ui, sans-serif", color: NAVY }}>
@@ -146,7 +143,7 @@ export default function AdminPage() {
       <div style={{ maxWidth: 1300, margin: "0 auto", padding: "2rem" }}>
 
         {/* Stat cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.75rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem", marginBottom: "1.75rem" }}>
           {statCards.map((c) => (
             <div key={c.label} style={{ background: "#fff", borderRadius: 16, padding: "1.5rem", border: "1px solid #E2E6F0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem" }}>
@@ -218,11 +215,6 @@ export default function AdminPage() {
                     <td style={{ padding: "0.875rem 1.25rem", fontWeight: 600, color: NAVY, whiteSpace: "nowrap" }}>{u.name ?? "—"}</td>
                     <td style={{ padding: "0.875rem 1.25rem", color: "#334155" }}>{u.email}</td>
                     <td style={{ padding: "0.875rem 1.25rem", color: "#64748b", whiteSpace: "nowrap" }}>{u.phone ?? "—"}</td>
-                    <td style={{ padding: "0.875rem 1.25rem" }}>
-                      <span style={{ background: u.type === "user" ? "#EFF6FF" : "#FEF3C7", color: u.type === "user" ? "#2563EB" : "#D97706", padding: "0.2rem 0.6rem", borderRadius: 99, fontSize: "0.72rem", fontWeight: 600, whiteSpace: "nowrap" }}>
-                        {u.type === "user" ? "Signed up" : "Early access"}
-                      </span>
-                    </td>
                     <td style={{ padding: "0.875rem 1.25rem" }}>
                       {(() => {
                         const plan = u.plan ?? "free";
