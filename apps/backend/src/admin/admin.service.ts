@@ -50,6 +50,7 @@ export class AdminService {
           name: true,
           email: true,
           createdAt: true,
+          plan: true,
           metaAdAccountId: true,
           spotifyArtistId: true,
         },
@@ -80,7 +81,12 @@ export class AdminService {
         type: 'early_access' as const,
       }));
 
-    const fullUsers = users.map((u) => ({ ...u, phone: null, type: 'user' as const }));
+    const fullUsers = users.map((u) => ({
+      ...u,
+      phone: null,
+      plan: (u as unknown as Record<string, string>).plan ?? 'free',
+      type: 'user' as const,
+    }));
 
     return [...fullUsers, ...earlyAccessOnly].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
