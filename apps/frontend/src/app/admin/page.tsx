@@ -194,7 +194,7 @@ export default function AdminPage() {
                 <Tooltip
                   contentStyle={{ background: "#fff", border: "1px solid #E2E6F0", borderRadius: 10, fontSize: "0.78rem" }}
                   labelFormatter={(v) => fmt(v)}
-                  formatter={(v: number) => [`${v} users`, "New signups"]}
+                  formatter={(v) => [`${v ?? 0} users`, "New signups"]}
                 />
                 <Area type="monotone" dataKey="count" stroke={BLUE} strokeWidth={2.5} fill="url(#admin-grad)" dot={false} activeDot={{ r: 5, fill: BLUE }} />
               </AreaChart>
