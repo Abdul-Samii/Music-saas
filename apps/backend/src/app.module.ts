@@ -11,6 +11,7 @@ import { MetaAdsModule } from './meta-ads/meta-ads.module';
 import { SpotifyModule } from './spotify/spotify.module';
 import { MediaModule } from './media/media.module';
 import { EarlyAccessModule } from './early-access/early-access.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { EarlyAccessModule } from './early-access/early-access.module';
     SpotifyModule,
     MediaModule,
     EarlyAccessModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
