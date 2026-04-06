@@ -27,9 +27,4 @@ export class AdminController {
     return this.adminService.getUsers();
   }
 
-  @Get('early-access')
-  async earlyAccess(@Headers('x-admin-secret') secret: string) {
-    this.guard(secret);
-    return this.adminService.getEarlyAccess();
-  }
 }
