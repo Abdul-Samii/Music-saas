@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 const BLUE = "#3A60E7";
 const NAVY = "#0B1120";
 
-const ALLOWED_EMAILS = ["demo@gmail.com", "zakabusiness2020@gmail.com", "klaaswijnands00@gmail.com"];
+const ALLOWED_EMAILS = ["demo@gmail.com", "zakabusiness2020@gmail.com", "klaaswijnands00@gmail.com", "infozemmarketing@gmail.com"];
 
 const inputStyle = {
   width: "100%",

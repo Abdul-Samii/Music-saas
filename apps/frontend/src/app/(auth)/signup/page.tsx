@@ -7,10 +7,209 @@ import axios from "axios";
 const BLUE = "#3A60E7";
 const NAVY = "#0B1120";
 
+const COUNTRY_CODES = [
+  { code: "+1",   flag: "🇺🇸", name: "US" },
+  { code: "+1",   flag: "🇨🇦", name: "CA" },
+  { code: "+7",   flag: "🇷🇺", name: "RU" },
+  { code: "+20",  flag: "🇪🇬", name: "EG" },
+  { code: "+27",  flag: "🇿🇦", name: "ZA" },
+  { code: "+30",  flag: "🇬🇷", name: "GR" },
+  { code: "+31",  flag: "🇳🇱", name: "NL" },
+  { code: "+32",  flag: "🇧🇪", name: "BE" },
+  { code: "+33",  flag: "🇫🇷", name: "FR" },
+  { code: "+34",  flag: "🇪🇸", name: "ES" },
+  { code: "+36",  flag: "🇭🇺", name: "HU" },
+  { code: "+39",  flag: "🇮🇹", name: "IT" },
+  { code: "+40",  flag: "🇷🇴", name: "RO" },
+  { code: "+41",  flag: "🇨🇭", name: "CH" },
+  { code: "+43",  flag: "🇦🇹", name: "AT" },
+  { code: "+44",  flag: "🇬🇧", name: "GB" },
+  { code: "+45",  flag: "🇩🇰", name: "DK" },
+  { code: "+46",  flag: "🇸🇪", name: "SE" },
+  { code: "+47",  flag: "🇳🇴", name: "NO" },
+  { code: "+48",  flag: "🇵🇱", name: "PL" },
+  { code: "+49",  flag: "🇩🇪", name: "DE" },
+  { code: "+51",  flag: "🇵🇪", name: "PE" },
+  { code: "+52",  flag: "🇲🇽", name: "MX" },
+  { code: "+53",  flag: "🇨🇺", name: "CU" },
+  { code: "+54",  flag: "🇦🇷", name: "AR" },
+  { code: "+55",  flag: "🇧🇷", name: "BR" },
+  { code: "+56",  flag: "🇨🇱", name: "CL" },
+  { code: "+57",  flag: "🇨🇴", name: "CO" },
+  { code: "+58",  flag: "🇻🇪", name: "VE" },
+  { code: "+60",  flag: "🇲🇾", name: "MY" },
+  { code: "+61",  flag: "🇦🇺", name: "AU" },
+  { code: "+62",  flag: "🇮🇩", name: "ID" },
+  { code: "+63",  flag: "🇵🇭", name: "PH" },
+  { code: "+64",  flag: "🇳🇿", name: "NZ" },
+  { code: "+65",  flag: "🇸🇬", name: "SG" },
+  { code: "+66",  flag: "🇹🇭", name: "TH" },
+  { code: "+81",  flag: "🇯🇵", name: "JP" },
+  { code: "+82",  flag: "🇰🇷", name: "KR" },
+  { code: "+84",  flag: "🇻🇳", name: "VN" },
+  { code: "+86",  flag: "🇨🇳", name: "CN" },
+  { code: "+90",  flag: "🇹🇷", name: "TR" },
+  { code: "+91",  flag: "🇮🇳", name: "IN" },
+  { code: "+92",  flag: "🇵🇰", name: "PK" },
+  { code: "+93",  flag: "🇦🇫", name: "AF" },
+  { code: "+94",  flag: "🇱🇰", name: "LK" },
+  { code: "+95",  flag: "🇲🇲", name: "MM" },
+  { code: "+98",  flag: "🇮🇷", name: "IR" },
+  { code: "+212", flag: "🇲🇦", name: "MA" },
+  { code: "+213", flag: "🇩🇿", name: "DZ" },
+  { code: "+216", flag: "🇹🇳", name: "TN" },
+  { code: "+218", flag: "🇱🇾", name: "LY" },
+  { code: "+220", flag: "🇬🇲", name: "GM" },
+  { code: "+221", flag: "🇸🇳", name: "SN" },
+  { code: "+223", flag: "🇲🇱", name: "ML" },
+  { code: "+224", flag: "🇬🇳", name: "GN" },
+  { code: "+225", flag: "🇨🇮", name: "CI" },
+  { code: "+226", flag: "🇧🇫", name: "BF" },
+  { code: "+227", flag: "🇳🇪", name: "NE" },
+  { code: "+228", flag: "🇹🇬", name: "TG" },
+  { code: "+229", flag: "🇧🇯", name: "BJ" },
+  { code: "+230", flag: "🇲🇺", name: "MU" },
+  { code: "+231", flag: "🇱🇷", name: "LR" },
+  { code: "+232", flag: "🇸🇱", name: "SL" },
+  { code: "+233", flag: "🇬🇭", name: "GH" },
+  { code: "+234", flag: "🇳🇬", name: "NG" },
+  { code: "+235", flag: "🇹🇩", name: "TD" },
+  { code: "+236", flag: "🇨🇫", name: "CF" },
+  { code: "+237", flag: "🇨🇲", name: "CM" },
+  { code: "+238", flag: "🇨🇻", name: "CV" },
+  { code: "+240", flag: "🇬🇶", name: "GQ" },
+  { code: "+241", flag: "🇬🇦", name: "GA" },
+  { code: "+242", flag: "🇨🇬", name: "CG" },
+  { code: "+243", flag: "🇨🇩", name: "CD" },
+  { code: "+244", flag: "🇦🇴", name: "AO" },
+  { code: "+245", flag: "🇬🇼", name: "GW" },
+  { code: "+248", flag: "🇸🇨", name: "SC" },
+  { code: "+249", flag: "🇸🇩", name: "SD" },
+  { code: "+250", flag: "🇷🇼", name: "RW" },
+  { code: "+251", flag: "🇪🇹", name: "ET" },
+  { code: "+252", flag: "🇸🇴", name: "SO" },
+  { code: "+253", flag: "🇩🇯", name: "DJ" },
+  { code: "+254", flag: "🇰🇪", name: "KE" },
+  { code: "+255", flag: "🇹🇿", name: "TZ" },
+  { code: "+256", flag: "🇺🇬", name: "UG" },
+  { code: "+257", flag: "🇧🇮", name: "BI" },
+  { code: "+258", flag: "🇲🇿", name: "MZ" },
+  { code: "+260", flag: "🇿🇲", name: "ZM" },
+  { code: "+261", flag: "🇲🇬", name: "MG" },
+  { code: "+262", flag: "🇷🇪", name: "RE" },
+  { code: "+263", flag: "🇿🇼", name: "ZW" },
+  { code: "+264", flag: "🇳🇦", name: "NA" },
+  { code: "+265", flag: "🇲🇼", name: "MW" },
+  { code: "+266", flag: "🇱🇸", name: "LS" },
+  { code: "+267", flag: "🇧🇼", name: "BW" },
+  { code: "+268", flag: "🇸🇿", name: "SZ" },
+  { code: "+269", flag: "🇰🇲", name: "KM" },
+  { code: "+290", flag: "🇸🇭", name: "SH" },
+  { code: "+291", flag: "🇪🇷", name: "ER" },
+  { code: "+297", flag: "🇦🇼", name: "AW" },
+  { code: "+298", flag: "🇫🇴", name: "FO" },
+  { code: "+299", flag: "🇬🇱", name: "GL" },
+  { code: "+350", flag: "🇬🇮", name: "GI" },
+  { code: "+351", flag: "🇵🇹", name: "PT" },
+  { code: "+352", flag: "🇱🇺", name: "LU" },
+  { code: "+353", flag: "🇮🇪", name: "IE" },
+  { code: "+354", flag: "🇮🇸", name: "IS" },
+  { code: "+355", flag: "🇦🇱", name: "AL" },
+  { code: "+356", flag: "🇲🇹", name: "MT" },
+  { code: "+357", flag: "🇨🇾", name: "CY" },
+  { code: "+358", flag: "🇫🇮", name: "FI" },
+  { code: "+359", flag: "🇧🇬", name: "BG" },
+  { code: "+370", flag: "🇱🇹", name: "LT" },
+  { code: "+371", flag: "🇱🇻", name: "LV" },
+  { code: "+372", flag: "🇪🇪", name: "EE" },
+  { code: "+373", flag: "🇲🇩", name: "MD" },
+  { code: "+374", flag: "🇦🇲", name: "AM" },
+  { code: "+375", flag: "🇧🇾", name: "BY" },
+  { code: "+376", flag: "🇦🇩", name: "AD" },
+  { code: "+377", flag: "🇲🇨", name: "MC" },
+  { code: "+380", flag: "🇺🇦", name: "UA" },
+  { code: "+381", flag: "🇷🇸", name: "RS" },
+  { code: "+382", flag: "🇲🇪", name: "ME" },
+  { code: "+385", flag: "🇭🇷", name: "HR" },
+  { code: "+386", flag: "🇸🇮", name: "SI" },
+  { code: "+387", flag: "🇧🇦", name: "BA" },
+  { code: "+389", flag: "🇲🇰", name: "MK" },
+  { code: "+420", flag: "🇨🇿", name: "CZ" },
+  { code: "+421", flag: "🇸🇰", name: "SK" },
+  { code: "+423", flag: "🇱🇮", name: "LI" },
+  { code: "+500", flag: "🇫🇰", name: "FK" },
+  { code: "+501", flag: "🇧🇿", name: "BZ" },
+  { code: "+502", flag: "🇬🇹", name: "GT" },
+  { code: "+503", flag: "🇸🇻", name: "SV" },
+  { code: "+504", flag: "🇭🇳", name: "HN" },
+  { code: "+505", flag: "🇳🇮", name: "NI" },
+  { code: "+506", flag: "🇨🇷", name: "CR" },
+  { code: "+507", flag: "🇵🇦", name: "PA" },
+  { code: "+509", flag: "🇭🇹", name: "HT" },
+  { code: "+590", flag: "🇬🇵", name: "GP" },
+  { code: "+591", flag: "🇧🇴", name: "BO" },
+  { code: "+592", flag: "🇬🇾", name: "GY" },
+  { code: "+593", flag: "🇪🇨", name: "EC" },
+  { code: "+595", flag: "🇵🇾", name: "PY" },
+  { code: "+597", flag: "🇸🇷", name: "SR" },
+  { code: "+598", flag: "🇺🇾", name: "UY" },
+  { code: "+599", flag: "🇧🇶", name: "BQ" },
+  { code: "+670", flag: "🇹🇱", name: "TL" },
+  { code: "+673", flag: "🇧🇳", name: "BN" },
+  { code: "+674", flag: "🇳🇷", name: "NR" },
+  { code: "+675", flag: "🇵🇬", name: "PG" },
+  { code: "+676", flag: "🇹🇴", name: "TO" },
+  { code: "+677", flag: "🇸🇧", name: "SB" },
+  { code: "+678", flag: "🇻🇺", name: "VU" },
+  { code: "+679", flag: "🇫🇯", name: "FJ" },
+  { code: "+680", flag: "🇵🇼", name: "PW" },
+  { code: "+682", flag: "🇨🇰", name: "CK" },
+  { code: "+685", flag: "🇼🇸", name: "WS" },
+  { code: "+686", flag: "🇰🇮", name: "KI" },
+  { code: "+687", flag: "🇳🇨", name: "NC" },
+  { code: "+688", flag: "🇹🇻", name: "TV" },
+  { code: "+689", flag: "🇵🇫", name: "PF" },
+  { code: "+690", flag: "🇹🇰", name: "TK" },
+  { code: "+691", flag: "🇫🇲", name: "FM" },
+  { code: "+692", flag: "🇲🇭", name: "MH" },
+  { code: "+850", flag: "🇰🇵", name: "KP" },
+  { code: "+852", flag: "🇭🇰", name: "HK" },
+  { code: "+853", flag: "🇲🇴", name: "MO" },
+  { code: "+855", flag: "🇰🇭", name: "KH" },
+  { code: "+856", flag: "🇱🇦", name: "LA" },
+  { code: "+880", flag: "🇧🇩", name: "BD" },
+  { code: "+886", flag: "🇹🇼", name: "TW" },
+  { code: "+960", flag: "🇲🇻", name: "MV" },
+  { code: "+961", flag: "🇱🇧", name: "LB" },
+  { code: "+962", flag: "🇯🇴", name: "JO" },
+  { code: "+963", flag: "🇸🇾", name: "SY" },
+  { code: "+964", flag: "🇮🇶", name: "IQ" },
+  { code: "+965", flag: "🇰🇼", name: "KW" },
+  { code: "+966", flag: "🇸🇦", name: "SA" },
+  { code: "+967", flag: "🇾🇪", name: "YE" },
+  { code: "+968", flag: "🇴🇲", name: "OM" },
+  { code: "+970", flag: "🇵🇸", name: "PS" },
+  { code: "+971", flag: "🇦🇪", name: "AE" },
+  { code: "+972", flag: "🇮🇱", name: "IL" },
+  { code: "+973", flag: "🇧🇭", name: "BH" },
+  { code: "+974", flag: "🇶🇦", name: "QA" },
+  { code: "+975", flag: "🇧🇹", name: "BT" },
+  { code: "+976", flag: "🇲🇳", name: "MN" },
+  { code: "+977", flag: "🇳🇵", name: "NP" },
+  { code: "+992", flag: "🇹🇯", name: "TJ" },
+  { code: "+993", flag: "🇹🇲", name: "TM" },
+  { code: "+994", flag: "🇦🇿", name: "AZ" },
+  { code: "+995", flag: "🇬🇪", name: "GE" },
+  { code: "+996", flag: "🇰🇬", name: "KG" },
+  { code: "+998", flag: "🇺🇿", name: "UZ" },
+];
+
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirm: "" });
+  const [dialCode, setDialCode] = useState("+1");
+  const [phoneError, setPhoneError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -22,14 +221,26 @@ function SignupForm() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
+    setPhoneError("");
+
+    // Phone validation (if provided)
+    if (form.phone) {
+      const digits = form.phone.replace(/\D/g, "");
+      if (digits.length < 6 || digits.length > 15) {
+        setPhoneError("Enter a valid phone number.");
+        return;
+      }
+    }
+
     if (form.password !== form.confirm) { setError("Passwords don't match."); return; }
     if (form.password.length < 8) { setError("Password must be at least 8 characters."); return; }
     setLoading(true);
     try {
+      const fullPhone = form.phone ? `${dialCode}${form.phone.replace(/^0/, "")}` : undefined;
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
         name: form.name,
         email: form.email,
-        phone: form.phone || undefined,
+        phone: fullPhone,
         password: form.password,
       });
       router.push("/thankyou");
@@ -126,8 +337,26 @@ function SignupForm() {
                 <input id="email" type="email" required placeholder="you@email.com" value={form.email} onChange={set("email")} style={inputStyle} />
               </div>
               <div>
-                <label style={labelStyle} htmlFor="phone">Phone Number</label>
-                <input id="phone" type="tel" placeholder="+1 234 567 8900" value={form.phone} onChange={set("phone")} style={inputStyle} />
+                <label style={labelStyle} htmlFor="phone">Phone Number <span style={{ color: "#9BA3BF", fontWeight: 400 }}>(optional)</span></label>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <select
+                    value={dialCode}
+                    onChange={(e) => setDialCode(e.target.value)}
+                    style={{ ...inputStyle, width: "auto", paddingLeft: "0.75rem", paddingRight: "0.5rem", flexShrink: 0, cursor: "pointer" }}
+                  >
+                    {COUNTRY_CODES.map((c) => (
+                      <option key={c.code + c.name} value={c.code}>
+                        {c.flag} {c.code}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    id="phone" type="tel" placeholder="234 567 8900"
+                    value={form.phone} onChange={set("phone")}
+                    style={{ ...inputStyle, borderColor: phoneError ? "#F43F5E" : "#E2E6F0" }}
+                  />
+                </div>
+                {phoneError && <p style={{ fontSize: "0.75rem", color: "#F43F5E", marginTop: "0.375rem" }}>{phoneError}</p>}
               </div>
               <div>
                 <label style={labelStyle} htmlFor="password">Password</label>

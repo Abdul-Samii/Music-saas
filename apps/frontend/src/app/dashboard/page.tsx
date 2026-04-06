@@ -89,7 +89,7 @@ const METRICS = [
   },
   {
     label: "Cost per Stream",
-    value: "0.056", unit: "$", change: "-8.3%", up: false, sub: "Lower is better",
+    value: "0.056", unit: "$", change: "-8.3%", up: true, sub: "Lower is better",
     color: "#3A60E7",
     iconBg: "rgba(58,96,231,0.12)",
     icon: (
