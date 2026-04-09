@@ -1,26 +1,39 @@
 "use client";
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
 
 const BLUE = "#3A60E7";
 const NAVY = "#0B1120";
 
-export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+function ResetPasswordContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  const token = searchParams.get("token");
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (!token) { setError("Missing reset token. Please use the link from your email."); return; }
+    if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (password !== confirm) { setError("Passwords don't match."); return; }
+
     setLoading(true);
     try {
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/forgot-password`, { email });
-      setSent(true);
-    } catch {
-      setError("Something went wrong. Please try again.");
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/reset-password`, { token, password });
+      setDone(true);
+      setTimeout(() => router.push("/login"), 2500);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg || "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -57,11 +70,11 @@ export default function ForgotPasswordPage() {
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          <pattern id="dots-fp" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+          <pattern id="dots-rp" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
             <circle cx="1.5" cy="1.5" r="1.5" fill="#CBD5E1" fillOpacity={0.4} />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill="url(#dots-fp)" />
+        <rect width="100%" height="100%" fill="url(#dots-rp)" />
       </svg>
 
       <div
@@ -87,13 +100,13 @@ export default function ForgotPasswordPage() {
             <span style={{ fontWeight: 800, fontSize: "1rem", color: NAVY }}>Escalium</span>
           </Link>
 
-          {!sent ? (
+          {!done ? (
             <>
               <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: NAVY, marginBottom: "0.5rem" }}>
-                Forgot your password?
+                Set a new password
               </h1>
               <p style={{ color: "#4A5370", fontSize: "0.875rem" }}>
-                Enter your email and we&apos;ll send a reset link.
+                Choose a strong password for your account.
               </p>
             </>
           ) : (
@@ -115,28 +128,42 @@ export default function ForgotPasswordPage() {
                 </svg>
               </div>
               <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: NAVY, marginBottom: "0.5rem" }}>
-                Check your inbox
+                Password updated!
               </h1>
-              <p style={{ color: "#4A5370", fontSize: "0.875rem", lineHeight: 1.6 }}>
-                If an account exists for <strong>{email}</strong>, a password reset link has been sent. Check your spam folder if you don&apos;t see it.
+              <p style={{ color: "#4A5370", fontSize: "0.875rem" }}>
+                Redirecting you to sign in…
               </p>
             </>
           )}
         </div>
 
-        {!sent ? (
+        {!done && (
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <div>
-              <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: NAVY, marginBottom: "0.375rem" }} htmlFor="email">
-                Email address
+              <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: NAVY, marginBottom: "0.375rem" }} htmlFor="password">
+                New password
               </label>
               <input
-                id="email"
-                type="email"
+                id="password"
+                type="password"
                 required
-                placeholder="you@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Min. 8 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, color: NAVY, marginBottom: "0.375rem" }} htmlFor="confirm">
+                Confirm password
+              </label>
+              <input
+                id="confirm"
+                type="password"
+                required
+                placeholder="Repeat your password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
                 style={inputStyle}
               />
             </div>
@@ -170,34 +197,9 @@ export default function ForgotPasswordPage() {
                   <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                 </svg>
               )}
-              {loading ? "Sending…" : "Send reset link →"}
+              {loading ? "Saving…" : "Update password →"}
             </button>
-
-            <p style={{ textAlign: "center", fontSize: "0.8rem", color: "#9BA3BF" }}>
-              Remember it?{" "}
-              <Link href="/login" style={{ color: BLUE, fontWeight: 600, textDecoration: "none" }}>
-                Sign in
-              </Link>
-            </p>
           </form>
-        ) : (
-          <div style={{ textAlign: "center", marginTop: "1rem" }}>
-            <Link
-              href="/landing"
-              style={{
-                display: "inline-block",
-                padding: "0.75rem 1.75rem",
-                background: NAVY,
-                color: "#fff",
-                textDecoration: "none",
-                borderRadius: 10,
-                fontWeight: 700,
-                fontSize: "0.9rem",
-              }}
-            >
-              Back to homepage
-            </Link>
-          </div>
         )}
       </div>
 
@@ -208,5 +210,13 @@ export default function ForgotPasswordPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: "100vh", background: "#F8F9FC" }} />}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }
