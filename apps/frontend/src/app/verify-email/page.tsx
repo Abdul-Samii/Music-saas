@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
 
@@ -9,6 +9,7 @@ const NAVY = "#0B1120";
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
 
@@ -24,6 +25,7 @@ function VerifyEmailContent() {
       .get(`${process.env.NEXT_PUBLIC_API_URL}/auth/verify-email?token=${token}`)
       .then(() => {
         setStatus("success");
+        setTimeout(() => router.push("/thankyou"), 2000);
       })
       .catch((err) => {
         const msg = err?.response?.data?.message;
