@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, FormEvent, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
 
@@ -205,13 +205,13 @@ const COUNTRY_CODES = [
 ];
 
 function SignupForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirm: "" });
   const [dialCode, setDialCode] = useState("+1");
   const [phoneError, setPhoneError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   useEffect(() => {
     const email = searchParams.get("email");
@@ -243,7 +243,7 @@ function SignupForm() {
         phone: fullPhone,
         password: form.password,
       });
-      router.push("/thankyou");
+      setEmailSent(true);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg || "Registration failed. Please try again.");
@@ -326,6 +326,24 @@ function SignupForm() {
             <p style={{ color: "#4A5370", fontSize: "0.875rem" }}>Fill in your details to secure your spot</p>
           </div>
 
+          {emailSent ? (
+            <div style={{ background: "#fff", border: "1px solid #E2E6F0", borderRadius: 20, padding: "2.5rem 2rem", boxShadow: "0 4px 24px rgba(0,0,0,0.06)", textAlign: "center" }}>
+              <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#EEF2FF", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}>
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
+              </div>
+              <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: NAVY, marginBottom: "0.5rem" }}>Check your inbox</h2>
+              <p style={{ color: "#4A5370", fontSize: "0.875rem", lineHeight: 1.7 }}>
+                We sent a verification link to <strong>{form.email}</strong>.<br />
+                Click it to activate your account.
+              </p>
+              <p style={{ color: "#9BA3BF", fontSize: "0.75rem", marginTop: "1.25rem" }}>
+                Didn&apos;t receive it? Check your spam folder.
+              </p>
+            </div>
+          ) : (
           <div style={{ background: "#fff", border: "1px solid #E2E6F0", borderRadius: 20, padding: "2rem", boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               <div>
@@ -381,12 +399,15 @@ function SignupForm() {
               </button>
             </form>
           </div>
+          )}
 
-          <p style={{ textAlign: "center", marginTop: "0.75rem", color: "#9BA3BF", fontSize: "0.75rem" }}>
-            By signing up you agree to our{" "}
-            <a href="#" style={{ color: "#4A5370" }}>Terms</a> and{" "}
-            <a href="#" style={{ color: "#4A5370" }}>Privacy Policy</a>.
-          </p>
+          {!emailSent && (
+            <p style={{ textAlign: "center", marginTop: "0.75rem", color: "#9BA3BF", fontSize: "0.75rem" }}>
+              By signing up you agree to our{" "}
+              <a href="#" style={{ color: "#4A5370" }}>Terms</a> and{" "}
+              <a href="#" style={{ color: "#4A5370" }}>Privacy Policy</a>.
+            </p>
+          )}
         </div>
       </div>
 
