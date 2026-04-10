@@ -37,6 +37,10 @@ function EmailForm() {
 
   function submit() {
     if (!email || !email.includes("@")) { setError(true); return; }
+    // Fire Meta Lead event
+    if (typeof window !== "undefined" && (window as Window & { fbq?: (...args: unknown[]) => void }).fbq) {
+      (window as Window & { fbq?: (...args: unknown[]) => void }).fbq!("track", "Lead");
+    }
     window.location.href = `/signup?email=${encodeURIComponent(email)}`;
   }
 
@@ -99,6 +103,15 @@ const pricing = [
 
 export default function LandingPage() {
   const handleGoogle = () => { window.location.href = `${BACKEND_URL}/early-access/google`; };
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as Window & { fbq?: (...args: unknown[]) => void }).fbq) {
+      (window as Window & { fbq?: (...args: unknown[]) => void }).fbq!("track", "ViewContent", {
+        content_name: "Landing Page",
+        content_category: "Music Marketing",
+      });
+    }
+  }, []);
 
   return (
     <div className={s.page}>
