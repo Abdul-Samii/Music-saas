@@ -92,15 +92,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }}>
         {/* Logo */}
         <div style={{ padding: "1.5rem 1.5rem 1rem", display: "flex", alignItems: "center", gap: "0.625rem" }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 10,
-            background: "linear-gradient(135deg, #3A60E7, #4C1AEA)",
-            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-          }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-            </svg>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Escalium" width={34} height={34} style={{ borderRadius: 8, flexShrink: 0 }} />
           <span style={{ fontWeight: 700, fontSize: "1.05rem", color: "#FFFFFF", letterSpacing: "-0.01em" }}>Escalium</span>
         </div>
 

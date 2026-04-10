@@ -92,11 +92,8 @@ function ResetPasswordContent() {
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
           <Link href="/landing" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", textDecoration: "none", marginBottom: "1.25rem" }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: NAVY, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-              </svg>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Escalium" width={36} height={36} style={{ borderRadius: 8 }} />
             <span style={{ fontWeight: 800, fontSize: "1rem", color: NAVY }}>Escalium</span>
           </Link>
 
