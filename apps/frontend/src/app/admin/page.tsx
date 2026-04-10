@@ -84,11 +84,8 @@ export default function AdminPage() {
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8F9FC" }}>
         <div style={{ width: "100%", maxWidth: 380, background: "#fff", borderRadius: 20, padding: "2.5rem", boxShadow: "0 4px 24px rgba(0,0,0,0.08)", border: "1px solid #E2E6F0" }}>
           <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: NAVY, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1rem" }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-              </svg>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Escalium" width={44} height={44} style={{ borderRadius: 10, margin: "0 auto 1rem", display: "block" }} />
             <h1 style={{ fontWeight: 900, fontSize: "1.4rem", color: NAVY, marginBottom: "0.25rem" }}>Escalium Admin</h1>
             <p style={{ color: "#64748b", fontSize: "0.875rem" }}>Enter your admin password to continue</p>
           </div>
@@ -125,11 +122,8 @@ export default function AdminPage() {
       {/* Header */}
       <div style={{ background: NAVY, padding: "1rem 2rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: BLUE, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-            </svg>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Escalium" width={32} height={32} style={{ borderRadius: 7 }} />
           <span style={{ fontWeight: 800, color: "#fff", fontSize: "1rem" }}>Escalium <span style={{ color: BLUE }}>Admin</span></span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>

@@ -21,7 +21,9 @@ export default function Navbar() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
 
           {/* Logo */}
-          <Link href="/" style={{ textDecoration: "none" }}>
+          <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Escalium" width={30} height={30} style={{ borderRadius: 6 }} />
             <span style={{ fontWeight: 900, fontSize: "1.43rem", color: "var(--text-primary)", letterSpacing: "-0.02em" }}>ESCALIUM</span>
           </Link>
 
