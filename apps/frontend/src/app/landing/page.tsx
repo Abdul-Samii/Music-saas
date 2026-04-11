@@ -118,7 +118,11 @@ export default function LandingPage() {
 
       {/* ── NAV ── */}
       <nav className={s.nav}>
-        <a className={s.navLogo} href="#">Escal<span>ium</span></a>
+        <a className={s.navLogo} href="#" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Escalium" width={28} height={28} style={{ borderRadius: 6 }} />
+          <p>Escal<span>ium</span></p>
+        </a>
         <div className={s.navRight}>
           <button
             className={`${s.btnShiny} ${s.navBtn}`}
@@ -285,7 +289,11 @@ export default function LandingPage() {
 
       {/* ── FOOTER ── */}
       <footer className={s.footer}>
-        <div className={s.footerLogo}>Escal<span>ium</span></div>
+        <div className={s.footerLogo} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Escalium" width={28} height={28} style={{ borderRadius: 6 }} />
+          <p>Escal<span>ium</span></p>
+        </div>
         <p className={s.footerCopy}>© 2025 Escalium. All rights reserved.</p>
         <p className={s.footerCopy}>escalium.io</p>
       </footer>
