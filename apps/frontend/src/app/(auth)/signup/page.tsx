@@ -206,7 +206,7 @@ const COUNTRY_CODES = [
 
 function SignupForm() {
   const searchParams = useSearchParams();
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirm: "" });
+  const [form, setForm] = useState({ name: "", artistName: "", email: "", phone: "", password: "", confirm: "" });
   const [dialCode, setDialCode] = useState("+1");
   const [phoneError, setPhoneError] = useState("");
   const [error, setError] = useState("");
@@ -239,6 +239,7 @@ function SignupForm() {
       const fullPhone = form.phone ? `${dialCode}${form.phone.replace(/^0/, "")}` : undefined;
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
         name: form.name,
+        artistName: form.artistName || undefined,
         email: form.email,
         phone: fullPhone,
         password: form.password,
@@ -346,6 +347,10 @@ function SignupForm() {
               <div>
                 <label style={labelStyle} htmlFor="name">Full Name</label>
                 <input id="name" type="text" required placeholder="John Doe" value={form.name} onChange={set("name")} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle} htmlFor="artistName">Artist Name <span style={{ color: "#9BA3BF", fontWeight: 400 }}>(optional)</span></label>
+                <input id="artistName" type="text" placeholder="Your stage name" value={form.artistName} onChange={set("artistName")} style={inputStyle} />
               </div>
               <div>
                 <label style={labelStyle} htmlFor="email">Email</label>

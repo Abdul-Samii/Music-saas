@@ -17,6 +17,11 @@ export class RegisterDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(80)
+  artistName?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(30)
   phone?: string;
 

@@ -19,6 +19,7 @@ type Stats = {
 type User = {
   id: string;
   name: string | null;
+  artistName: string | null;
   email: string;
   phone: string | null;
   plan: string | null;
@@ -114,7 +115,7 @@ export default function AdminPage() {
     { label: "Paying Users",      value: stats?.payingUsers ?? 0,  color: "#4C1AEA", icon: "💳" },
   ];
 
-  const HEADERS = ["Name", "Email", "Phone", "Subscription", "Meta Connected", "Spotify Connected", "Joined"];
+  const HEADERS = ["Name", "Artist Name", "Email", "Phone", "Subscription", "Meta Connected", "Spotify Connected", "Joined"];
 
   return (
     <div style={{ minHeight: "100vh", background: "#F8F9FC", fontFamily: "system-ui, sans-serif", color: NAVY }}>
@@ -207,6 +208,7 @@ export default function AdminPage() {
                 ) : filteredUsers.map((u, i) => (
                   <tr key={u.id} style={{ borderBottom: "1px solid #F1F5F9", background: i % 2 === 0 ? "#fff" : "#FAFBFC" }}>
                     <td style={{ padding: "0.875rem 1.25rem", fontWeight: 600, color: NAVY, whiteSpace: "nowrap" }}>{u.name ?? "—"}</td>
+                    <td style={{ padding: "0.875rem 1.25rem", color: "#334155", whiteSpace: "nowrap" }}>{u.artistName ?? "—"}</td>
                     <td style={{ padding: "0.875rem 1.25rem", color: "#334155" }}>{u.email}</td>
                     <td style={{ padding: "0.875rem 1.25rem", color: "#64748b", whiteSpace: "nowrap" }}>{u.phone ?? "—"}</td>
                     <td style={{ padding: "0.875rem 1.25rem" }}>
