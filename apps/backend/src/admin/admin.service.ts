@@ -42,16 +42,23 @@ export class AdminService {
   }
 
   async getUsers() {
-    return this.prisma.user.findMany({
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        createdAt: true,
-        metaAdAccountId: true,
-        spotifyArtistId: true,
-      },
-    });
+    return this.prisma.$queryRaw<
+      {
+        id: string;
+        name: string | null;
+        artistName: string | null;
+        email: string;
+        phone: string | null;
+        plan: string | null;
+        createdAt: Date;
+        metaAdAccountId: string | null;
+        spotifyArtistId: string | null;
+      }[]
+    >`
+      SELECT id, name, "artistName", email, phone, plan, "createdAt",
+             "metaAdAccountId", "spotifyArtistId"
+      FROM "User"
+      ORDER BY "createdAt" DESC
+    `;
   }
 }

@@ -19,8 +19,11 @@ model User {
   verificationToken   String?
   resetToken          String?
   resetTokenExpiry    DateTime?
+  artistName          String?
   metaAdAccountId     String?
-  metaAccessToken     String?     // encrypted
+  metaAccessToken     String?
+  metaPixelId         String?
+  metaBusinessId      String?
   spotifyArtistId     String?
   campaigns           Campaign[]
   createdAt           DateTime    @default(now())

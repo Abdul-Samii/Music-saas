@@ -40,11 +40,12 @@ export class AuthService {
     const verificationToken = crypto.randomBytes(32).toString('hex');
 
     const user = await this.prisma.$queryRaw<UserRow[]>`
-      INSERT INTO "User" (id, email, name, phone, "passwordHash", "verificationToken", "emailVerified", "createdAt")
+      INSERT INTO "User" (id, email, name, "artistName", phone, "passwordHash", "verificationToken", "emailVerified", "createdAt")
       VALUES (
         gen_random_uuid(),
         ${dto.email},
         ${dto.name ?? null},
+        ${dto.artistName ?? null},
         ${dto.phone ?? null},
         ${passwordHash},
         ${verificationToken},

@@ -1,6 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import axios from "axios";
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api/v1";
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -30,6 +33,33 @@ export default function SettingsPage() {
   const [name, setName]   = useState(session?.user?.name  || "");
   const [email, setEmail] = useState(session?.user?.email || "");
   const [saved, setSaved] = useState(false);
+  const [metaStatus, setMetaStatus] = useState<{ connected: boolean; adAccountId: string | null; pixelId: string | null } | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const token = (session as unknown as { accessToken?: string })?.accessToken;
+
+  useEffect(() => {
+    if (!token) return;
+    axios.get(`${API}/meta-ads/status`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => setMetaStatus(r.data))
+      .catch(() => setMetaStatus({ connected: false, adAccountId: null, pixelId: null }));
+  }, [token]);
+
+  async function connectMeta() {
+    const redirectUri = `${window.location.origin}/meta/callback`;
+    const res = await axios.get(`${API}/meta-ads/oauth-url`, {
+      params: { redirect_uri: redirectUri },
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    window.location.href = res.data.url;
+  }
+
+  async function disconnectMeta() {
+    setDisconnecting(true);
+    await axios.delete(`${API}/meta-ads/disconnect`, { headers: { Authorization: `Bearer ${token}` } });
+    setMetaStatus({ connected: false, adAccountId: null, pixelId: null });
+    setDisconnecting(false);
+  }
 
   const [notifications, setNotifications] = useState({
     campaignUpdates: true,
@@ -128,7 +158,7 @@ export default function SettingsPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
 
           {/* Meta */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.125rem", background: "var(--bg-elevated)", borderRadius: 12, border: "1px solid var(--border)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.125rem", background: "var(--bg-elevated)", borderRadius: 12, border: `1px solid ${metaStatus?.connected ? "rgba(24,119,242,0.3)" : "var(--border)"}` }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
               <div style={{ width: 40, height: 40, borderRadius: 10, background: "#1877F2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
@@ -137,12 +167,28 @@ export default function SettingsPage() {
               </div>
               <div>
                 <p style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text-primary)" }}>Meta Ads</p>
-                <p style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>Launch campaigns on Facebook & Instagram</p>
+                {metaStatus?.connected ? (
+                  <p style={{ fontSize: "0.78rem", color: "#12B76A" }}>
+                    ✓ Connected — Account {metaStatus.adAccountId}{metaStatus.pixelId ? " · Pixel active" : ""}
+                  </p>
+                ) : (
+                  <p style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>Launch campaigns on Facebook & Instagram</p>
+                )}
               </div>
             </div>
-            <button className="btn btn-secondary btn-sm" style={{ opacity: 0.65, cursor: "not-allowed" }} disabled>
-              Connect — Week 2
-            </button>
+            {metaStatus?.connected ? (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={disconnectMeta}
+                disabled={disconnecting}
+              >
+                {disconnecting ? "Disconnecting…" : "Disconnect"}
+              </button>
+            ) : (
+              <button className="btn btn-primary btn-sm" onClick={connectMeta}>
+                Connect
+              </button>
+            )}
           </div>
 
           {/* Spotify */}
