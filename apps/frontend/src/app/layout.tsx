@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { GoogleAnalytics } from "@next/third-parties/google";
 import { DM_Sans, DM_Serif_Display, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
@@ -79,6 +78,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" data-theme="light" suppressHydrationWarning>
       <head>
+        {/* Google Analytics */}
+        { }
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YEWG0088W" />
+        <script dangerouslySetInnerHTML={{ __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-5YEWG0088W');` }} />
         {/* Meta Pixel */}
         <script
           dangerouslySetInnerHTML={{
@@ -108,7 +111,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={`${dmSans.variable} ${dmSerifDisplay.variable} ${instrumentSerif.variable}`} suppressHydrationWarning>
         <Providers>{children}</Providers>
-        <GoogleAnalytics gaId="G-5YEWG0088W" />
       </body>
     </html>
   );
