@@ -14,7 +14,7 @@ type Business = { id: string; name: string };
 function MetaCallbackContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [step, setStep] = useState<"exchanging" | "select" | "creating" | "done" | "error">("exchanging");
   const [error, setError] = useState("");
   const [accounts, setAccounts] = useState<AdAccount[]>([]);
@@ -26,6 +26,9 @@ function MetaCallbackContent() {
   const token = (session as unknown as { accessToken?: string })?.accessToken;
 
   useEffect(() => {
+    // Wait until session is fully loaded
+    if (!token) return;
+
     const code = searchParams.get("code");
     const errorParam = searchParams.get("error");
 
@@ -65,7 +68,7 @@ function MetaCallbackContent() {
         setStep("error");
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [token, status]);
 
   async function handleSelectAccount() {
     if (!selectedAccount) return;
