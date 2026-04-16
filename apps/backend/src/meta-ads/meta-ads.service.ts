@@ -154,7 +154,12 @@ export class MetaAdsService {
         },
       );
       return data.id as string;
-    } catch {
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: unknown } };
+      console.error(
+        '[createPixel] Facebook error:',
+        JSON.stringify(e?.response?.data ?? err),
+      );
       throw new InternalServerErrorException('Failed to create pixel');
     }
   }
