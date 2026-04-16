@@ -205,11 +205,31 @@ export class MetaAdsService {
 
   // ── Disconnect ──────────────────────────────────────────────────────────────
   async disconnect(userId: string): Promise<void> {
-    await this.users.updateMetaConnection(userId, {
-      metaAccessToken: undefined,
-      metaAdAccountId: undefined,
-      metaPixelId: undefined,
-      metaBusinessId: undefined,
-    });
+    // Get token before clearing so we can revoke it from Facebook
+    const rows = await this.prisma.$queryRaw<{ metaAccessToken: string | null }[]>`
+      SELECT "metaAccessToken" FROM "User" WHERE id = ${userId} LIMIT 1
+    `;
+    const accessToken = rows[0]?.metaAccessToken;
+
+    // Revoke token from Facebook
+    if (accessToken) {
+      try {
+        await axios.delete(`${GRAPH}/me/permissions`, {
+          params: { access_token: accessToken },
+        });
+      } catch {
+        // If revocation fails, still clear from DB
+      }
+    }
+
+    // Clear from DB
+    await this.prisma.$executeRaw`
+      UPDATE "User"
+      SET "metaAccessToken" = NULL,
+          "metaAdAccountId" = NULL,
+          "metaPixelId"     = NULL,
+          "metaBusinessId"  = NULL
+      WHERE id = ${userId}
+    `;
   }
 }

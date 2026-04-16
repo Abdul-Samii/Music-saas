@@ -35,6 +35,7 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [metaStatus, setMetaStatus] = useState<{ connected: boolean; adAccountId: string | null; pixelId: string | null } | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
   const token = (session as unknown as { accessToken?: string })?.accessToken;
 
@@ -55,10 +56,14 @@ export default function SettingsPage() {
   }
 
   async function disconnectMeta() {
+    setShowDisconnectConfirm(false);
     setDisconnecting(true);
-    await axios.delete(`${API}/meta-ads/disconnect`, { headers: { Authorization: `Bearer ${token}` } });
-    setMetaStatus({ connected: false, adAccountId: null, pixelId: null });
-    setDisconnecting(false);
+    try {
+      await axios.delete(`${API}/meta-ads/disconnect`, { headers: { Authorization: `Bearer ${token}` } });
+      setMetaStatus({ connected: false, adAccountId: null, pixelId: null });
+    } finally {
+      setDisconnecting(false);
+    }
   }
 
   const [notifications, setNotifications] = useState({
@@ -82,6 +87,7 @@ export default function SettingsPage() {
     : "ES";
 
   return (
+    <>
     <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1.75rem", maxWidth: 720 }}>
 
       <div>
@@ -179,7 +185,7 @@ export default function SettingsPage() {
             {metaStatus?.connected ? (
               <button
                 className="btn btn-secondary btn-sm"
-                onClick={disconnectMeta}
+                onClick={() => setShowDisconnectConfirm(true)}
                 disabled={disconnecting}
               >
                 {disconnecting ? "Disconnecting…" : "Disconnect"}
@@ -276,5 +282,38 @@ export default function SettingsPage() {
       </div>
 
     </div>
+
+    {/* ── Disconnect Confirmation Modal ── */}
+
+    {showDisconnectConfirm && (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem" }}>
+        <div style={{ background: "var(--bg-card)", borderRadius: 20, padding: "2rem", maxWidth: 420, width: "100%", border: "1px solid var(--border)", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }}>
+          <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#FFF1F2", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F43F5E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <h3 style={{ fontWeight: 800, fontSize: "1.1rem", color: "var(--text-primary)", textAlign: "center", marginBottom: "0.5rem" }}>Disconnect Meta Ads?</h3>
+          <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", textAlign: "center", marginBottom: "1.75rem", lineHeight: 1.6 }}>
+            This will remove your Meta ad account connection and revoke access from Facebook. Your existing campaigns will not be affected.
+          </p>
+          <div style={{ display: "flex", gap: "0.75rem" }}>
+            <button
+              onClick={() => setShowDisconnectConfirm(false)}
+              style={{ flex: 1, padding: "0.75rem", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 10, fontWeight: 600, fontSize: "0.875rem", cursor: "pointer", color: "var(--text-primary)" }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={disconnectMeta}
+              style={{ flex: 1, padding: "0.75rem", background: "#F43F5E", border: "none", borderRadius: 10, fontWeight: 700, fontSize: "0.875rem", cursor: "pointer", color: "#fff" }}
+            >
+              Yes, disconnect
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
