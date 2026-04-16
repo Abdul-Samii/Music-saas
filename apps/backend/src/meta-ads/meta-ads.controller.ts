@@ -68,7 +68,11 @@ export class MetaAdsController {
 
     let pixelId: string | undefined;
     if (body.createPixel) {
-      pixelId = await this.metaAds.createPixel(token, body.adAccountId);
+      try {
+        pixelId = await this.metaAds.createPixel(token, body.adAccountId);
+      } catch {
+        // Pixel creation failed — continue without pixel, can be set up later
+      }
     }
 
     await this.metaAds.saveConnection(
