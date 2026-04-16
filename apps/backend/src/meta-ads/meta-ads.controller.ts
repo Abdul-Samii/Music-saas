@@ -13,7 +13,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 interface JwtUser {
-  sub: string;
+  id: string;
 }
 
 @UseGuards(JwtAuthGuard)
@@ -47,7 +47,7 @@ export class MetaAdsController {
     ]);
 
     // Store token — account selection happens in next step
-    await this.metaAds.saveConnection(user.sub, accessToken, '');
+    await this.metaAds.saveConnection(user.id, accessToken, '');
 
     return { accounts, businesses };
   }
@@ -60,7 +60,7 @@ export class MetaAdsController {
     @CurrentUser() user: JwtUser,
   ) {
     const rows = await this.prisma.$queryRaw<{ metaAccessToken: string }[]>`
-      SELECT "metaAccessToken" FROM "User" WHERE id = ${user.sub} LIMIT 1
+      SELECT "metaAccessToken" FROM "User" WHERE id = ${user.id} LIMIT 1
     `;
 
     const token = rows[0]?.metaAccessToken;
@@ -72,7 +72,7 @@ export class MetaAdsController {
     }
 
     await this.metaAds.saveConnection(
-      user.sub,
+      user.id,
       token,
       body.adAccountId,
       pixelId,
@@ -85,13 +85,13 @@ export class MetaAdsController {
   // GET /meta-ads/status
   @Get('status')
   status(@CurrentUser() user: JwtUser) {
-    return this.metaAds.getConnectionStatus(user.sub);
+    return this.metaAds.getConnectionStatus(user.id);
   }
 
   // DELETE /meta-ads/disconnect
   @Delete('disconnect')
   async disconnect(@CurrentUser() user: JwtUser) {
-    await this.metaAds.disconnect(user.sub);
+    await this.metaAds.disconnect(user.id);
     return { success: true };
   }
 }
