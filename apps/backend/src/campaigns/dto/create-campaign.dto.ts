@@ -11,7 +11,7 @@ export class CreateCampaignDto {
   name: string;
 
   @IsNumber()
-  @Min(1)
+  @Min(5)
   budget: number;
 
   @IsOptional()
@@ -21,4 +21,28 @@ export class CreateCampaignDto {
   @IsOptional()
   @IsDateString()
   endDate?: string;
+
+  @IsOptional()
+  @IsString()
+  pixelId?: string;
+
+  @IsOptional()
+  @IsString()
+  audienceTier?: string;
+
+  @IsOptional()
+  @IsString()
+  placement?: string;
+
+  @IsOptional()
+  @IsString()
+  landingPageUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  adTitle?: string;
+
+  @IsOptional()
+  @IsString()
+  adDescription?: string;
 }

@@ -38,6 +38,12 @@ export class CampaignsService {
         budget: dto.budget,
         startDate: dto.startDate ? new Date(dto.startDate) : null,
         endDate: dto.endDate ? new Date(dto.endDate) : null,
+        pixelId: dto.pixelId,
+        audienceTier: dto.audienceTier,
+        placement: dto.placement,
+        landingPageUrl: dto.landingPageUrl,
+        adTitle: dto.adTitle,
+        adDescription: dto.adDescription,
         status: CampaignStatus.DRAFT,
       },
     });

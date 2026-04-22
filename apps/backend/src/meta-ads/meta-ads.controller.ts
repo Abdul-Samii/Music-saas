@@ -86,6 +86,79 @@ export class MetaAdsController {
     return { success: true, adAccountId: body.adAccountId, pixelId };
   }
 
+  // GET /meta-ads/pixels
+  @Get('pixels')
+  async getPixels(@CurrentUser() user: JwtUser) {
+    const rows = await this.prisma.$queryRaw<
+      { metaAccessToken: string | null; metaAdAccountId: string | null }[]
+    >`SELECT "metaAccessToken", "metaAdAccountId" FROM "User" WHERE id = ${user.id} LIMIT 1`;
+    const { metaAccessToken, metaAdAccountId } = rows[0] ?? {};
+    if (!metaAccessToken || !metaAdAccountId) return { pixels: [] };
+    const pixels = await this.metaAds.getPixels(
+      metaAccessToken,
+      metaAdAccountId,
+    );
+    return { pixels };
+  }
+
+  // POST /meta-ads/launch-campaign
+  @Post('launch-campaign')
+  async launchCampaign(
+    @Body()
+    body: {
+      campaignId: string;
+      pixelId: string;
+      audienceTier: string;
+      placement: string;
+      budget: number;
+      startDate?: string;
+      endDate?: string;
+    },
+    @CurrentUser() user: JwtUser,
+  ) {
+    const rows = await this.prisma.$queryRaw<
+      { metaAccessToken: string | null; metaAdAccountId: string | null }[]
+    >`SELECT "metaAccessToken", "metaAdAccountId" FROM "User" WHERE id = ${user.id} LIMIT 1`;
+
+    const { metaAccessToken, metaAdAccountId } = rows[0] ?? {};
+    if (!metaAccessToken || !metaAdAccountId) {
+      throw new Error('Meta account not connected');
+    }
+
+    const campaign = await this.prisma.campaign.findFirst({
+      where: { id: body.campaignId, userId: user.id },
+    });
+    if (!campaign) throw new Error('Campaign not found');
+
+    const { metaCampaignId, metaAdSetId } =
+      await this.metaAds.createMetaCampaign(metaAccessToken, metaAdAccountId, {
+        name: campaign.name,
+        budget: body.budget,
+        pixelId: body.pixelId,
+        audienceTier: body.audienceTier,
+        placement: body.placement,
+        startDate: body.startDate,
+        endDate: body.endDate,
+      });
+
+    await this.prisma.campaign.update({
+      where: { id: body.campaignId },
+      data: {
+        metaCampaignId,
+        metaAdSetId,
+        pixelId: body.pixelId,
+        audienceTier: body.audienceTier,
+        placement: body.placement,
+        budget: body.budget,
+        startDate: body.startDate ? new Date(body.startDate) : null,
+        endDate: body.endDate ? new Date(body.endDate) : null,
+        status: 'ACTIVE',
+      },
+    });
+
+    return { success: true, metaCampaignId, metaAdSetId };
+  }
+
   // GET /meta-ads/status
   @Get('status')
   status(@CurrentUser() user: JwtUser) {
