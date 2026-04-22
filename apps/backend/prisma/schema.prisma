@@ -30,18 +30,27 @@ model User {
 }
 
 model Campaign {
-  id            String      @id @default(cuid())
-  userId        String
-  user          User        @relation(fields: [userId], references: [id])
-  name          String
-  metaCampaignId String?    // after creation on Meta
-  status        CampaignStatus @default(DRAFT)
-  budget        Float
-  startDate     DateTime?
-  endDate       DateTime?
-  adCreatives   AdCreative[]
-  metrics       CampaignMetric[]
-  createdAt     DateTime    @default(now())
+  id             String         @id @default(cuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id])
+  name           String
+  metaCampaignId String?
+  metaAdSetId    String?
+  metaAdId       String?
+  status         CampaignStatus @default(DRAFT)
+  budget         Float
+  startDate      DateTime?
+  endDate        DateTime?
+  pixelId        String?
+  audienceTier   String?
+  placement      String?
+  landingPageUrl String?
+  adTitle        String?
+  adDescription  String?
+  adVideoUrl     String?
+  adCreatives    AdCreative[]
+  metrics        CampaignMetric[]
+  createdAt      DateTime       @default(now())
 }
 
 model AdCreative {

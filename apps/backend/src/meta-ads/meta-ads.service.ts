@@ -137,10 +137,7 @@ export class MetaAdsService {
   }
 
   // ── Step 1e: Create pixel ───────────────────────────────────────────────────
-  async createPixel(
-    accessToken: string,
-    adAccountId: string,
-  ): Promise<string> {
+  async createPixel(accessToken: string, adAccountId: string): Promise<string> {
     try {
       const accountId = adAccountId.replace('act_', '');
       const { data } = await axios.post(
@@ -180,6 +177,125 @@ export class MetaAdsService {
     });
   }
 
+  // ── Fetch pixels from ad account ───────────────────────────────────────────
+  async getPixels(
+    accessToken: string,
+    adAccountId: string,
+  ): Promise<{ id: string; name: string }[]> {
+    try {
+      const accountId = adAccountId.replace('act_', '');
+      const { data } = await axios.get(`${GRAPH}/act_${accountId}/adspixels`, {
+        params: { fields: 'id,name', access_token: accessToken },
+      });
+      return (data.data ?? []).map((p: { id: string; name: string }) => ({
+        id: p.id,
+        name: p.name,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  // ── Create campaign + adset on Meta ────────────────────────────────────────
+  async createMetaCampaign(
+    accessToken: string,
+    adAccountId: string,
+    payload: {
+      name: string;
+      budget: number;
+      pixelId: string;
+      audienceTier: string;
+      placement: string;
+      startDate?: string;
+      endDate?: string;
+    },
+  ): Promise<{ metaCampaignId: string; metaAdSetId: string }> {
+    const accountId = adAccountId.replace('act_', '');
+
+    // 1. Create campaign (Sales objective, ad-set budget)
+    const { data: camp } = await axios.post(
+      `${GRAPH}/act_${accountId}/campaigns`,
+      null,
+      {
+        params: {
+          name: payload.name,
+          objective: 'OUTCOME_SALES',
+          status: 'PAUSED',
+          special_ad_categories: '[]',
+          access_token: accessToken,
+        },
+      },
+    );
+    const metaCampaignId = camp.id as string;
+
+    // 2. Build targeting from audience tier
+    const targeting = this.buildTargeting(
+      payload.audienceTier,
+      payload.placement,
+    );
+
+    // 3. Create ad set
+    const adSetParams: Record<string, unknown> = {
+      name: `${payload.name} — ${payload.audienceTier}`,
+      campaign_id: metaCampaignId,
+      daily_budget: Math.round(payload.budget * 100), // cents
+      billing_event: 'IMPRESSIONS',
+      optimization_goal: 'OFFSITE_CONVERSIONS',
+      status: 'PAUSED',
+      promoted_object: JSON.stringify({
+        pixel_id: payload.pixelId,
+        custom_event_type: 'VIEW_CONTENT',
+      }),
+      targeting: JSON.stringify(targeting),
+      access_token: accessToken,
+    };
+
+    if (payload.startDate) adSetParams['start_time'] = payload.startDate;
+    if (payload.endDate) adSetParams['end_time'] = payload.endDate;
+
+    const { data: adSet } = await axios.post(
+      `${GRAPH}/act_${accountId}/adsets`,
+      null,
+      { params: adSetParams },
+    );
+
+    return { metaCampaignId, metaAdSetId: adSet.id as string };
+  }
+
+  private buildTargeting(audienceTier: string, placement: string) {
+    const tierCountries: Record<string, string[]> = {
+      tier1: ['US', 'GB', 'CA', 'AU', 'NZ'],
+      tier2: ['DE', 'FR', 'NL', 'SE', 'NO', 'DK', 'FI', 'CH', 'AT', 'BE'],
+      tier3: ['ES', 'IT', 'PT', 'PL', 'CZ', 'HU', 'RO', 'GR'],
+      us: ['US'],
+      top: ['US', 'GB', 'CA', 'AU', 'DE', 'FR', 'NL', 'SE'],
+      bottom: ['BR', 'MX', 'AR', 'CO', 'CL', 'PE', 'IN', 'PH', 'ID', 'TH'],
+    };
+
+    const countries = tierCountries[audienceTier] ?? tierCountries['tier1'];
+
+    // Placement templates
+    const publisher_platforms =
+      placement === 'pro_plus' ? ['instagram'] : ['instagram', 'facebook'];
+
+    const instagram_positions = ['story', 'reels'];
+    const facebook_positions =
+      placement === 'pro_plus' ? [] : ['story', 'reels'];
+
+    return {
+      age_min: 18,
+      age_max: 50,
+      geo_locations: { countries },
+      interests: [
+        { id: '6003139266461', name: 'Music' },
+        { id: '6003648230096', name: 'Spotify' },
+      ],
+      publisher_platforms,
+      instagram_positions,
+      ...(facebook_positions.length > 0 && { facebook_positions }),
+    };
+  }
+
   // ── Status ──────────────────────────────────────────────────────────────────
   async getConnectionStatus(userId: string): Promise<{
     connected: boolean;
@@ -211,7 +327,9 @@ export class MetaAdsService {
   // ── Disconnect ──────────────────────────────────────────────────────────────
   async disconnect(userId: string): Promise<void> {
     // Get token before clearing so we can revoke it from Facebook
-    const rows = await this.prisma.$queryRaw<{ metaAccessToken: string | null }[]>`
+    const rows = await this.prisma.$queryRaw<
+      { metaAccessToken: string | null }[]
+    >`
       SELECT "metaAccessToken" FROM "User" WHERE id = ${userId} LIMIT 1
     `;
     const accessToken = rows[0]?.metaAccessToken;
