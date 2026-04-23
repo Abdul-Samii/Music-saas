@@ -43,20 +43,25 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, account }) {
       if (account?.provider === "google" && user) {
         // First Google sign-in: upsert the user in our DB and store the backend JWT
+        const url = `${process.env.BACKEND_URL}/auth/google`;
+        console.log("[NextAuth][google] calling backend:", url, "email:", user.email);
         try {
-          const { data } = await axios.post(
-            `${process.env.BACKEND_URL}/auth/google`,
-            {
-              email: user.email,
-              name: user.name,
-              googleId: account.providerAccountId,
-            },
-          );
+          const { data } = await axios.post(url, {
+            email: user.email,
+            name: user.name,
+            googleId: account.providerAccountId,
+          });
           const d = data as { token: string; user: { id: string } };
           token.accessToken = d.token;
           token.id = d.user.id;
-        } catch {
-          // Sign-in will succeed but accessToken will be missing — treated as unauthenticated
+          console.log("[NextAuth][google] user upserted, id:", d.user.id);
+        } catch (err) {
+          const e = err as { response?: { status?: number; data?: unknown }; message?: string };
+          console.error(
+            "[NextAuth][google] backend call failed:",
+            e?.response?.status,
+            JSON.stringify(e?.response?.data ?? e?.message),
+          );
         }
       } else if (user) {
         // Credentials provider — accessToken and id already set by authorize()
