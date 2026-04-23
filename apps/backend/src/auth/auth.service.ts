@@ -129,6 +129,43 @@ export class AuthService {
     return { message: 'Password reset successfully' };
   }
 
+  async googleSignIn(profile: {
+    email: string;
+    name?: string;
+    googleId: string;
+  }) {
+    // Find existing user by email (works whether they registered via password or Google)
+    const existing = await this.users.findByEmail(profile.email);
+
+    if (existing) {
+      return {
+        user: { id: existing.id, email: existing.email, name: existing.name },
+        token: this.sign(existing.id),
+      };
+    }
+
+    // First time Google sign-in — create account, emailVerified = true (Google guarantees it)
+    const rows = await this.prisma.$queryRaw<
+      { id: string; email: string; name: string | null }[]
+    >`
+      INSERT INTO "User" (id, email, name, "emailVerified", "createdAt")
+      VALUES (
+        gen_random_uuid(),
+        ${profile.email},
+        ${profile.name ?? null},
+        true,
+        NOW()
+      )
+      RETURNING id, email, name
+    `;
+    const created = rows[0];
+
+    return {
+      user: { id: created.id, email: created.email, name: created.name },
+      token: this.sign(created.id),
+    };
+  }
+
   private sign(userId: string) {
     return this.jwt.sign({ sub: userId });
   }

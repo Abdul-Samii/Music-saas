@@ -38,6 +38,27 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider === "google") {
+        try {
+          const { data } = await axios.post(
+            `${process.env.BACKEND_URL}/auth/google`,
+            {
+              email: user.email,
+              name: user.name,
+              googleId: account.providerAccountId,
+            },
+          );
+          // Attach our backend JWT and user id so the jwt callback can pick them up
+          const u = user as unknown as Record<string, unknown>;
+          u.accessToken = (data as { token: string }).token;
+          u.id = (data as { user: { id: string } }).user.id;
+        } catch {
+          return false; // Block sign-in if backend call fails
+        }
+      }
+      return true;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.accessToken = (user as unknown as Record<string, unknown>).accessToken as string;
