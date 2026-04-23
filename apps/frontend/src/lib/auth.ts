@@ -38,8 +38,11 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
-      if (account?.provider === "google") {
+    // jwt receives `account` on first sign-in — the only reliable place to call
+    // the backend for OAuth providers (mutations to `user` in signIn don't persist here)
+    async jwt({ token, user, account }) {
+      if (account?.provider === "google" && user) {
+        // First Google sign-in: upsert the user in our DB and store the backend JWT
         try {
           const { data } = await axios.post(
             `${process.env.BACKEND_URL}/auth/google`,
@@ -49,18 +52,14 @@ export const authOptions: NextAuthOptions = {
               googleId: account.providerAccountId,
             },
           );
-          // Attach our backend JWT and user id so the jwt callback can pick them up
-          const u = user as unknown as Record<string, unknown>;
-          u.accessToken = (data as { token: string }).token;
-          u.id = (data as { user: { id: string } }).user.id;
+          const d = data as { token: string; user: { id: string } };
+          token.accessToken = d.token;
+          token.id = d.user.id;
         } catch {
-          return false; // Block sign-in if backend call fails
+          // Sign-in will succeed but accessToken will be missing — treated as unauthenticated
         }
-      }
-      return true;
-    },
-    async jwt({ token, user }) {
-      if (user) {
+      } else if (user) {
+        // Credentials provider — accessToken and id already set by authorize()
         token.accessToken = (user as unknown as Record<string, unknown>).accessToken as string;
         token.id = user.id;
       }
