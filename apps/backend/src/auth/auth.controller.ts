@@ -53,4 +53,13 @@ export class AuthController {
   resetPassword(@Body('token') token: string, @Body('password') password: string) {
     return this.auth.resetPassword(token, password);
   }
+
+  // Called by NextAuth after Google OAuth — upserts the user in our DB and returns a JWT
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  googleSignIn(
+    @Body() body: { email: string; name?: string; googleId: string },
+  ) {
+    return this.auth.googleSignIn(body);
+  }
 }
