@@ -1,9 +1,8 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { signIn } from "next-auth/react";
 import s from "./landing.module.css";
 
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api/v1";
 
 /* ── Reveal on scroll ── */
 function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
@@ -102,7 +101,7 @@ const pricing = [
 ];
 
 export default function LandingPage() {
-  const handleGoogle = () => { window.location.href = `${BACKEND_URL}/early-access/google`; };
+  const handleGoogle = () => { void signIn("google", { callbackUrl: "/dashboard" }); };
 
   useEffect(() => {
     if (typeof window !== "undefined" && (window as Window & { fbq?: (...args: unknown[]) => void }).fbq) {
