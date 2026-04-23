@@ -6,7 +6,11 @@ import {
   Query,
   Body,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { MetaAdsService } from './meta-ads.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -15,6 +19,13 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 interface JwtUser {
   id: string;
 }
+
+type MulterFile = {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+  size: number;
+};
 
 @UseGuards(JwtAuthGuard)
 @Controller('meta-ads')
@@ -94,11 +105,58 @@ export class MetaAdsController {
     >`SELECT "metaAccessToken", "metaAdAccountId" FROM "User" WHERE id = ${user.id} LIMIT 1`;
     const { metaAccessToken, metaAdAccountId } = rows[0] ?? {};
     if (!metaAccessToken || !metaAdAccountId) return { pixels: [] };
-    const pixels = await this.metaAds.getPixels(
-      metaAccessToken,
-      metaAdAccountId,
-    );
+    const pixels = await this.metaAds.getPixels(metaAccessToken, metaAdAccountId);
     return { pixels };
+  }
+
+  // GET /meta-ads/pages
+  @Get('pages')
+  async getPages(@CurrentUser() user: JwtUser) {
+    const rows = await this.prisma.$queryRaw<
+      { metaAccessToken: string | null }[]
+    >`SELECT "metaAccessToken" FROM "User" WHERE id = ${user.id} LIMIT 1`;
+    const token = rows[0]?.metaAccessToken;
+    if (!token) return { pages: [] };
+    return this.metaAds.getPages(token);
+  }
+
+  // POST /meta-ads/upload-asset  (multipart — field name: "file")
+  @Post('upload-asset')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB
+    }),
+  )
+  async uploadAsset(
+    @UploadedFile() file: MulterFile,
+    @CurrentUser() user: JwtUser,
+  ) {
+    if (!file) throw new BadRequestException('No file uploaded');
+
+    const rows = await this.prisma.$queryRaw<
+      { metaAccessToken: string | null; metaAdAccountId: string | null }[]
+    >`SELECT "metaAccessToken", "metaAdAccountId" FROM "User" WHERE id = ${user.id} LIMIT 1`;
+    const { metaAccessToken, metaAdAccountId } = rows[0] ?? {};
+    if (!metaAccessToken || !metaAdAccountId) {
+      throw new BadRequestException('Meta account not connected');
+    }
+
+    const isVideo = file.mimetype.startsWith('video/');
+    if (isVideo) {
+      const videoId = await this.metaAds.uploadAdVideo(
+        metaAccessToken,
+        metaAdAccountId,
+        file,
+      );
+      return { type: 'video', videoId };
+    } else {
+      const imageHash = await this.metaAds.uploadAdImage(
+        metaAccessToken,
+        metaAdAccountId,
+        file,
+      );
+      return { type: 'image', imageHash };
+    }
   }
 
   // POST /meta-ads/launch-campaign
@@ -113,6 +171,14 @@ export class MetaAdsController {
       budget: number;
       startDate?: string;
       endDate?: string;
+      // Ad creative
+      pageId: string;
+      instagramActorId?: string;
+      videoId?: string;
+      imageHash?: string;
+      adTitle: string;
+      adDescription?: string;
+      landingPageUrl: string;
     },
     @CurrentUser() user: JwtUser,
   ) {
@@ -122,14 +188,15 @@ export class MetaAdsController {
 
     const { metaAccessToken, metaAdAccountId } = rows[0] ?? {};
     if (!metaAccessToken || !metaAdAccountId) {
-      throw new Error('Meta account not connected');
+      throw new BadRequestException('Meta account not connected');
     }
 
     const campaign = await this.prisma.campaign.findFirst({
       where: { id: body.campaignId, userId: user.id },
     });
-    if (!campaign) throw new Error('Campaign not found');
+    if (!campaign) throw new BadRequestException('Campaign not found');
 
+    // 1. Create campaign + ad set
     const { metaCampaignId, metaAdSetId } =
       await this.metaAds.createMetaCampaign(metaAccessToken, metaAdAccountId, {
         name: campaign.name,
@@ -141,22 +208,59 @@ export class MetaAdsController {
         endDate: body.endDate,
       });
 
+    // 2. Create ad creative
+    const metaAdCreativeId = await this.metaAds.createAdCreative(
+      metaAccessToken,
+      metaAdAccountId,
+      {
+        name: `${campaign.name} — Creative`,
+        pageId: body.pageId,
+        instagramActorId: body.instagramActorId,
+        videoId: body.videoId,
+        imageHash: body.imageHash,
+        adTitle: body.adTitle,
+        adDescription: body.adDescription,
+        landingPageUrl: body.landingPageUrl,
+      },
+    );
+
+    // 3. Create ad
+    const metaAdId = await this.metaAds.createMetaAd(
+      metaAccessToken,
+      metaAdAccountId,
+      {
+        name: campaign.name,
+        adSetId: metaAdSetId,
+        creativeId: metaAdCreativeId,
+      },
+    );
+
+    // 4. Persist all IDs + mark active
     await this.prisma.campaign.update({
       where: { id: body.campaignId },
       data: {
         metaCampaignId,
         metaAdSetId,
+        metaAdCreativeId,
+        metaAdId,
+        metaPageId: body.pageId,
+        metaIgActorId: body.instagramActorId,
         pixelId: body.pixelId,
         audienceTier: body.audienceTier,
         placement: body.placement,
         budget: body.budget,
+        adTitle: body.adTitle,
+        adDescription: body.adDescription,
+        landingPageUrl: body.landingPageUrl,
+        adVideoUrl: body.videoId,
+        adImageHash: body.imageHash,
         startDate: body.startDate ? new Date(body.startDate) : null,
         endDate: body.endDate ? new Date(body.endDate) : null,
         status: 'ACTIVE',
       },
     });
 
-    return { success: true, metaCampaignId, metaAdSetId };
+    return { success: true, metaCampaignId, metaAdSetId, metaAdCreativeId, metaAdId };
   }
 
   // GET /meta-ads/status

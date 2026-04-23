@@ -45,4 +45,20 @@ export class CreateCampaignDto {
   @IsOptional()
   @IsString()
   adDescription?: string;
+
+  @IsOptional()
+  @IsString()
+  adVideoUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  adImageHash?: string;
+
+  @IsOptional()
+  @IsString()
+  metaPageId?: string;
+
+  @IsOptional()
+  @IsString()
+  metaIgActorId?: string;
 }

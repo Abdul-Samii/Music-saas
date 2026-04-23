@@ -44,6 +44,10 @@ export class CampaignsService {
         landingPageUrl: dto.landingPageUrl,
         adTitle: dto.adTitle,
         adDescription: dto.adDescription,
+        adVideoUrl: dto.adVideoUrl,
+        adImageHash: dto.adImageHash,
+        metaPageId: dto.metaPageId,
+        metaIgActorId: dto.metaIgActorId,
         status: CampaignStatus.DRAFT,
       },
     });

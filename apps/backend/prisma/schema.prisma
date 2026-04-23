@@ -48,6 +48,10 @@ model Campaign {
   adTitle        String?
   adDescription  String?
   adVideoUrl     String?
+  adImageHash    String?
+  metaPageId     String?
+  metaIgActorId  String?
+  metaAdCreativeId String?
   adCreatives    AdCreative[]
   metrics        CampaignMetric[]
   createdAt      DateTime       @default(now())

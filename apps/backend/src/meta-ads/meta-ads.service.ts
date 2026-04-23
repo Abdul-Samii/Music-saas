@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+import FormData from 'form-data';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 
@@ -294,6 +295,209 @@ export class MetaAdsService {
       instagram_positions,
       ...(facebook_positions.length > 0 && { facebook_positions }),
     };
+  }
+
+  // ── Fetch Facebook Pages + linked Instagram accounts ───────────────────────
+  async getPages(accessToken: string): Promise<{
+    pages: {
+      id: string;
+      name: string;
+      instagramAccounts: { id: string; username: string }[];
+    }[];
+  }> {
+    try {
+      const { data } = await axios.get(`${GRAPH}/me/accounts`, {
+        params: {
+          fields: 'id,name,instagram_business_account{id,username}',
+          access_token: accessToken,
+        },
+      });
+      type RawPage = {
+        id: string;
+        name: string;
+        instagram_business_account?: { id: string; username?: string };
+      };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const pages = ((data.data ?? []) as RawPage[]).map((p) => ({
+        id: p.id,
+        name: p.name,
+        instagramAccounts: p.instagram_business_account
+          ? [
+              {
+                id: p.instagram_business_account.id,
+                username: p.instagram_business_account.username ?? '',
+              },
+            ]
+          : [],
+      }));
+      return { pages };
+    } catch {
+      return { pages: [] };
+    }
+  }
+
+  // ── Upload video to Meta ad account ────────────────────────────────────────
+  async uploadAdVideo(
+    accessToken: string,
+    adAccountId: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string },
+  ): Promise<string> {
+    const accountId = adAccountId.replace('act_', '');
+    const fd = new FormData();
+    fd.append('access_token', accessToken);
+    fd.append('source', file.buffer, {
+      filename: file.originalname,
+      contentType: file.mimetype,
+    });
+    try {
+      const { data } = await axios.post(
+        `https://graph-video.facebook.com/v19.0/act_${accountId}/advideos`,
+        fd,
+        { headers: fd.getHeaders() },
+      );
+      return (data as { id: string }).id;
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: unknown } };
+      console.error(
+        '[uploadAdVideo] error:',
+        JSON.stringify(e?.response?.data ?? err),
+      );
+      throw new InternalServerErrorException('Failed to upload video to Meta');
+    }
+  }
+
+  // ── Upload image to Meta ad account ────────────────────────────────────────
+  async uploadAdImage(
+    accessToken: string,
+    adAccountId: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string },
+  ): Promise<string> {
+    const accountId = adAccountId.replace('act_', '');
+    const fd = new FormData();
+    fd.append('access_token', accessToken);
+    fd.append(file.originalname, file.buffer, {
+      filename: file.originalname,
+      contentType: file.mimetype,
+    });
+    try {
+      const { data } = await axios.post(
+        `${GRAPH}/act_${accountId}/adimages`,
+        fd,
+        { headers: fd.getHeaders() },
+      );
+      // Response: { images: { [filename]: { hash, url, ... } } }
+      const images = (data as { images: Record<string, { hash: string }> })
+        .images;
+      const firstKey = Object.keys(images)[0];
+      return images[firstKey].hash;
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: unknown } };
+      console.error(
+        '[uploadAdImage] error:',
+        JSON.stringify(e?.response?.data ?? err),
+      );
+      throw new InternalServerErrorException('Failed to upload image to Meta');
+    }
+  }
+
+  // ── Create ad creative ─────────────────────────────────────────────────────
+  async createAdCreative(
+    accessToken: string,
+    adAccountId: string,
+    payload: {
+      name: string;
+      pageId: string;
+      instagramActorId?: string;
+      videoId?: string;
+      imageHash?: string;
+      adTitle: string;
+      adDescription?: string;
+      landingPageUrl: string;
+    },
+  ): Promise<string> {
+    const accountId = adAccountId.replace('act_', '');
+
+    const callToAction = {
+      type: 'LEARN_MORE',
+      value: { link: payload.landingPageUrl },
+    };
+
+    const mediaSpec = payload.videoId
+      ? {
+          video_data: {
+            video_id: payload.videoId,
+            title: payload.adTitle,
+            message: payload.adDescription ?? '',
+            call_to_action: callToAction,
+          },
+        }
+      : {
+          link_data: {
+            image_hash: payload.imageHash,
+            link: payload.landingPageUrl,
+            name: payload.adTitle,
+            message: payload.adDescription ?? '',
+            call_to_action: callToAction,
+          },
+        };
+
+    const objectStorySpec: Record<string, unknown> = {
+      page_id: payload.pageId,
+      ...mediaSpec,
+    };
+    if (payload.instagramActorId) {
+      objectStorySpec['instagram_actor_id'] = payload.instagramActorId;
+    }
+
+    try {
+      const { data } = await axios.post(
+        `${GRAPH}/act_${accountId}/adcreatives`,
+        null,
+        {
+          params: {
+            name: payload.name,
+            object_story_spec: JSON.stringify(objectStorySpec),
+            access_token: accessToken,
+          },
+        },
+      );
+      return (data as { id: string }).id;
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: unknown } };
+      console.error(
+        '[createAdCreative] error:',
+        JSON.stringify(e?.response?.data ?? err),
+      );
+      throw new InternalServerErrorException('Failed to create ad creative');
+    }
+  }
+
+  // ── Create ad ──────────────────────────────────────────────────────────────
+  async createMetaAd(
+    accessToken: string,
+    adAccountId: string,
+    payload: { name: string; adSetId: string; creativeId: string },
+  ): Promise<string> {
+    const accountId = adAccountId.replace('act_', '');
+    try {
+      const res = await axios.post(`${GRAPH}/act_${accountId}/ads`, null, {
+        params: {
+          name: payload.name,
+          adset_id: payload.adSetId,
+          creative: JSON.stringify({ creative_id: payload.creativeId }),
+          status: 'PAUSED',
+          access_token: accessToken,
+        },
+      });
+      return (res.data as { id: string }).id;
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: unknown } };
+      console.error(
+        '[createMetaAd] error:',
+        JSON.stringify(e?.response?.data ?? err),
+      );
+      throw new InternalServerErrorException('Failed to create ad');
+    }
   }
 
   // ── Status ──────────────────────────────────────────────────────────────────
