@@ -24,6 +24,10 @@ export const campaignsApi = {
     api.post(`/campaigns/${id}/launch`).then((r) => r.data),
   pause: (id: string) =>
     api.post(`/campaigns/${id}/pause`).then((r) => r.data),
+  resume: (id: string) =>
+    api.post(`/campaigns/${id}/resume`).then((r) => r.data),
+  launchOnMeta: (data: Record<string, unknown>) =>
+    api.post("/meta-ads/launch-campaign", data).then((r) => r.data),
 };
 
 export const analyticsApi = {
