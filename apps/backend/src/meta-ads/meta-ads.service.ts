@@ -500,6 +500,46 @@ export class MetaAdsService {
     }
   }
 
+  // ── Pause / Resume campaign on Meta ────────────────────────────────────────
+  async pauseOnMeta(userId: string, campaignId: string): Promise<void> {
+    await this.setMetaCampaignStatus(userId, campaignId, 'PAUSED');
+  }
+
+  async resumeOnMeta(userId: string, campaignId: string): Promise<void> {
+    await this.setMetaCampaignStatus(userId, campaignId, 'ACTIVE');
+  }
+
+  private async setMetaCampaignStatus(
+    userId: string,
+    campaignId: string,
+    status: 'ACTIVE' | 'PAUSED',
+  ): Promise<void> {
+    const userRows = await this.prisma.$queryRaw<
+      { metaAccessToken: string | null }[]
+    >`SELECT "metaAccessToken" FROM "User" WHERE id = ${userId} LIMIT 1`;
+    const token = userRows[0]?.metaAccessToken;
+    if (!token) return;
+
+    const campaign = await this.prisma.campaign.findFirst({
+      where: { id: campaignId, userId },
+      select: { metaCampaignId: true },
+    });
+    const metaId = campaign?.metaCampaignId;
+    if (!metaId) return;
+
+    try {
+      await axios.post(`${GRAPH}/${metaId}`, null, {
+        params: { status, access_token: token },
+      });
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: unknown } };
+      console.error(
+        `[setMetaCampaignStatus] error (${status}):`,
+        JSON.stringify(e?.response?.data ?? err),
+      );
+    }
+  }
+
   // ── Status ──────────────────────────────────────────────────────────────────
   async getConnectionStatus(userId: string): Promise<{
     connected: boolean;

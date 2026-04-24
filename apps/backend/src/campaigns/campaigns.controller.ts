@@ -16,13 +16,17 @@ import { UpdateCampaignDto } from './dto/update-campaign.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CampaignStatus } from '@prisma/client';
+import { MetaAdsService } from '../meta-ads/meta-ads.service';
 
 type SafeUser = { id: string; email: string; name: string | null };
 
 @UseGuards(JwtAuthGuard)
 @Controller('campaigns')
 export class CampaignsController {
-  constructor(private readonly campaigns: CampaignsService) {}
+  constructor(
+    private readonly campaigns: CampaignsService,
+    private readonly metaAds: MetaAdsService,
+  ) {}
 
   @Get()
   list(@CurrentUser() user: SafeUser) {
@@ -56,13 +60,15 @@ export class CampaignsController {
 
   @Post(':id/pause')
   @HttpCode(HttpStatus.OK)
-  pause(@Param('id') id: string, @CurrentUser() user: SafeUser) {
+  async pause(@Param('id') id: string, @CurrentUser() user: SafeUser) {
+    await this.metaAds.pauseOnMeta(user.id, id);
     return this.campaigns.updateStatus(id, user.id, CampaignStatus.PAUSED);
   }
 
   @Post(':id/resume')
   @HttpCode(HttpStatus.OK)
-  resume(@Param('id') id: string, @CurrentUser() user: SafeUser) {
+  async resume(@Param('id') id: string, @CurrentUser() user: SafeUser) {
+    await this.metaAds.resumeOnMeta(user.id, id);
     return this.campaigns.updateStatus(id, user.id, CampaignStatus.ACTIVE);
   }
 
