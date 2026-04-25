@@ -279,12 +279,12 @@ export class MetaAdsService {
 
   private buildTargeting(audienceTier: string, placement: string) {
     const tierCountries: Record<string, string[]> = {
-      tier1: ['US', 'GB', 'CA', 'AU', 'NZ'],
-      tier2: ['DE', 'FR', 'NL', 'SE', 'NO', 'DK', 'FI', 'CH', 'AT', 'BE'],
-      tier3: ['ES', 'IT', 'PT', 'PL', 'CZ', 'HU', 'RO', 'GR'],
+      tier1: ['AU', 'AT', 'BE', 'DK', 'FI', 'FR', 'DE', 'IE', 'IT', 'NL', 'NZ', 'NO', 'ES', 'SE', 'CH', 'GB', 'US'],
+      tier2: ['BR', 'BG', 'CL', 'CO', 'CR', 'CZ', 'GR', 'HU', 'IL', 'LB', 'LT', 'MX', 'PA', 'PY', 'PL', 'PT', 'RO'],
+      tier3: ['DZ', 'AR', 'AZ', 'BD', 'BY', 'DO', 'IQ', 'JO', 'KE', 'NG', 'OM', 'PK', 'PE', 'LK', 'UA'],
       us: ['US'],
-      top: ['US', 'GB', 'CA', 'AU', 'DE', 'FR', 'NL', 'SE'],
-      bottom: ['BR', 'MX', 'AR', 'CO', 'CL', 'PE', 'IN', 'PH', 'ID', 'TH'],
+      top: ['AN', 'AT', 'AU', 'AX', 'BE', 'CA', 'CH', 'CY', 'DE', 'DK', 'EE', 'ES', 'FI', 'GB', 'HK', 'IE', 'IL', 'IS', 'IT', 'JP', 'KR', 'LU', 'NL', 'NO', 'NZ', 'SE', 'SG', 'UM', 'US', 'VI'],
+      bottom: ['AR', 'BO', 'BR', 'CL', 'CO', 'CR', 'DO', 'EC', 'GQ', 'GT', 'HN', 'MX', 'NI', 'PA', 'PE', 'PY', 'SV', 'UY'],
     };
 
     const countries = tierCountries[audienceTier] ?? tierCountries['tier1'];
@@ -303,7 +303,7 @@ export class MetaAdsService {
       publisher_platforms,
       instagram_positions,
       ...(facebook_positions.length > 0 && { facebook_positions }),
-      targeting_automation: { advantage_audience: 0 },
+      targeting_automation: { advantage_audience: 1 },
     };
   }
 
@@ -467,6 +467,7 @@ export class MetaAdsService {
           params: {
             name: payload.name,
             object_story_spec: JSON.stringify(spec),
+            multi_advertiser_ads_enabled: 0,
             access_token: accessToken,
           },
         },
