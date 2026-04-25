@@ -249,7 +249,11 @@ export class MetaAdsService {
     };
 
     if (payload.startDate) adSetParams['start_time'] = payload.startDate;
-    if (payload.endDate) adSetParams['end_time'] = payload.endDate;
+    if (payload.endDate) {
+      const start = new Date(payload.startDate ?? Date.now());
+      const end = new Date(payload.endDate);
+      if (end > start) adSetParams['end_time'] = payload.endDate;
+    }
 
     const { data: adSet } = await axios.post(
       `${GRAPH}/act_${accountId}/adsets`,
