@@ -35,15 +35,17 @@ model Campaign {
   userId         String
   user           User           @relation(fields: [userId], references: [id])
   name           String
-  metaCampaignId String?
-  metaAdSetId    String?
-  metaAdId       String?
-  status         CampaignStatus @default(DRAFT)
-  budget         Float
-  startDate      DateTime?
-  endDate        DateTime?
-  pixelId        String?
-  audienceTier   String?
+  metaCampaignId   String?
+  metaAdSetId      String?
+  metaAdId         String?
+  metaAdSetIds     String[]       @default([])
+  metaAdIds        String[]       @default([])
+  status           CampaignStatus @default(DRAFT)
+  budget           Float
+  startDate        DateTime?
+  endDate          DateTime?
+  pixelId          String?
+  audienceTier     String?
   placement      String?
   landingPageUrl String?
   adTitle        String?
