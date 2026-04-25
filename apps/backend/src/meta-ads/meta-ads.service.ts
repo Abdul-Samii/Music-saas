@@ -303,6 +303,7 @@ export class MetaAdsService {
       publisher_platforms,
       instagram_positions,
       ...(facebook_positions.length > 0 && { facebook_positions }),
+      targeting_automation: { advantage_audience: 0 },
     };
   }
 
