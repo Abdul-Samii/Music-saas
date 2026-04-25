@@ -26,6 +26,7 @@ model User {
   metaBusinessId      String?
   spotifyArtistId     String?
   campaigns           Campaign[]
+  adCreatives         AdCreative[]
   createdAt           DateTime    @default(now())
 }
 
@@ -58,12 +59,18 @@ model Campaign {
 }
 
 model AdCreative {
-  id           String   @id @default(cuid())
-  campaignId   String
-  campaign     Campaign @relation(fields: [campaignId], references: [id])
-  videoUrl     String?  // S3/GCS url
-  lyricsJson   Json?    // transcribed lyrics with timestamps
+  id           String         @id @default(cuid())
+  userId       String?
+  user         User?          @relation(fields: [userId], references: [id])
+  campaignId   String?
+  campaign     Campaign?      @relation(fields: [campaignId], references: [id])
+  name         String?
+  audioUrl     String?
+  videoClipUrl String?
+  videoUrl     String?
+  lyricsJson   Json?
   status       CreativeStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
 }
 
 model CampaignMetric {

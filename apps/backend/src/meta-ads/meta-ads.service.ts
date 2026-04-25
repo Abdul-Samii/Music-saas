@@ -418,7 +418,7 @@ export class MetaAdsService {
     const accountId = adAccountId.replace('act_', '');
 
     const callToAction = {
-      type: 'LEARN_MORE',
+      type: 'LISTEN_NOW',
       value: { link: payload.landingPageUrl },
     };
 
@@ -498,6 +498,76 @@ export class MetaAdsService {
       );
       throw new InternalServerErrorException('Failed to create ad');
     }
+  }
+
+  // ── Sync Meta Insights → CampaignMetric rows ─────────────────────────────
+  async syncInsights(
+    userId: string,
+    campaignId: string,
+  ): Promise<{ synced: number }> {
+    const userRows = await this.prisma.$queryRaw<
+      { metaAccessToken: string | null }[]
+    >`SELECT "metaAccessToken" FROM "User" WHERE id = ${userId} LIMIT 1`;
+    const token = userRows[0]?.metaAccessToken;
+    if (!token) return { synced: 0 };
+
+    const campaign = await this.prisma.campaign.findFirst({
+      where: { id: campaignId, userId },
+      select: { metaAdSetId: true },
+    });
+    if (!campaign?.metaAdSetId) return { synced: 0 };
+
+    let rawRows: {
+      spend: string;
+      impressions: string;
+      clicks: string;
+      date_start: string;
+    }[] = [];
+    try {
+      const { data } = await axios.get(
+        `${GRAPH}/${campaign.metaAdSetId}/insights`,
+        {
+          params: {
+            fields: 'spend,impressions,clicks',
+            date_preset: 'last_30d',
+            time_increment: '1',
+            access_token: token,
+          },
+        },
+      );
+      rawRows = (data as { data: typeof rawRows }).data ?? [];
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: unknown } };
+      console.error(
+        '[syncInsights] Meta API error:',
+        JSON.stringify(e?.response?.data ?? err),
+      );
+      return { synced: 0 };
+    }
+
+    let synced = 0;
+    for (const row of rawRows) {
+      const date = new Date(row.date_start);
+      const spend = parseFloat(row.spend) || 0;
+      const impressions = parseInt(row.impressions) || 0;
+      const clicks = parseInt(row.clicks) || 0;
+
+      const existing = await this.prisma.campaignMetric.findFirst({
+        where: { campaignId, date },
+      });
+      if (existing) {
+        await this.prisma.campaignMetric.update({
+          where: { id: existing.id },
+          data: { spend, impressions, clicks },
+        });
+      } else {
+        await this.prisma.campaignMetric.create({
+          data: { campaignId, date, spend, impressions, clicks },
+        });
+      }
+      synced++;
+    }
+    return { synced };
   }
 
   // ── Pause / Resume campaign on Meta ────────────────────────────────────────

@@ -8,6 +8,8 @@ import {
 } from "recharts";
 import { campaignsApi } from "@/lib/api";
 
+type SyncState = "idle" | "syncing" | "done" | "error";
+
 type CampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED";
 
 interface CampaignMetric {
@@ -63,6 +65,7 @@ export default function CampaignDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [syncState, setSyncState] = useState<SyncState>("idle");
   const [activeChart, setActiveChart] = useState<"streams" | "spend">("streams");
 
   useEffect(() => {
@@ -96,6 +99,21 @@ export default function CampaignDetailPage() {
       // silent
     } finally {
       setActionLoading(false);
+    }
+  }
+
+  async function handleSync() {
+    if (!campaign) return;
+    setSyncState("syncing");
+    try {
+      await campaignsApi.syncInsights(campaign.id);
+      const fresh = await campaignsApi.get(campaign.id) as Campaign;
+      setCampaign(fresh);
+      setSyncState("done");
+      setTimeout(() => setSyncState("idle"), 2500);
+    } catch {
+      setSyncState("error");
+      setTimeout(() => setSyncState("idle"), 2500);
     }
   }
 
@@ -160,6 +178,19 @@ export default function CampaignDetailPage() {
             </span>
           </div>
           <div style={{ display: "flex", gap: "0.625rem", flexWrap: "wrap" }}>
+            {campaign.metaCampaignId && (
+              <button
+                onClick={handleSync}
+                disabled={syncState === "syncing"}
+                className="btn btn-secondary btn-sm"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                </svg>
+                {syncState === "syncing" ? "Syncing…" : syncState === "done" ? "Synced ✓" : "Sync Insights"}
+              </button>
+            )}
             {campaign.status === "ACTIVE" && (
               <button
                 onClick={handlePause}

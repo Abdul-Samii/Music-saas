@@ -28,6 +28,8 @@ export const campaignsApi = {
     api.post(`/campaigns/${id}/resume`).then((r) => r.data),
   launchOnMeta: (data: Record<string, unknown>) =>
     api.post("/meta-ads/launch-campaign", data).then((r) => r.data),
+  syncInsights: (campaignId: string) =>
+    api.post("/meta-ads/sync-insights", { campaignId }).then((r) => r.data),
 };
 
 export const analyticsApi = {
@@ -60,6 +62,7 @@ export const creativeApi = {
     api.post("/media/render", data).then((r) => r.data),
   jobStatus: (jobId: string) =>
     api.get(`/media/job/${jobId}`).then((r) => r.data),
+  myCreatives: () => api.get("/media/my-creatives").then((r) => r.data),
 };
 
 export const usersApi = {
