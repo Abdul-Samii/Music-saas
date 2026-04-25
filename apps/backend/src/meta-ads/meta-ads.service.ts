@@ -303,7 +303,6 @@ export class MetaAdsService {
 
     return {
       age_min: 18,
-      age_max: 50,
       geo_locations: { countries },
       publisher_platforms,
       instagram_positions,
