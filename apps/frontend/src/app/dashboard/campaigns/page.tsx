@@ -75,10 +75,10 @@ export default function CampaignsPage() {
   };
 
   const totalStreams = campaigns.reduce((sum, c) => {
-    const s = c.metrics.reduce((ms, m) => ms + ((m.streamsAfter ?? 0) - (m.streamsBefore ?? 0)), 0);
+    const s = (c.metrics ?? []).reduce((ms, m) => ms + ((m.streamsAfter ?? 0) - (m.streamsBefore ?? 0)), 0);
     return sum + s;
   }, 0);
-  const totalSpend = campaigns.reduce((sum, c) => sum + c.metrics.reduce((ms, m) => ms + m.spend, 0), 0);
+  const totalSpend = campaigns.reduce((sum, c) => sum + (c.metrics ?? []).reduce((ms, m) => ms + m.spend, 0), 0);
 
   return (
     <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
@@ -203,8 +203,8 @@ export default function CampaignsPage() {
               </thead>
               <tbody>
                 {filtered.map((c) => {
-                  const spent = c.metrics.reduce((s, m) => s + m.spend, 0);
-                  const streams = c.metrics.reduce((s, m) => s + ((m.streamsAfter ?? 0) - (m.streamsBefore ?? 0)), 0);
+                  const spent = (c.metrics ?? []).reduce((s, m) => s + m.spend, 0);
+                  const streams = (c.metrics ?? []).reduce((s, m) => s + ((m.streamsAfter ?? 0) - (m.streamsBefore ?? 0)), 0);
                   return (
                     <tr key={c.id}>
                       <td>
