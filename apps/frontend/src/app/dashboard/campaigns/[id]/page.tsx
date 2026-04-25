@@ -71,7 +71,10 @@ export default function CampaignDetailPage() {
   useEffect(() => {
     if (!id) return;
     campaignsApi.get(id)
-      .then((data) => setCampaign(data as Campaign))
+      .then((data) => {
+        const camp = data as Campaign;
+        setCampaign({ ...camp, metrics: camp.metrics ?? [] });
+      })
       .catch(() => setError("Failed to load campaign."))
       .finally(() => setLoading(false));
   }, [id]);
@@ -108,7 +111,7 @@ export default function CampaignDetailPage() {
     try {
       await campaignsApi.syncInsights(campaign.id);
       const fresh = await campaignsApi.get(campaign.id) as Campaign;
-      setCampaign(fresh);
+      setCampaign({ ...fresh, metrics: fresh.metrics ?? [] });
       setSyncState("done");
       setTimeout(() => setSyncState("idle"), 2500);
     } catch {
