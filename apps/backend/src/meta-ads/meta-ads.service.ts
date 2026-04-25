@@ -224,7 +224,7 @@ export class MetaAdsService {
         params: {
           name: payload.name,
           objective: 'OUTCOME_TRAFFIC',
-          status: 'PAUSED',
+          status: 'ACTIVE',
           special_ad_categories: '[]',
           is_adset_budget_sharing_enabled: 'false',
           access_token: accessToken,
@@ -247,7 +247,7 @@ export class MetaAdsService {
       billing_event: 'IMPRESSIONS',
       optimization_goal: 'LINK_CLICKS',
       bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
-      status: 'PAUSED',
+      status: 'ACTIVE',
       targeting: JSON.stringify(targeting),
       access_token: accessToken,
     };
@@ -510,7 +510,7 @@ export class MetaAdsService {
           name: payload.name,
           adset_id: payload.adSetId,
           creative: JSON.stringify({ creative_id: payload.creativeId }),
-          status: 'PAUSED',
+          status: 'ACTIVE',
           access_token: accessToken,
         },
       });
