@@ -206,17 +206,17 @@ export class MetaAdsService {
     adAccountId: string,
     payload: {
       name: string;
-      budget: number;
+      tierBudgets: number[];
       pixelId: string;
-      audienceTier: string;
+      audienceTiers: string[];
       placement: string;
       startDate?: string;
       endDate?: string;
     },
-  ): Promise<{ metaCampaignId: string; metaAdSetId: string }> {
+  ): Promise<{ metaCampaignId: string; metaAdSetIds: string[] }> {
     const accountId = adAccountId.replace('act_', '');
 
-    // 1. Create campaign (Sales objective, ad-set budget)
+    // 1. Create one campaign
     const { data: camp } = await axios.post(
       `${GRAPH}/act_${accountId}/campaigns`,
       null,
@@ -233,53 +233,61 @@ export class MetaAdsService {
     );
     const metaCampaignId = camp.id as string;
 
-    // 2. Build targeting from audience tier
-    const targeting = this.buildTargeting(
-      payload.audienceTier,
-      payload.placement,
-    );
+    // 2. Create one ad set per audience tier
+    const metaAdSetIds: string[] = [];
+    for (let i = 0; i < payload.audienceTiers.length; i++) {
+      const tier = payload.audienceTiers[i];
+      const tierBudget = payload.tierBudgets[i] ?? 5;
+      const targeting = this.buildTargeting(tier, payload.placement);
 
-    // 3. Create ad set
-    const adSetParams: Record<string, unknown> = {
-      name: `${payload.name} — ${payload.audienceTier}`,
-      campaign_id: metaCampaignId,
-      daily_budget: Math.round(payload.budget * 100), // cents
-      billing_event: 'IMPRESSIONS',
-      optimization_goal: 'LINK_CLICKS',
-      bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
-      status: 'ACTIVE',
-      targeting: JSON.stringify(targeting),
-      access_token: accessToken,
-    };
+      const adSetParams: Record<string, unknown> = {
+        name: `${payload.name} — ${tier}`,
+        campaign_id: metaCampaignId,
+        daily_budget: Math.round(tierBudget * 100),
+        billing_event: 'IMPRESSIONS',
+        optimization_goal: 'LINK_CLICKS',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        status: 'ACTIVE',
+        targeting: JSON.stringify(targeting),
+        access_token: accessToken,
+      };
 
-    const targetingCountries = (targeting.geo_locations as { countries: string[] }).countries;
-    if (targetingCountries.includes('SG')) {
-      adSetParams['regional_regulated_categories'] = JSON.stringify(['SINGAPORE_UNIVERSAL']);
-    }
-
-    if (payload.startDate) adSetParams['start_time'] = payload.startDate;
-    if (payload.endDate) {
-      const start = new Date(payload.startDate ?? Date.now());
-      const end = new Date(payload.endDate);
-      if (end > start) adSetParams['end_time'] = payload.endDate;
-    }
-
-    let adSet: { id: string };
-    try {
-      const res = await axios.post(
-        `${GRAPH}/act_${accountId}/adsets`,
-        null,
-        { params: adSetParams },
-      );
-      adSet = res.data as { id: string };
-    } catch (err) {
-      if (err instanceof AxiosError) {
-        this.logger.error('Meta adset error', JSON.stringify(err.response?.data));
+      const targetingCountries = (
+        targeting.geo_locations as { countries: string[] }
+      ).countries;
+      if (targetingCountries.includes('SG')) {
+        adSetParams['regional_regulated_categories'] = JSON.stringify([
+          'SINGAPORE_UNIVERSAL',
+        ]);
       }
-      throw err;
+
+      if (payload.startDate) adSetParams['start_time'] = payload.startDate;
+      if (payload.endDate) {
+        const start = new Date(payload.startDate ?? Date.now());
+        const end = new Date(payload.endDate);
+        if (end > start) adSetParams['end_time'] = payload.endDate;
+      }
+
+      let adSet: { id: string };
+      try {
+        const res = await axios.post(`${GRAPH}/act_${accountId}/adsets`, null, {
+          params: adSetParams,
+        });
+        adSet = res.data as { id: string };
+      } catch (err) {
+        if (err instanceof AxiosError) {
+          this.logger.error(
+            `Meta adset error (tier: ${tier})`,
+            JSON.stringify(err.response?.data),
+          );
+        }
+        throw err;
+      }
+
+      metaAdSetIds.push(adSet.id);
     }
 
-    return { metaCampaignId, metaAdSetId: adSet.id };
+    return { metaCampaignId, metaAdSetIds };
   }
 
   private buildTargeting(audienceTier: string, placement: string) {

@@ -71,6 +71,10 @@ export default function NewCampaignPage() {
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [uploadError, setUploadError] = useState("");
 
+  // Step 3 — tier dropdown
+  const [tierDropdownOpen, setTierDropdownOpen] = useState(false);
+  const tierDropdownRef = useRef<HTMLDivElement>(null);
+
   // Error from launch
   const [launchError, setLaunchError] = useState("");
 
@@ -80,7 +84,8 @@ export default function NewCampaignPage() {
     budget: "5",
     startDate: "",
     endDate: "",
-    audienceTier: "",
+    audienceTiers: [] as string[],
+    tierBudgets: {} as Record<string, string>,
     placement: "",
     // Ad creative
     facebookPageId: "",
@@ -104,6 +109,17 @@ export default function NewCampaignPage() {
       .catch(() => setPixels([{ id: "test-pixel-123", name: "Test Pixel (demo)" }]))
       .finally(() => setLoadingPixels(false));
   }, [token]);
+
+  // Close tier dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (tierDropdownRef.current && !tierDropdownRef.current.contains(e.target as Node)) {
+        setTierDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Load FB pages when entering step 5
   useEffect(() => {
@@ -146,7 +162,8 @@ export default function NewCampaignPage() {
     form.name.trim().length >= 2,                                              // 0 Campaign
     form.pixelId.length > 0,                                                   // 1 Conversion
     Number(form.budget) >= 5,                                                  // 2 Budget
-    form.audienceTier.length > 0,                                              // 3 Audience
+    form.audienceTiers.length > 0 &&
+      form.audienceTiers.every((v) => Number(form.tierBudgets[v] ?? 5) >= 5),  // 3 Audience
     form.placement.length > 0,                                                 // 4 Placement
     form.facebookPageId.length > 0 && form.adTitle.trim().length >= 2         // 5 Ad Creative
       && form.landingPageUrl.trim().length > 0 && assetReady,
@@ -163,11 +180,11 @@ export default function NewCampaignPage() {
         `${API}/campaigns`,
         {
           name: form.name,
-          budget: Number(form.budget),
+          budget: form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 5), 0),
           startDate: form.startDate || undefined,
           endDate: form.endDate || undefined,
           pixelId: form.pixelId,
-          audienceTier: form.audienceTier,
+          audienceTier: form.audienceTiers.join(','),
           placement: form.placement,
           landingPageUrl: form.landingPageUrl,
           adTitle: form.adTitle,
@@ -186,9 +203,9 @@ export default function NewCampaignPage() {
         {
           campaignId: (campaign as { id: string }).id,
           pixelId: form.pixelId,
-          audienceTier: form.audienceTier,
+          audienceTiers: form.audienceTiers,
+          tierBudgets: form.audienceTiers.map((v) => Number(form.tierBudgets[v]) || 5),
           placement: form.placement,
-          budget: Number(form.budget),
           startDate: form.startDate || undefined,
           endDate: form.endDate || undefined,
           pageId: form.facebookPageId,
@@ -379,27 +396,112 @@ export default function NewCampaignPage() {
         {step === 3 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <div>
-              <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Audience Tier</h2>
-              <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>All tiers target age 18+ using Meta Advantage+ audience. Select your location tier.</p>
+              <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Audience Tiers</h2>
+              <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>Select one or more tiers — each becomes a separate ad set. Minimum $5/day per tier.</p>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
-              {AUDIENCE_TIERS.map((tier) => (
-                <label key={tier.value} style={{
-                  display: "flex", alignItems: "center", gap: "0.875rem", cursor: "pointer",
-                  padding: "0.875rem 1rem", borderRadius: 12,
-                  border: `1.5px solid ${form.audienceTier === tier.value ? BLUE : "#E2E6F0"}`,
-                  background: form.audienceTier === tier.value ? "#F0F4FF" : "#F8F9FC",
-                  transition: "all 0.15s",
+
+            {/* Dropdown */}
+            <div ref={tierDropdownRef} style={{ position: "relative" }}>
+              <button
+                type="button"
+                onClick={() => setTierDropdownOpen((o) => !o)}
+                style={{
+                  width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "0.75rem 1rem", borderRadius: 10, cursor: "pointer",
+                  border: `1.5px solid ${tierDropdownOpen ? BLUE : "#E2E6F0"}`,
+                  background: "#F8F9FC", fontSize: "0.875rem", fontWeight: 600, color: NAVY,
+                }}
+              >
+                <span>
+                  {form.audienceTiers.length === 0
+                    ? "Select tiers…"
+                    : form.audienceTiers.map((v) => AUDIENCE_TIERS.find((t) => t.value === v)?.label).join(", ")}
+                </span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transform: tierDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+
+              {tierDropdownOpen && (
+                <div style={{
+                  position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 50,
+                  background: "#fff", borderRadius: 12, border: "1.5px solid #E2E6F0",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.08)", overflow: "hidden",
                 }}>
-                  <input type="radio" name="audienceTier" value={tier.value} checked={form.audienceTier === tier.value}
-                    onChange={(e) => setForm({ ...form, audienceTier: e.target.value })} style={{ accentColor: BLUE }} />
-                  <div>
-                    <p style={{ fontWeight: 700, fontSize: "0.875rem", color: NAVY }}>{tier.label}</p>
-                    <p style={{ fontSize: "0.78rem", color: "#64748b" }}>{tier.desc}</p>
-                  </div>
-                </label>
-              ))}
+                  {AUDIENCE_TIERS.map((tier) => {
+                    const selected = form.audienceTiers.includes(tier.value);
+                    return (
+                      <label key={tier.value} style={{
+                        display: "flex", alignItems: "flex-start", gap: "0.75rem", cursor: "pointer",
+                        padding: "0.875rem 1rem",
+                        background: selected ? "#F0F4FF" : "#fff",
+                        borderBottom: "1px solid #F1F5F9",
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => setForm((f) => {
+                            const next = f.audienceTiers.includes(tier.value)
+                              ? f.audienceTiers.filter((t) => t !== tier.value)
+                              : [...f.audienceTiers, tier.value];
+                            const budgets = { ...f.tierBudgets };
+                            if (!f.audienceTiers.includes(tier.value)) budgets[tier.value] = budgets[tier.value] ?? "5";
+                            return { ...f, audienceTiers: next, tierBudgets: budgets };
+                          })}
+                          style={{ accentColor: BLUE, marginTop: 2, flexShrink: 0 }}
+                        />
+                        <div>
+                          <p style={{ fontWeight: 700, fontSize: "0.875rem", color: NAVY }}>{tier.label}</p>
+                          <p style={{ fontSize: "0.75rem", color: "#64748b", lineHeight: 1.4 }}>{tier.desc}</p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
+
+            {/* Per-tier budget inputs */}
+            {form.audienceTiers.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: NAVY }}>Daily budget per tier</p>
+                {form.audienceTiers.map((v) => {
+                  const tier = AUDIENCE_TIERS.find((t) => t.value === v)!;
+                  const val = form.tierBudgets[v] ?? "5";
+                  const tooLow = Number(val) < 5;
+                  return (
+                    <div key={v} style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "0.75rem 1rem", borderRadius: 10,
+                      border: `1.5px solid ${tooLow ? "#FECDD3" : "#E2E6F0"}`,
+                      background: tooLow ? "#FFF1F2" : "#F8F9FC",
+                    }}>
+                      <span style={{ fontWeight: 600, fontSize: "0.875rem", color: NAVY }}>{tier.label}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <span style={{ color: "#64748b", fontWeight: 600 }}>$</span>
+                        <input
+                          type="number"
+                          min={5}
+                          value={val}
+                          onChange={(e) => setForm((f) => ({ ...f, tierBudgets: { ...f.tierBudgets, [v]: e.target.value } }))}
+                          style={{
+                            width: 80, padding: "0.375rem 0.5rem", borderRadius: 8,
+                            border: `1.5px solid ${tooLow ? "#FECDD3" : "#E2E6F0"}`,
+                            fontSize: "0.875rem", fontWeight: 600, color: NAVY, background: "#fff",
+                            textAlign: "right",
+                          }}
+                        />
+                        <span style={{ color: "#64748b", fontSize: "0.8rem" }}>/day</span>
+                      </div>
+                    </div>
+                  );
+                })}
+                <p style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                  Total: <strong style={{ color: NAVY }}>${form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 0), 0).toFixed(2)}/day</strong>
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -596,10 +698,10 @@ export default function NewCampaignPage() {
               { label: "Campaign Type",     value: "Sales (fixed)" },
               { label: "Pixel",             value: pixels.find((p) => p.id === form.pixelId)?.name ?? form.pixelId },
               { label: "Conversion",        value: "Website → View Content → Maximize Conversions" },
-              { label: "Daily Budget",      value: `$${form.budget}/day` },
               { label: "Start Date",        value: form.startDate || "Immediately" },
               { label: "End Date",          value: form.endDate || "No end date" },
-              { label: "Audience Tier",     value: AUDIENCE_TIERS.find((t) => t.value === form.audienceTier)?.label ?? "" },
+              { label: "Audience Tiers",    value: form.audienceTiers.map((v) => `${AUDIENCE_TIERS.find((t) => t.value === v)?.label ?? v} ($${form.tierBudgets[v] ?? 5}/day)`).join(", ") },
+              { label: "Total Daily Budget", value: `$${form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 5), 0).toFixed(2)}/day` },
               { label: "Placement",         value: PLACEMENTS.find((p) => p.value === form.placement)?.label ?? "" },
               { label: "Facebook Page",     value: pages.find((p) => p.id === form.facebookPageId)?.name ?? form.facebookPageId },
               { label: "Instagram Account", value: igAccounts.find((ig) => ig.id === form.instagramActorId)?.username ? `@${igAccounts.find((ig) => ig.id === form.instagramActorId)!.username}` : "None" },

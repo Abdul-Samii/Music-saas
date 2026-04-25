@@ -107,7 +107,10 @@ export class MetaAdsController {
     >`SELECT "metaAccessToken", "metaAdAccountId" FROM "User" WHERE id = ${user.id} LIMIT 1`;
     const { metaAccessToken, metaAdAccountId } = rows[0] ?? {};
     if (!metaAccessToken || !metaAdAccountId) return { pixels: [] };
-    const pixels = await this.metaAds.getPixels(metaAccessToken, metaAdAccountId);
+    const pixels = await this.metaAds.getPixels(
+      metaAccessToken,
+      metaAdAccountId,
+    );
     return { pixels };
   }
 
@@ -179,7 +182,8 @@ export class MetaAdsController {
     body: {
       campaignId: string;
       pixelId: string;
-      audienceTier: string;
+      audienceTiers: string[];
+      tierBudgets: number[];
       placement: string;
       budget: number;
       startDate?: string;
@@ -209,19 +213,29 @@ export class MetaAdsController {
     });
     if (!campaign) throw new BadRequestException('Campaign not found');
 
-    // 1. Create campaign + ad set
-    const { metaCampaignId, metaAdSetId } =
+    const tiers =
+      Array.isArray(body.audienceTiers) && body.audienceTiers.length > 0
+        ? body.audienceTiers
+        : ['tier1'];
+
+    const tierBudgets =
+      Array.isArray(body.tierBudgets) && body.tierBudgets.length === tiers.length
+        ? body.tierBudgets
+        : tiers.map(() => body.budget ?? 5);
+
+    // 1. Create one Meta campaign + one ad set per tier
+    const { metaCampaignId, metaAdSetIds } =
       await this.metaAds.createMetaCampaign(metaAccessToken, metaAdAccountId, {
         name: campaign.name,
-        budget: body.budget,
+        tierBudgets,
         pixelId: body.pixelId,
-        audienceTier: body.audienceTier,
+        audienceTiers: tiers,
         placement: body.placement,
         startDate: body.startDate,
         endDate: body.endDate,
       });
 
-    // 2. Create ad creative
+    // 2. Create one shared ad creative
     const metaAdCreativeId = await this.metaAds.createAdCreative(
       metaAccessToken,
       metaAdAccountId,
@@ -237,29 +251,35 @@ export class MetaAdsController {
       },
     );
 
-    // 3. Create ad
-    const metaAdId = await this.metaAds.createMetaAd(
-      metaAccessToken,
-      metaAdAccountId,
-      {
-        name: campaign.name,
-        adSetId: metaAdSetId,
-        creativeId: metaAdCreativeId,
-      },
-    );
+    // 3. Create one ad per ad set
+    const metaAdIds: string[] = [];
+    for (const adSetId of metaAdSetIds) {
+      const adId = await this.metaAds.createMetaAd(
+        metaAccessToken,
+        metaAdAccountId,
+        {
+          name: campaign.name,
+          adSetId,
+          creativeId: metaAdCreativeId,
+        },
+      );
+      metaAdIds.push(adId);
+    }
 
     // 4. Persist all IDs + mark active
     await this.prisma.campaign.update({
       where: { id: body.campaignId },
       data: {
         metaCampaignId,
-        metaAdSetId,
+        metaAdSetId: metaAdSetIds[0],
+        metaAdId: metaAdIds[0],
+        metaAdSetIds,
+        metaAdIds,
         metaAdCreativeId,
-        metaAdId,
         metaPageId: body.pageId,
         metaIgActorId: body.instagramActorId,
         pixelId: body.pixelId,
-        audienceTier: body.audienceTier,
+        audienceTier: tiers.join(','),
         placement: body.placement,
         budget: body.budget,
         adTitle: body.adTitle,
@@ -273,7 +293,13 @@ export class MetaAdsController {
       },
     });
 
-    return { success: true, metaCampaignId, metaAdSetId, metaAdCreativeId, metaAdId };
+    return {
+      success: true,
+      metaCampaignId,
+      metaAdSetIds,
+      metaAdCreativeId,
+      metaAdIds,
+    };
   }
 
   // GET /meta-ads/status
