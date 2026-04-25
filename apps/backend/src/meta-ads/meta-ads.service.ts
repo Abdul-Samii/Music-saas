@@ -2,9 +2,10 @@ import {
   Injectable,
   BadRequestException,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import FormData from 'form-data';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
@@ -13,6 +14,8 @@ const GRAPH = 'https://graph.facebook.com/v25.0';
 
 @Injectable()
 export class MetaAdsService {
+  private readonly logger = new Logger(MetaAdsService.name);
+
   constructor(
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
@@ -256,13 +259,22 @@ export class MetaAdsService {
       if (end > start) adSetParams['end_time'] = payload.endDate;
     }
 
-    const { data: adSet } = await axios.post(
-      `${GRAPH}/act_${accountId}/adsets`,
-      null,
-      { params: adSetParams },
-    );
+    let adSet: { id: string };
+    try {
+      const res = await axios.post(
+        `${GRAPH}/act_${accountId}/adsets`,
+        null,
+        { params: adSetParams },
+      );
+      adSet = res.data as { id: string };
+    } catch (err) {
+      if (err instanceof AxiosError) {
+        this.logger.error('Meta adset error', JSON.stringify(err.response?.data));
+      }
+      throw err;
+    }
 
-    return { metaCampaignId, metaAdSetId: adSet.id as string };
+    return { metaCampaignId, metaAdSetId: adSet.id };
   }
 
   private buildTargeting(audienceTier: string, placement: string) {
