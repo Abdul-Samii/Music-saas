@@ -9,6 +9,8 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MetaAdsService } from './meta-ads.service';
@@ -157,6 +159,17 @@ export class MetaAdsController {
       );
       return { type: 'image', imageHash };
     }
+  }
+
+  // POST /meta-ads/sync-insights  { campaignId }
+  @Post('sync-insights')
+  @HttpCode(HttpStatus.OK)
+  async syncInsights(
+    @Body('campaignId') campaignId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    if (!campaignId) throw new BadRequestException('campaignId required');
+    return this.metaAds.syncInsights(user.id, campaignId);
   }
 
   // POST /meta-ads/launch-campaign
