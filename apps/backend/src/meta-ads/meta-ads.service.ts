@@ -288,10 +288,6 @@ export class MetaAdsService {
       age_min: 18,
       age_max: 50,
       geo_locations: { countries },
-      interests: [
-        { id: '6003139266461', name: 'Music' },
-        { id: '6003648230096', name: 'Spotify' },
-      ],
       publisher_platforms,
       instagram_positions,
       ...(facebook_positions.length > 0 && { facebook_positions }),
