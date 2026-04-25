@@ -277,8 +277,7 @@ export class MetaAdsService {
       placement === 'pro_plus' ? ['instagram'] : ['instagram', 'facebook'];
 
     const instagram_positions = ['story', 'reels'];
-    const facebook_positions =
-      placement === 'pro_plus' ? [] : ['story', 'reels'];
+    const facebook_positions = placement === 'pro_plus' ? [] : ['story'];
 
     return {
       age_min: 18,
