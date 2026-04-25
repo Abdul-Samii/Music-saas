@@ -459,25 +459,40 @@ export class MetaAdsService {
       objectStorySpec['instagram_actor_id'] = payload.instagramActorId;
     }
 
-    try {
+    const postCreative = async (spec: Record<string, unknown>) => {
       const { data } = await axios.post(
         `${GRAPH}/act_${accountId}/adcreatives`,
         null,
         {
           params: {
             name: payload.name,
-            object_story_spec: JSON.stringify(objectStorySpec),
+            object_story_spec: JSON.stringify(spec),
             access_token: accessToken,
           },
         },
       );
       return (data as { id: string }).id;
+    };
+
+    try {
+      return await postCreative(objectStorySpec);
     } catch (err: unknown) {
-      const e = err as { response?: { data?: unknown } };
-      console.error(
-        '[createAdCreative] error:',
-        JSON.stringify(e?.response?.data ?? err),
-      );
+      const e = err as { response?: { data?: { error?: { message?: string } } } };
+      const msg = e?.response?.data?.error?.message ?? '';
+      // If the IG actor ID is invalid, retry without it
+      if (msg.includes('instagram_actor_id') && objectStorySpec['instagram_actor_id']) {
+        this.logger.warn('instagram_actor_id rejected, retrying without it');
+        const specWithoutIg = { ...objectStorySpec };
+        delete specWithoutIg['instagram_actor_id'];
+        try {
+          return await postCreative(specWithoutIg);
+        } catch (err2: unknown) {
+          const e2 = err2 as { response?: { data?: unknown } };
+          console.error('[createAdCreative] error (retry):', JSON.stringify(e2?.response?.data ?? err2));
+          throw new InternalServerErrorException('Failed to create ad creative');
+        }
+      }
+      console.error('[createAdCreative] error:', JSON.stringify(e?.response?.data ?? err));
       throw new InternalServerErrorException('Failed to create ad creative');
     }
   }
