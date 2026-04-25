@@ -220,7 +220,7 @@ export class MetaAdsService {
       {
         params: {
           name: payload.name,
-          objective: 'OUTCOME_SALES',
+          objective: 'OUTCOME_TRAFFIC',
           status: 'PAUSED',
           special_ad_categories: '[]',
           is_adset_budget_sharing_enabled: 'false',
@@ -242,12 +242,8 @@ export class MetaAdsService {
       campaign_id: metaCampaignId,
       daily_budget: Math.round(payload.budget * 100), // cents
       billing_event: 'IMPRESSIONS',
-      optimization_goal: 'OFFSITE_CONVERSIONS',
+      optimization_goal: 'LINK_CLICKS',
       status: 'PAUSED',
-      promoted_object: JSON.stringify({
-        pixel_id: payload.pixelId,
-        custom_event_type: 'CONTENT_VIEW',
-      }),
       targeting: JSON.stringify(targeting),
       access_token: accessToken,
     };
