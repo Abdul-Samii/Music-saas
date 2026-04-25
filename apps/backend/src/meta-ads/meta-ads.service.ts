@@ -252,6 +252,11 @@ export class MetaAdsService {
       access_token: accessToken,
     };
 
+    const targetingCountries = (targeting.geo_locations as { countries: string[] }).countries;
+    if (targetingCountries.includes('SG')) {
+      adSetParams['regional_regulated_categories'] = JSON.stringify(['SINGAPORE_UNIVERSAL']);
+    }
+
     if (payload.startDate) adSetParams['start_time'] = payload.startDate;
     if (payload.endDate) {
       const start = new Date(payload.startDate ?? Date.now());
