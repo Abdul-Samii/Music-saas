@@ -9,7 +9,7 @@ import FormData from 'form-data';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 
-const GRAPH = 'https://graph.facebook.com/v21.0';
+const GRAPH = 'https://graph.facebook.com/v25.0';
 
 @Injectable()
 export class MetaAdsService {
@@ -37,7 +37,7 @@ export class MetaAdsService {
     ].join(',');
 
     return (
-      `https://www.facebook.com/v21.0/dialog/oauth` +
+      `https://www.facebook.com/v25.0/dialog/oauth` +
       `?client_id=${this.appId}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
       `&scope=${scopes}` +
@@ -246,7 +246,7 @@ export class MetaAdsService {
       status: 'PAUSED',
       promoted_object: JSON.stringify({
         pixel_id: payload.pixelId,
-        custom_event_type: 'VIEW_CONTENT',
+        custom_event_type: 'CONTENT_VIEW',
       }),
       targeting: JSON.stringify(targeting),
       access_token: accessToken,
@@ -352,7 +352,7 @@ export class MetaAdsService {
     });
     try {
       const { data } = await axios.post(
-        `https://graph-video.facebook.com/v21.0/act_${accountId}/advideos`,
+        `https://graph-video.facebook.com/v25.0/act_${accountId}/advideos`,
         fd,
         { headers: fd.getHeaders() },
       );
