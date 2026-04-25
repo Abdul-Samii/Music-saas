@@ -12,12 +12,11 @@ const NAVY = "#0B1120";
 const STEPS = ["Campaign", "Conversion", "Budget", "Audience", "Placement", "Ad Creative", "Review"];
 
 const AUDIENCE_TIERS = [
-  { value: "tier1",  label: "Tier 1",       desc: "US, UK, Canada, Australia, New Zealand" },
-  { value: "tier2",  label: "Tier 2",       desc: "Germany, France, Netherlands, Sweden, Norway + more" },
-  { value: "tier3",  label: "Tier 3",       desc: "Spain, Italy, Portugal, Poland + more" },
-  { value: "us",     label: "US Only",      desc: "United States only" },
-  { value: "top",    label: "Top Tiers",    desc: "US, UK, Canada, Australia, Germany, France + more" },
-  { value: "bottom", label: "Bottom Tiers", desc: "Brazil, Mexico, India, Philippines + more" },
+  { value: "tier1",  label: "Tier 1",       desc: "Australia, Austria, Belgium, Denmark, Finland, France, Germany, Ireland, Italy, Netherlands, New Zealand, Norway, Spain, Sweden, Switzerland, United Kingdom, United States" },
+  { value: "tier2",  label: "Tier 2",       desc: "Brazil, Bulgaria, Chile, Colombia, Costa Rica, Czech Republic, Greece, Hungary, Israel, Lebanon, Lithuania, Mexico, Panama, Paraguay, Poland, Portugal, Romania" },
+  { value: "tier3",  label: "Tier 3",       desc: "Algeria, Argentina, Azerbaijan, Bangladesh, Belarus, Dominican Republic, Iraq, Jordan, Kenya, Nigeria, Oman, Pakistan, Peru, Sri Lanka, Ukraine" },
+  { value: "top",    label: "Top Tiers",    desc: "Netherlands Antilles, Austria, Australia, Åland Islands, Belgium, Canada, Switzerland, Cyprus, Germany, Denmark, Estonia, Spain, Finland, United Kingdom, Hong Kong, Ireland, Israel, Iceland, Italy, Japan, South Korea, Luxembourg, Netherlands, Norway, New Zealand, Sweden, Singapore, United States Minor Outlying Islands, United States, US Virgin Islands" },
+  { value: "bottom", label: "Bottom Tiers", desc: "Argentina, Bolivia, Brazil, Chile, Colombia, Costa Rica, Dominican Republic, Ecuador, Equatorial Guinea, Guatemala, Honduras, Mexico, Nicaragua, Panama, Peru, Paraguay, El Salvador, Uruguay" },
 ];
 
 const PLACEMENTS = [
@@ -381,7 +380,7 @@ export default function NewCampaignPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <div>
               <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Audience Tier</h2>
-              <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>All tiers target age 18–50 with Music & Spotify interests. Select your location tier.</p>
+              <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>All tiers target age 18+ using Meta Advantage+ audience. Select your location tier.</p>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
               {AUDIENCE_TIERS.map((tier) => (

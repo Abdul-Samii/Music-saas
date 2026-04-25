@@ -287,7 +287,6 @@ export class MetaAdsService {
       tier1: ['AU', 'AT', 'BE', 'DK', 'FI', 'FR', 'DE', 'IE', 'IT', 'NL', 'NZ', 'NO', 'ES', 'SE', 'CH', 'GB', 'US'],
       tier2: ['BR', 'BG', 'CL', 'CO', 'CR', 'CZ', 'GR', 'HU', 'IL', 'LB', 'LT', 'MX', 'PA', 'PY', 'PL', 'PT', 'RO'],
       tier3: ['DZ', 'AR', 'AZ', 'BD', 'BY', 'DO', 'IQ', 'JO', 'KE', 'NG', 'OM', 'PK', 'PE', 'LK', 'UA'],
-      us: ['US'],
       top: ['AN', 'AT', 'AU', 'AX', 'BE', 'CA', 'CH', 'CY', 'DE', 'DK', 'EE', 'ES', 'FI', 'GB', 'HK', 'IE', 'IL', 'IS', 'IT', 'JP', 'KR', 'LU', 'NL', 'NO', 'NZ', 'SE', 'SG', 'UM', 'US', 'VI'],
       bottom: ['AR', 'BO', 'BR', 'CL', 'CO', 'CR', 'DO', 'EC', 'GQ', 'GT', 'HN', 'MX', 'NI', 'PA', 'PE', 'PY', 'SV', 'UY'],
     };
