@@ -193,12 +193,21 @@ export default function CampaignsPage() {
                   return (
                     <tr key={c.id}>
                       <td>
-                        <div>
-                          <p style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: "0.125rem" }}>{c.name}</p>
-                          <p style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
-                            Meta · {fmtDate(c.createdTime)} · ID: {c.id}
-                          </p>
-                        </div>
+                        {detailHref ? (
+                          <Link href={detailHref} style={{ textDecoration: "none" }}>
+                            <p style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: "0.125rem" }}>{c.name}</p>
+                            <p style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                              Meta · {fmtDate(c.createdTime)}
+                            </p>
+                          </Link>
+                        ) : (
+                          <div>
+                            <p style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: "0.125rem" }}>{c.name}</p>
+                            <p style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                              Meta · {fmtDate(c.createdTime)}
+                            </p>
+                          </div>
+                        )}
                       </td>
                       <td style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
                         {c.adSets.length > 0 ? `${c.adSets.length} ad set${c.adSets.length > 1 ? "s" : ""}` : "—"}
