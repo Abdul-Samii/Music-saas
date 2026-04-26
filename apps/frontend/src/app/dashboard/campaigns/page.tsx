@@ -1,6 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { campaignsApi } from "@/lib/api";
 
 interface AdSet {
@@ -30,10 +31,120 @@ const TABS: { key: FilterStatus; label: string }[] = [
   { key: "other",  label: "Other"  },
 ];
 
-
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" });
 }
+
+function KebabMenu({ campaign, onStatusChange }: { campaign: Campaign; onStatusChange: (id: string, status: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  async function handlePause() {
+    if (!campaign.localId) return;
+    setLoading(true);
+    setOpen(false);
+    try {
+      await campaignsApi.pause(campaign.localId);
+      onStatusChange(campaign.id, "PAUSED");
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResume() {
+    if (!campaign.localId) return;
+    setLoading(true);
+    setOpen(false);
+    try {
+      await campaignsApi.resume(campaign.localId);
+      onStatusChange(campaign.id, "ACTIVE");
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const detailHref = campaign.localId ? `/dashboard/campaigns/${campaign.localId}` : null;
+
+  return (
+    <div ref={ref} style={{ position: "relative", display: "inline-flex" }}>
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        disabled={loading}
+        style={{
+          background: open ? "var(--bg-elevated)" : "none",
+          border: "none", cursor: "pointer",
+          color: "var(--text-muted)", padding: "0.375rem",
+          borderRadius: 6, display: "inline-flex", alignItems: "center",
+          transition: "background 0.15s",
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div style={{
+          position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 50,
+          background: "var(--bg-card)", border: "1px solid var(--border)",
+          borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+          minWidth: 170, overflow: "hidden",
+        }}>
+          {detailHref && (
+            <button
+              onClick={() => { setOpen(false); router.push(detailHref); }}
+              style={menuItemStyle}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+              View Details
+            </button>
+          )}
+          {campaign.status === "ACTIVE" && campaign.localId && (
+            <button onClick={handlePause} style={{ ...menuItemStyle, color: "#F59E0B" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+              </svg>
+              Pause Campaign
+            </button>
+          )}
+          {campaign.status === "PAUSED" && campaign.localId && (
+            <button onClick={handleResume} style={{ ...menuItemStyle, color: "#12B76A" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              Resume Campaign
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const menuItemStyle: React.CSSProperties = {
+  display: "flex", alignItems: "center", gap: "0.625rem",
+  width: "100%", padding: "0.625rem 0.875rem",
+  background: "none", border: "none", cursor: "pointer",
+  fontSize: "0.8125rem", fontWeight: 500, color: "var(--text-primary)",
+  textAlign: "left", transition: "background 0.1s",
+};
 
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -47,6 +158,10 @@ export default function CampaignsPage() {
       .catch(() => setCampaigns([]))
       .finally(() => setLoading(false));
   }, []);
+
+  function handleStatusChange(metaId: string, newStatus: string) {
+    setCampaigns((prev) => prev.map((c) => c.id === metaId ? { ...c, status: newStatus } : c));
+  }
 
   const statusKey = (s: string): FilterStatus =>
     s === "ACTIVE" ? "active" : s === "PAUSED" ? "paused" : "other";
@@ -63,7 +178,6 @@ export default function CampaignsPage() {
     paused: campaigns.filter(c => c.status === "PAUSED").length,
     other: campaigns.filter(c => c.status !== "ACTIVE" && c.status !== "PAUSED").length,
   };
-
 
   return (
     <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
@@ -218,14 +332,8 @@ export default function CampaignsPage() {
                           {c.status.toLowerCase().replace(/_/g, " ")}
                         </span>
                       </td>
-                      <td>
-                        {detailHref && (
-                          <Link href={detailHref} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "0.25rem", borderRadius: 6, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
-                            </svg>
-                          </Link>
-                        )}
+                      <td style={{ textAlign: "right" }}>
+                        <KebabMenu campaign={c} onStatusChange={handleStatusChange} />
                       </td>
                     </tr>
                   );
@@ -235,6 +343,13 @@ export default function CampaignsPage() {
           </div>
         )}
       </div>
+
+      <style jsx global>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
     </div>
   );
 }
