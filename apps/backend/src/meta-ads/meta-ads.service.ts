@@ -443,6 +443,23 @@ export class MetaAdsService {
       value: { link: payload.landingPageUrl },
     };
 
+    // Fetch auto-generated thumbnail for video ads (Meta requires one)
+    let videoThumbnailUrl: string | undefined;
+    if (payload.videoId) {
+      try {
+        const thumbRes = await axios.get<{
+          data: { uri: string; is_preferred?: boolean }[];
+        }>(`${GRAPH}/${payload.videoId}/thumbnails`, {
+          params: { access_token: accessToken },
+        });
+        const thumbs = thumbRes.data.data;
+        videoThumbnailUrl =
+          thumbs?.find((t) => t.is_preferred)?.uri ?? thumbs?.[0]?.uri;
+      } catch {
+        // proceed without thumbnail — Meta may still accept it
+      }
+    }
+
     const mediaSpec = payload.videoId
       ? {
           video_data: {
@@ -450,6 +467,7 @@ export class MetaAdsService {
             title: payload.adTitle,
             message: payload.adDescription ?? '',
             call_to_action: callToAction,
+            ...(videoThumbnailUrl && { image_url: videoThumbnailUrl }),
           },
         }
       : {
