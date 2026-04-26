@@ -51,10 +51,14 @@ export default function CampaignsPage() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    campaignsApi.list()
-      .then((data) => setCampaigns(Array.isArray(data) ? data : []))
-      .catch(() => setCampaigns([]))
-      .finally(() => setLoading(false));
+    campaignsApi.syncStatuses()
+      .catch(() => {})
+      .finally(() => {
+        campaignsApi.list()
+          .then((data) => setCampaigns(Array.isArray(data) ? data : []))
+          .catch(() => setCampaigns([]))
+          .finally(() => setLoading(false));
+      });
   }, []);
 
   const statusLower = (s: CampaignStatus): FilterStatus =>
