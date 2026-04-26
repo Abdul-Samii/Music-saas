@@ -164,6 +164,12 @@ export class MetaAdsController {
     }
   }
 
+  // GET /meta-ads/live-campaigns
+  @Get('live-campaigns')
+  liveCampaigns(@CurrentUser() user: JwtUser) {
+    return this.metaAds.getLiveCampaigns(user.id);
+  }
+
   // POST /meta-ads/sync-statuses
   @Post('sync-statuses')
   @HttpCode(HttpStatus.OK)
@@ -226,7 +232,8 @@ export class MetaAdsController {
         : ['tier1'];
 
     const tierBudgets =
-      Array.isArray(body.tierBudgets) && body.tierBudgets.length === tiers.length
+      Array.isArray(body.tierBudgets) &&
+      body.tierBudgets.length === tiers.length
         ? body.tierBudgets
         : tiers.map(() => body.budget ?? 5);
 

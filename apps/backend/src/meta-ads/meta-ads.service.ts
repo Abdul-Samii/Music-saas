@@ -572,6 +572,104 @@ export class MetaAdsService implements OnModuleInit {
     }
   }
 
+  // ── Fetch live campaigns directly from Meta (no DB) ───────────────────────
+  async getLiveCampaigns(userId: string): Promise<
+    {
+      id: string;
+      localId: string | null;
+      name: string;
+      status: string;
+      dailyBudget: number;
+      startTime: string | null;
+      stopTime: string | null;
+      createdTime: string;
+      adSets: {
+        id: string;
+        name: string;
+        status: string;
+        dailyBudget: number;
+      }[];
+    }[]
+  > {
+    const rows = await this.prisma.$queryRaw<
+      { metaAccessToken: string | null; metaAdAccountId: string | null }[]
+    >`SELECT "metaAccessToken", "metaAdAccountId" FROM "User" WHERE id = ${userId} LIMIT 1`;
+    const { metaAccessToken, metaAdAccountId } = rows[0] ?? {};
+    if (!metaAccessToken || !metaAdAccountId) return [];
+
+    const accountId = metaAdAccountId.replace('act_', '');
+    try {
+      const { data } = await axios.get<{
+        data: {
+          id: string;
+          name: string;
+          effective_status: string;
+          daily_budget?: string;
+          created_time: string;
+          start_time?: string;
+          stop_time?: string;
+          adsets?: {
+            data: {
+              id: string;
+              name: string;
+              effective_status: string;
+              daily_budget?: string;
+            }[];
+          };
+        }[];
+      }>(`${GRAPH}/act_${accountId}/campaigns`, {
+        params: {
+          fields:
+            'id,name,effective_status,daily_budget,created_time,start_time,stop_time,adsets{id,name,effective_status,daily_budget}',
+          access_token: metaAccessToken,
+        },
+      });
+
+      const localCampaigns = await this.prisma.campaign.findMany({
+        where: { userId, metaCampaignId: { not: null } },
+        select: { id: true, metaCampaignId: true },
+      });
+      const localMap = new Map(
+        localCampaigns.map((lc) => [lc.metaCampaignId, lc.id]),
+      );
+
+      return (data.data ?? [])
+        .filter(
+          (c) =>
+            c.effective_status !== 'DELETED' &&
+            c.effective_status !== 'ARCHIVED',
+        )
+        .map((c) => ({
+          id: c.id,
+          localId: localMap.get(c.id) ?? null,
+          name: c.name,
+          status: c.effective_status,
+          dailyBudget: c.daily_budget
+            ? Math.round(Number(c.daily_budget)) / 100
+            : 0,
+          startTime: c.start_time ?? null,
+          stopTime: c.stop_time ?? null,
+          createdTime: c.created_time,
+          adSets: (c.adsets?.data ?? []).map((a) => ({
+            id: a.id,
+            name: a.name,
+            status: a.effective_status,
+            dailyBudget: a.daily_budget
+              ? Math.round(Number(a.daily_budget)) / 100
+              : 0,
+          })),
+        }));
+    } catch (err) {
+      if (err instanceof AxiosError) {
+        this.logger.error(
+          'getLiveCampaigns error',
+          JSON.stringify(err.response?.data),
+        );
+      }
+      return [];
+    }
+  }
+
   // ── Sync campaign statuses from Meta → local DB ───────────────────────────
   async syncCampaignStatuses(userId: string): Promise<{ updated: number }> {
     const userRows = await this.prisma.$queryRaw<
