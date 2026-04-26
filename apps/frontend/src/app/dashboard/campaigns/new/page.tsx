@@ -541,7 +541,7 @@ export default function NewCampaignPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <div>
               <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Ad Creative</h2>
-              <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>Upload your video or image and set the ad copy. All fields except description are required.</p>
+              <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>Upload your video and set the ad copy. All fields except description are required.</p>
             </div>
 
             {/* Facebook Page */}
@@ -577,8 +577,8 @@ export default function NewCampaignPage() {
               </select>
             </Field>
 
-            {/* Video / Image Upload */}
-            <Field label="Ad Video or Image">
+            {/* Video Upload */}
+            <Field label="Ad Video">
               <div style={{ border: "1.5px dashed #C7D7FD", borderRadius: 12, padding: "1.25rem", background: "#F8FAFF", display: "flex", flexDirection: "column", gap: "0.75rem", alignItems: "center" }}>
                 {uploadResult ? (
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}>
@@ -587,9 +587,7 @@ export default function NewCampaignPage() {
                         <polyline points="20 6 9 17 4 12"/>
                       </svg>
                     </div>
-                    <p style={{ fontSize: "0.875rem", fontWeight: 700, color: "#166534" }}>
-                      {uploadResult.type === "video" ? "Video uploaded" : "Image uploaded"}
-                    </p>
+                    <p style={{ fontSize: "0.875rem", fontWeight: 700, color: "#166534" }}>Video uploaded</p>
                     <p style={{ fontSize: "0.75rem", color: "#64748b" }}>{adFile?.name}</p>
                     <button
                       onClick={() => { setUploadResult(null); setAdFile(null); if (fileRef.current) fileRef.current.value = ""; }}
@@ -600,16 +598,15 @@ export default function NewCampaignPage() {
                 ) : (
                   <>
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
-                      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                      <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/>
                     </svg>
                     <p style={{ fontSize: "0.8125rem", color: "#64748b", textAlign: "center" }}>
-                      Drop a video or image here, or{" "}
+                      Drop a video here, or{" "}
                       <button onClick={() => fileRef.current?.click()} style={{ color: BLUE, background: "none", border: "none", cursor: "pointer", fontWeight: 600, fontSize: "0.8125rem", padding: 0 }}>
                         browse
                       </button>
                     </p>
-                    <p style={{ fontSize: "0.72rem", color: "#94a3b8" }}>MP4, MOV, JPG, PNG · max 100 MB</p>
+                    <p style={{ fontSize: "0.72rem", color: "#94a3b8" }}>MP4, MOV · max 100 MB</p>
                     {adFile && !uploadResult && (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem", width: "100%" }}>
                         <p style={{ fontSize: "0.8rem", color: NAVY, fontWeight: 600 }}>{adFile.name}</p>
@@ -631,7 +628,7 @@ export default function NewCampaignPage() {
                   </>
                 )}
                 <input
-                  ref={fileRef} type="file" accept="video/mp4,video/quicktime,image/jpeg,image/png,image/webp"
+                  ref={fileRef} type="file" accept="video/mp4,video/quicktime"
                   style={{ display: "none" }}
                   onChange={(e) => {
                     const f = e.target.files?.[0] ?? null;
@@ -705,7 +702,7 @@ export default function NewCampaignPage() {
               { label: "Placement",         value: PLACEMENTS.find((p) => p.value === form.placement)?.label ?? "" },
               { label: "Facebook Page",     value: pages.find((p) => p.id === form.facebookPageId)?.name ?? form.facebookPageId },
               { label: "Instagram Account", value: igAccounts.find((ig) => ig.id === form.instagramActorId)?.username ? `@${igAccounts.find((ig) => ig.id === form.instagramActorId)!.username}` : "None" },
-              { label: "Ad Asset",          value: uploadResult ? (uploadResult.type === "video" ? `Video — ${adFile?.name}` : `Image — ${adFile?.name}`) : "None" },
+              { label: "Ad Video",           value: uploadResult ? `Video — ${adFile?.name}` : "None" },
               { label: "Ad Title",          value: form.adTitle },
               { label: "Description",       value: form.adDescription || "—" },
               { label: "Landing Page",      value: form.landingPageUrl },
