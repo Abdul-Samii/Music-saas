@@ -460,20 +460,34 @@ export class MetaAdsService implements OnModuleInit {
       value: { link: payload.landingPageUrl },
     };
 
-    // Fetch auto-generated thumbnail for video ads (Meta requires one)
+    // Fetch auto-generated thumbnail — Meta needs time to process the video,
+    // so retry up to 6 times (up to ~30s) until at least one thumbnail appears.
     let videoThumbnailUrl: string | undefined;
     if (payload.videoId) {
-      try {
-        const thumbRes = await axios.get<{
-          data: { uri: string; is_preferred?: boolean }[];
-        }>(`${GRAPH}/${payload.videoId}/thumbnails`, {
-          params: { access_token: accessToken },
-        });
-        const thumbs = thumbRes.data.data;
-        videoThumbnailUrl =
-          thumbs?.find((t) => t.is_preferred)?.uri ?? thumbs?.[0]?.uri;
-      } catch {
-        // proceed without thumbnail — Meta may still accept it
+      for (let attempt = 0; attempt < 6; attempt++) {
+        try {
+          const thumbRes = await axios.get<{
+            data: { uri: string; is_preferred?: boolean }[];
+          }>(`${GRAPH}/${payload.videoId}/thumbnails`, {
+            params: { access_token: accessToken },
+          });
+          const thumbs = thumbRes.data.data;
+          if (thumbs && thumbs.length > 0) {
+            videoThumbnailUrl =
+              thumbs.find((t) => t.is_preferred)?.uri ?? thumbs[0].uri;
+            break;
+          }
+        } catch {
+          // network error — try again
+        }
+        if (attempt < 5) {
+          await new Promise((r) => setTimeout(r, 5000));
+        }
+      }
+      if (!videoThumbnailUrl) {
+        this.logger.warn(
+          `[createAdCreative] No thumbnail available for video ${payload.videoId} after retries`,
+        );
       }
     }
 
