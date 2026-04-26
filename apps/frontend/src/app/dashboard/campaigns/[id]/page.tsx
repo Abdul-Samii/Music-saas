@@ -7,6 +7,15 @@ import {
   ResponsiveContainer, CartesianGrid, BarChart, Bar,
 } from "recharts";
 import { campaignsApi } from "@/lib/api";
+import api from "@/lib/api";
+
+const AUDIENCE_TIERS = [
+  { value: "tier1",  label: "Tier 1"       },
+  { value: "tier2",  label: "Tier 2"       },
+  { value: "tier3",  label: "Tier 3"       },
+  { value: "top",    label: "Top Tiers"    },
+  { value: "bottom", label: "Bottom Tiers" },
+];
 
 type SyncState = "idle" | "syncing" | "done" | "error";
 
@@ -67,6 +76,11 @@ export default function CampaignDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [syncState, setSyncState] = useState<SyncState>("idle");
   const [activeChart, setActiveChart] = useState<"streams" | "spend">("streams");
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addTier, setAddTier] = useState("tier1");
+  const [addBudget, setAddBudget] = useState("5");
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -102,6 +116,26 @@ export default function CampaignDetailPage() {
       // silent
     } finally {
       setActionLoading(false);
+    }
+  }
+
+  async function handleAddAdSet() {
+    if (!campaign || Number(addBudget) < 5) return;
+    setAddLoading(true);
+    setAddError("");
+    try {
+      await api.post("/meta-ads/add-adset", {
+        campaignId: campaign.id,
+        audienceTier: addTier,
+        budget: Number(addBudget),
+      });
+      setShowAddModal(false);
+      setAddTier("tier1");
+      setAddBudget("5");
+    } catch {
+      setAddError("Failed to add ad set. Please try again.");
+    } finally {
+      setAddLoading(false);
     }
   }
 
@@ -194,16 +228,28 @@ export default function CampaignDetailPage() {
                 {syncState === "syncing" ? "Syncing…" : syncState === "done" ? "Synced ✓" : "Sync Insights"}
               </button>
             )}
+            {campaign.metaCampaignId && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="btn btn-secondary btn-sm"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Add New Ads
+              </button>
+            )}
             {campaign.status === "ACTIVE" && (
               <button
                 onClick={handlePause}
                 disabled={actionLoading}
                 className="btn btn-secondary btn-sm"
+                style={{ color: "#F59E0B", borderColor: "rgba(245,158,11,0.3)" }}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
                 </svg>
-                {actionLoading ? "Pausing…" : "Pause"}
+                {actionLoading ? "Pausing…" : "Pause Campaign"}
               </button>
             )}
             {campaign.status === "PAUSED" && (
@@ -216,16 +262,8 @@ export default function CampaignDetailPage() {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="5 3 19 12 5 21 5 3"/>
                 </svg>
-                {actionLoading ? "Resuming…" : "Resume"}
+                {actionLoading ? "Resuming…" : "Resume Campaign"}
               </button>
-            )}
-            {campaign.status === "DRAFT" && campaign.metaCampaignId === null && (
-              <Link href="/dashboard/campaigns/new" className="btn btn-primary btn-sm">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="5 3 19 12 5 21 5 3"/>
-                </svg>
-                Launch Campaign
-              </Link>
             )}
           </div>
         </div>
@@ -391,6 +429,97 @@ export default function CampaignDetailPage() {
                 <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "var(--text-primary)" }}>{r.value}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Add New Ads Modal ── */}
+      {showAddModal && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
+          }}
+        >
+          <div style={{
+            background: "var(--bg-card)", borderRadius: 20, padding: "2rem", border: "1px solid var(--border)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.4)", width: "100%", maxWidth: 420,
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+              <h2 style={{ fontWeight: 700, fontSize: "1.125rem", color: "var(--text-primary)" }}>Add New Ad Set</h2>
+              <button
+                onClick={() => setShowAddModal(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "0.25rem", borderRadius: 6, display: "flex" }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+              <div>
+                <label style={{ fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", display: "block", marginBottom: "0.5rem" }}>
+                  Audience Tier
+                </label>
+                <select
+                  value={addTier}
+                  onChange={(e) => setAddTier(e.target.value)}
+                  className="dash-search"
+                  style={{ width: "100%", paddingLeft: "0.875rem" }}
+                >
+                  {AUDIENCE_TIERS.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", display: "block", marginBottom: "0.5rem" }}>
+                  Daily Budget (min $5)
+                </label>
+                <div style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: "0.875rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", fontSize: "0.875rem", fontWeight: 600 }}>$</span>
+                  <input
+                    type="number"
+                    min={5}
+                    step={1}
+                    value={addBudget}
+                    onChange={(e) => setAddBudget(e.target.value)}
+                    className="dash-search"
+                    style={{ width: "100%", paddingLeft: "1.75rem" }}
+                  />
+                </div>
+                {Number(addBudget) < 5 && (
+                  <p style={{ fontSize: "0.75rem", color: "#F43F5E", marginTop: "0.375rem" }}>Minimum $5/day required</p>
+                )}
+              </div>
+
+              {addError && (
+                <p style={{ fontSize: "0.8rem", color: "#F43F5E", padding: "0.625rem 0.875rem", background: "rgba(244,63,94,0.08)", borderRadius: 8, border: "1px solid rgba(244,63,94,0.2)" }}>
+                  {addError}
+                </p>
+              )}
+
+              <div style={{ display: "flex", gap: "0.625rem", marginTop: "0.25rem" }}>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddAdSet}
+                  disabled={addLoading || Number(addBudget) < 5}
+                  className="btn btn-primary"
+                  style={{ flex: 1 }}
+                >
+                  {addLoading ? "Adding…" : "Add Ad Set"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -164,6 +164,48 @@ export class MetaAdsController {
     }
   }
 
+  // POST /meta-ads/add-adset  { campaignId, audienceTier, budget }
+  @Post('add-adset')
+  async addAdSet(
+    @Body() body: { campaignId: string; audienceTier: string; budget: number },
+    @CurrentUser() user: JwtUser,
+  ) {
+    const rows = await this.prisma.$queryRaw<
+      { metaAccessToken: string | null; metaAdAccountId: string | null }[]
+    >`SELECT "metaAccessToken", "metaAdAccountId" FROM "User" WHERE id = ${user.id} LIMIT 1`;
+    const { metaAccessToken, metaAdAccountId } = rows[0] ?? {};
+    if (!metaAccessToken || !metaAdAccountId)
+      throw new BadRequestException('Meta account not connected');
+
+    const campaign = await this.prisma.campaign.findFirst({
+      where: { id: body.campaignId, userId: user.id },
+    });
+    if (!campaign || !campaign.metaCampaignId)
+      throw new BadRequestException('Campaign not found or not launched');
+
+    const { adSetId, adId } = await this.metaAds.addAdSetToCampaign(
+      metaAccessToken,
+      metaAdAccountId,
+      {
+        metaCampaignId: campaign.metaCampaignId,
+        metaAdCreativeId: campaign.metaAdCreativeId!,
+        name: campaign.name,
+        audienceTier: body.audienceTier,
+        placement: campaign.placement ?? 'pro',
+        budget: body.budget,
+      },
+    );
+
+    await this.prisma.$executeRaw`
+      UPDATE "Campaign"
+      SET "metaAdSetIds" = array_append("metaAdSetIds", ${adSetId}),
+          "metaAdIds"    = array_append("metaAdIds", ${adId})
+      WHERE id = ${body.campaignId}
+    `;
+
+    return { success: true, adSetId, adId };
+  }
+
   // GET /meta-ads/live-campaigns
   @Get('live-campaigns')
   liveCampaigns(@CurrentUser() user: JwtUser) {
