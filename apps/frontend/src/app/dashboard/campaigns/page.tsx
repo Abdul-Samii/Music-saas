@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { campaignsApi } from "@/lib/api";
@@ -38,12 +39,12 @@ function fmtDate(iso: string) {
 function DeleteConfirmModal({ name, onConfirm, onCancel, loading }: {
   name: string; onConfirm: () => void; onCancel: () => void; loading: boolean;
 }) {
-  return (
+  return createPortal(
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
       style={{
         position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
-        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem",
+        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem",
       }}
     >
       <div style={{
@@ -73,7 +74,8 @@ function DeleteConfirmModal({ name, onConfirm, onCancel, loading }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

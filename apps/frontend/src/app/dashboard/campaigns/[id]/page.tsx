@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import {
@@ -485,12 +486,12 @@ export default function CampaignDetailPage() {
       )}
 
       {/* ── Delete Confirmation Modal ── */}
-      {showDeleteConfirm && (
+      {showDeleteConfirm && createPortal(
         <div
           onClick={(e) => { if (e.target === e.currentTarget) setShowDeleteConfirm(false); }}
           style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
-            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem",
           }}
         >
           <div style={{
@@ -519,16 +520,17 @@ export default function CampaignDetailPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Add New Ads Modal ── */}
-      {showAddModal && (
+      {showAddModal && createPortal(
         <div
           onClick={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}
           style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
-            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem",
           }}
         >
           <div style={{
@@ -695,7 +697,8 @@ export default function CampaignDetailPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <style jsx global>{`
