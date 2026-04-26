@@ -572,6 +572,71 @@ export class MetaAdsService implements OnModuleInit {
     }
   }
 
+  // ── Add a new ad set to an existing Meta campaign ─────────────────────────
+  async addAdSetToCampaign(
+    accessToken: string,
+    adAccountId: string,
+    payload: {
+      metaCampaignId: string;
+      metaAdCreativeId: string;
+      name: string;
+      audienceTier: string;
+      placement: string;
+      budget: number;
+    },
+  ): Promise<{ adSetId: string; adId: string }> {
+    const accountId = adAccountId.replace('act_', '');
+    const targeting = this.buildTargeting(
+      payload.audienceTier,
+      payload.placement,
+    );
+
+    const adSetParams: Record<string, unknown> = {
+      name: `${payload.name} — ${payload.audienceTier}`,
+      campaign_id: payload.metaCampaignId,
+      daily_budget: Math.round(payload.budget * 100),
+      billing_event: 'IMPRESSIONS',
+      optimization_goal: 'LINK_CLICKS',
+      bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+      status: 'ACTIVE',
+      targeting: JSON.stringify(targeting),
+      access_token: accessToken,
+    };
+
+    const targetingCountries = (
+      targeting.geo_locations as { countries: string[] }
+    ).countries;
+    if (targetingCountries.includes('SG')) {
+      adSetParams['regional_regulated_categories'] = JSON.stringify([
+        'SINGAPORE_UNIVERSAL',
+      ]);
+    }
+
+    let adSet: { id: string };
+    try {
+      const res = await axios.post(`${GRAPH}/act_${accountId}/adsets`, null, {
+        params: adSetParams,
+      });
+      adSet = res.data as { id: string };
+    } catch (err) {
+      if (err instanceof AxiosError) {
+        this.logger.error(
+          `addAdSetToCampaign adset error`,
+          JSON.stringify(err.response?.data),
+        );
+      }
+      throw err;
+    }
+
+    const adId = await this.createMetaAd(accessToken, adAccountId, {
+      name: `${payload.name} — ${payload.audienceTier}`,
+      adSetId: adSet.id,
+      creativeId: payload.metaAdCreativeId,
+    });
+
+    return { adSetId: adSet.id, adId };
+  }
+
   // ── Fetch live campaigns directly from Meta (no DB) ───────────────────────
   async getLiveCampaigns(userId: string): Promise<
     {
