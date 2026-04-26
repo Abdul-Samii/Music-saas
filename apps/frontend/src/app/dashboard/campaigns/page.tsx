@@ -3,42 +3,33 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { campaignsApi } from "@/lib/api";
 
-type CampaignStatus = "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED";
+interface AdSet {
+  id: string;
+  name: string;
+  status: string;
+  dailyBudget: number;
+}
 
 interface Campaign {
   id: string;
+  localId: string | null;
   name: string;
-  status: CampaignStatus;
-  budget: number;
-  startDate: string | null;
-  endDate: string | null;
-  createdAt: string;
-  audienceTier: string | null;
-  placement: string | null;
-  metaCampaignId: string | null;
-  metrics: { spend: number; impressions: number; clicks: number; streamsAfter?: number; streamsBefore?: number; costPerStream?: number }[];
+  status: string;
+  dailyBudget: number;
+  startTime: string | null;
+  stopTime: string | null;
+  createdTime: string;
+  adSets: AdSet[];
 }
 
-type FilterStatus = "all" | "active" | "paused" | "completed" | "draft";
+type FilterStatus = "all" | "active" | "paused" | "other";
 const TABS: { key: FilterStatus; label: string }[] = [
-  { key: "all",       label: "All"       },
-  { key: "active",    label: "Active"    },
-  { key: "paused",    label: "Paused"    },
-  { key: "completed", label: "Completed" },
-  { key: "draft",     label: "Draft"     },
+  { key: "all",    label: "All"    },
+  { key: "active", label: "Active" },
+  { key: "paused", label: "Paused" },
+  { key: "other",  label: "Other"  },
 ];
 
-function ProgressBar({ spent, budget }: { spent: number; budget: number }) {
-  const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 100 }}>
-      <div className="progress-bar" style={{ flex: 1, height: 5 }}>
-        <div className="progress-fill" style={{ width: `${pct}%` }} />
-      </div>
-      <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", whiteSpace: "nowrap" }}>{pct.toFixed(0)}%</span>
-    </div>
-  );
-}
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" });
@@ -51,21 +42,17 @@ export default function CampaignsPage() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    campaignsApi.syncStatuses()
-      .catch(() => {})
-      .finally(() => {
-        campaignsApi.list()
-          .then((data) => setCampaigns(Array.isArray(data) ? data : []))
-          .catch(() => setCampaigns([]))
-          .finally(() => setLoading(false));
-      });
+    campaignsApi.liveCampaigns()
+      .then((data) => setCampaigns(Array.isArray(data) ? data : []))
+      .catch(() => setCampaigns([]))
+      .finally(() => setLoading(false));
   }, []);
 
-  const statusLower = (s: CampaignStatus): FilterStatus =>
-    s.toLowerCase() as FilterStatus;
+  const statusKey = (s: string): FilterStatus =>
+    s === "ACTIVE" ? "active" : s === "PAUSED" ? "paused" : "other";
 
   const filtered = campaigns.filter((c) => {
-    const matchTab = activeTab === "all" || statusLower(c.status) === activeTab;
+    const matchTab = activeTab === "all" || statusKey(c.status) === activeTab;
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase());
     return matchTab && matchSearch;
   });
@@ -74,15 +61,9 @@ export default function CampaignsPage() {
     all: campaigns.length,
     active: campaigns.filter(c => c.status === "ACTIVE").length,
     paused: campaigns.filter(c => c.status === "PAUSED").length,
-    completed: campaigns.filter(c => c.status === "COMPLETED").length,
-    draft: campaigns.filter(c => c.status === "DRAFT").length,
+    other: campaigns.filter(c => c.status !== "ACTIVE" && c.status !== "PAUSED").length,
   };
 
-  const totalStreams = campaigns.reduce((sum, c) => {
-    const s = (c.metrics ?? []).reduce((ms, m) => ms + ((m.streamsAfter ?? 0) - (m.streamsBefore ?? 0)), 0);
-    return sum + s;
-  }, 0);
-  const totalSpend = campaigns.reduce((sum, c) => sum + (c.metrics ?? []).reduce((ms, m) => ms + m.spend, 0), 0);
 
   return (
     <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
@@ -106,10 +87,10 @@ export default function CampaignsPage() {
       {/* Summary stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }} className="dash-metrics-grid">
         {[
-          { label: "Total Campaigns", value: loading ? "—" : campaigns.length,            color: "#3A60E7" },
-          { label: "Active Now",      value: loading ? "—" : counts.active,               color: "#12B76A" },
-          { label: "Total Streams",   value: loading ? "—" : totalStreams > 0 ? `${(totalStreams / 1000).toFixed(0)}k` : "—", color: "#1DB954" },
-          { label: "Total Ad Spend",  value: loading ? "—" : totalSpend > 0 ? `€${totalSpend.toFixed(0)}` : "—", color: "#4C1AEA" },
+          { label: "Total Campaigns",    value: loading ? "—" : campaigns.length,  color: "#3A60E7" },
+          { label: "Active Now",         value: loading ? "—" : counts.active,    color: "#12B76A" },
+          { label: "Paused",             value: loading ? "—" : counts.paused,    color: "#F59E0B" },
+          { label: "Total Daily Budget", value: loading ? "—" : campaigns.reduce((s, c) => s + c.dailyBudget, 0) > 0 ? `$${campaigns.reduce((s, c) => s + c.dailyBudget, 0).toFixed(2)}/day` : "—", color: "#4C1AEA" },
         ].map((s) => (
           <div key={s.label} className="card-stat" style={{ padding: "1.25rem" }}>
             <p style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-muted)", marginBottom: "0.5rem" }}>{s.label}</p>
@@ -197,47 +178,45 @@ export default function CampaignsPage() {
               <thead>
                 <tr>
                   <th>Campaign</th>
-                  <th>Budget</th>
-                  <th>Spend</th>
-                  <th>Budget used</th>
-                  <th>Streams</th>
+                  <th>Ad Sets</th>
+                  <th>Daily Budget</th>
                   <th>Status</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((c) => {
-                  const spent = (c.metrics ?? []).reduce((s, m) => s + m.spend, 0);
-                  const streams = (c.metrics ?? []).reduce((s, m) => s + ((m.streamsAfter ?? 0) - (m.streamsBefore ?? 0)), 0);
+                  const totalBudget = c.adSets.length > 0
+                    ? c.adSets.reduce((s, a) => s + a.dailyBudget, 0)
+                    : c.dailyBudget;
+                  const detailHref = c.localId ? `/dashboard/campaigns/${c.localId}` : null;
                   return (
                     <tr key={c.id}>
                       <td>
-                        <Link href={`/dashboard/campaigns/${c.id}`} style={{ textDecoration: "none" }}>
+                        <div>
                           <p style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: "0.125rem" }}>{c.name}</p>
                           <p style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
-                            Meta · {fmtDate(c.createdAt)}
-                            {c.metaCampaignId && <span style={{ marginLeft: "0.375rem", color: "#12B76A" }}>● live</span>}
+                            Meta · {fmtDate(c.createdTime)} · ID: {c.id}
                           </p>
-                        </Link>
+                        </div>
                       </td>
-                      <td style={{ fontWeight: 600 }}>€{c.budget.toLocaleString()}</td>
-                      <td>{spent > 0 ? `€${spent.toFixed(0)}` : "—"}</td>
-                      <td><ProgressBar spent={spent} budget={c.budget} /></td>
-                      <td>{streams > 0 ? streams.toLocaleString() : "—"}</td>
+                      <td style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                        {c.adSets.length > 0 ? `${c.adSets.length} ad set${c.adSets.length > 1 ? "s" : ""}` : "—"}
+                      </td>
+                      <td style={{ fontWeight: 600 }}>${totalBudget.toFixed(2)}/day</td>
                       <td>
-                        <span className={`badge badge-${statusLower(c.status)}`}>
-                          {c.status.toLowerCase()}
+                        <span className={`badge badge-${statusKey(c.status)}`}>
+                          {c.status.toLowerCase().replace(/_/g, " ")}
                         </span>
                       </td>
                       <td>
-                        <Link
-                          href={`/dashboard/campaigns/${c.id}`}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "0.25rem", borderRadius: 6, display: "inline-flex", alignItems: "center", textDecoration: "none" }}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
-                          </svg>
-                        </Link>
+                        {detailHref && (
+                          <Link href={detailHref} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "0.25rem", borderRadius: 6, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+                            </svg>
+                          </Link>
+                        )}
                       </td>
                     </tr>
                   );
