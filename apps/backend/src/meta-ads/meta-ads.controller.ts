@@ -164,10 +164,19 @@ export class MetaAdsController {
     }
   }
 
-  // POST /meta-ads/add-adset  { campaignId, audienceTier, budget }
+  // POST /meta-ads/add-adset  { campaignId, audienceTier, budget, videoId?, adTitle?, adDescription?, landingPageUrl? }
   @Post('add-adset')
   async addAdSet(
-    @Body() body: { campaignId: string; audienceTier: string; budget: number },
+    @Body()
+    body: {
+      campaignId: string;
+      audienceTier: string;
+      budget: number;
+      videoId?: string;
+      adTitle?: string;
+      adDescription?: string;
+      landingPageUrl?: string;
+    },
     @CurrentUser() user: JwtUser,
   ) {
     const rows = await this.prisma.$queryRaw<
@@ -183,12 +192,32 @@ export class MetaAdsController {
     if (!campaign || !campaign.metaCampaignId)
       throw new BadRequestException('Campaign not found or not launched');
 
+    // If new creative fields provided, create a fresh creative; otherwise reuse existing
+    let creativeId = campaign.metaAdCreativeId!;
+    if (body.videoId && body.adTitle && body.landingPageUrl) {
+      if (!campaign.metaPageId)
+        throw new BadRequestException('Campaign has no Facebook Page linked');
+      creativeId = await this.metaAds.createAdCreative(
+        metaAccessToken,
+        metaAdAccountId,
+        {
+          name: `${campaign.name} — Creative`,
+          pageId: campaign.metaPageId,
+          instagramActorId: campaign.metaIgActorId ?? undefined,
+          videoId: body.videoId,
+          adTitle: body.adTitle,
+          adDescription: body.adDescription,
+          landingPageUrl: body.landingPageUrl,
+        },
+      );
+    }
+
     const { adSetId, adId } = await this.metaAds.addAdSetToCampaign(
       metaAccessToken,
       metaAdAccountId,
       {
         metaCampaignId: campaign.metaCampaignId,
-        metaAdCreativeId: campaign.metaAdCreativeId!,
+        metaAdCreativeId: creativeId,
         name: campaign.name,
         audienceTier: body.audienceTier,
         placement: campaign.placement ?? 'pro',
@@ -356,6 +385,18 @@ export class MetaAdsController {
       metaAdCreativeId,
       metaAdIds,
     };
+  }
+
+  // DELETE /meta-ads/campaign?campaignId=...
+  @Delete('campaign')
+  @HttpCode(HttpStatus.OK)
+  async deleteCampaign(
+    @Query('campaignId') campaignId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    if (!campaignId) throw new BadRequestException('campaignId required');
+    await this.metaAds.deleteCampaign(user.id, campaignId);
+    return { success: true };
   }
 
   // GET /meta-ads/status
