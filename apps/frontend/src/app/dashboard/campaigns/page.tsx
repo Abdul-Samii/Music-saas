@@ -35,9 +35,57 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" });
 }
 
-function KebabMenu({ campaign, onStatusChange }: { campaign: Campaign; onStatusChange: (id: string, status: string) => void }) {
+function DeleteConfirmModal({ name, onConfirm, onCancel, loading }: {
+  name: string; onConfirm: () => void; onCancel: () => void; loading: boolean;
+}) {
+  return (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
+        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem",
+      }}
+    >
+      <div style={{
+        background: "var(--bg-card)", borderRadius: 20, padding: "2rem", border: "1px solid var(--border)",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.4)", width: "100%", maxWidth: 420,
+      }}>
+        <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(244,63,94,0.12)", border: "1px solid rgba(244,63,94,0.25)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1.25rem" }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F43F5E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+          </svg>
+        </div>
+        <h2 style={{ fontWeight: 700, fontSize: "1.125rem", color: "var(--text-primary)", marginBottom: "0.625rem" }}>Delete Campaign?</h2>
+        <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", lineHeight: 1.6, marginBottom: "1.75rem" }}>
+          Are you sure you want to delete <strong style={{ color: "var(--text-primary)" }}>{name}</strong>? This will delete all previous data and you won&apos;t be able to get it back.
+        </p>
+        <div style={{ display: "flex", gap: "0.75rem" }}>
+          <button onClick={onCancel} className="btn btn-secondary" style={{ flex: 1 }} disabled={loading}>
+            No, keep it
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="btn"
+            style={{ flex: 1, background: "#F43F5E", color: "#fff", border: "none", borderRadius: 10, padding: "0.625rem 1rem", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}
+          >
+            {loading ? "Deleting…" : "Yes, delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KebabMenu({ campaign, onStatusChange, onDelete }: {
+  campaign: Campaign;
+  onStatusChange: (id: string, status: string) => void;
+  onDelete: (id: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -78,63 +126,104 @@ function KebabMenu({ campaign, onStatusChange }: { campaign: Campaign; onStatusC
     }
   }
 
+  async function handleDelete() {
+    if (!campaign.localId) return;
+    setDeleteLoading(true);
+    try {
+      await campaignsApi.deleteCampaign(campaign.localId);
+      onDelete(campaign.id);
+      setShowDeleteConfirm(false);
+    } catch {
+      // silent
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
+
   const detailHref = campaign.localId ? `/dashboard/campaigns/${campaign.localId}` : null;
 
   return (
-    <div ref={ref} style={{ position: "relative", display: "inline-flex" }}>
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-        disabled={loading}
-        style={{
-          background: open ? "var(--bg-elevated)" : "none",
-          border: "none", cursor: "pointer",
-          color: "var(--text-muted)", padding: "0.375rem",
-          borderRadius: 6, display: "inline-flex", alignItems: "center",
-          transition: "background 0.15s",
-        }}
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
-        </svg>
-      </button>
+    <>
+      <div ref={ref} style={{ position: "relative", display: "inline-flex" }}>
+        <button
+          onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+          disabled={loading}
+          style={{
+            background: open ? "var(--bg-elevated)" : "none",
+            border: "none", cursor: "pointer",
+            color: "var(--text-muted)", padding: "0.375rem",
+            borderRadius: 6, display: "inline-flex", alignItems: "center",
+            transition: "background 0.15s",
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+          </svg>
+        </button>
 
-      {open && (
-        <div style={{
-          position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 50,
-          background: "var(--bg-card)", border: "1px solid var(--border)",
-          borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
-          minWidth: 170, overflow: "hidden",
-        }}>
-          {detailHref && (
-            <button
-              onClick={() => { setOpen(false); router.push(detailHref); }}
-              style={menuItemStyle}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-              </svg>
-              View Details
-            </button>
-          )}
-          {campaign.status === "ACTIVE" && campaign.localId && (
-            <button onClick={handlePause} style={{ ...menuItemStyle, color: "#F59E0B" }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
-              </svg>
-              Pause Campaign
-            </button>
-          )}
-          {campaign.status === "PAUSED" && campaign.localId && (
-            <button onClick={handleResume} style={{ ...menuItemStyle, color: "#12B76A" }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="5 3 19 12 5 21 5 3"/>
-              </svg>
-              Resume Campaign
-            </button>
-          )}
-        </div>
+        {open && (
+          <div style={{
+            position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 50,
+            background: "var(--bg-card)", border: "1px solid var(--border)",
+            borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+            minWidth: 180, overflow: "hidden",
+          }}>
+            {detailHref && (
+              <button onClick={() => { setOpen(false); router.push(detailHref); }} style={menuItemStyle}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                </svg>
+                View Details
+              </button>
+            )}
+            {detailHref && (
+              <button onClick={() => { setOpen(false); router.push(`${detailHref}?action=addAd`); }} style={menuItemStyle}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Add New Ad
+              </button>
+            )}
+            {campaign.status === "ACTIVE" && campaign.localId && (
+              <button onClick={handlePause} style={{ ...menuItemStyle, color: "#F59E0B" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+                </svg>
+                Pause Campaign
+              </button>
+            )}
+            {campaign.status === "PAUSED" && campaign.localId && (
+              <button onClick={handleResume} style={{ ...menuItemStyle, color: "#12B76A" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                Resume Campaign
+              </button>
+            )}
+            {campaign.localId && (
+              <>
+                <div style={{ height: 1, background: "var(--border)", margin: "0.25rem 0" }} />
+                <button onClick={() => { setOpen(false); setShowDeleteConfirm(true); }} style={{ ...menuItemStyle, color: "#F43F5E" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                  </svg>
+                  Delete Campaign
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {showDeleteConfirm && (
+        <DeleteConfirmModal
+          name={campaign.name}
+          onConfirm={handleDelete}
+          onCancel={() => setShowDeleteConfirm(false)}
+          loading={deleteLoading}
+        />
       )}
-    </div>
+    </>
   );
 }
 
@@ -161,6 +250,10 @@ export default function CampaignsPage() {
 
   function handleStatusChange(metaId: string, newStatus: string) {
     setCampaigns((prev) => prev.map((c) => c.id === metaId ? { ...c, status: newStatus } : c));
+  }
+
+  function handleDelete(metaId: string) {
+    setCampaigns((prev) => prev.filter((c) => c.id !== metaId));
   }
 
   const statusKey = (s: string): FilterStatus =>
@@ -333,7 +426,7 @@ export default function CampaignsPage() {
                         </span>
                       </td>
                       <td style={{ textAlign: "right" }}>
-                        <KebabMenu campaign={c} onStatusChange={handleStatusChange} />
+                        <KebabMenu campaign={c} onStatusChange={handleStatusChange} onDelete={handleDelete} />
                       </td>
                     </tr>
                   );

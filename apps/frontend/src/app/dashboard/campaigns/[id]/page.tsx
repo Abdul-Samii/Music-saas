@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, BarChart, Bar,
@@ -70,6 +70,8 @@ function fmtDate(iso: string | null) {
 
 export default function CampaignDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,8 +81,15 @@ export default function CampaignDetailPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addTier, setAddTier] = useState("tier1");
   const [addBudget, setAddBudget] = useState("5");
+  const [addVideoFile, setAddVideoFile] = useState<File | null>(null);
+  const [addAdTitle, setAddAdTitle] = useState("");
+  const [addAdDescription, setAddAdDescription] = useState("");
+  const [addLandingUrl, setAddLandingUrl] = useState("");
+  const [addUploadProgress, setAddUploadProgress] = useState(0);
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -88,10 +97,11 @@ export default function CampaignDetailPage() {
       .then((data) => {
         const camp = data as Campaign;
         setCampaign({ ...camp, metrics: camp.metrics ?? [] });
+        if (searchParams.get("action") === "addAd") setShowAddModal(true);
       })
       .catch(() => setError("Failed to load campaign."))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, searchParams]);
 
   async function handlePause() {
     if (!campaign) return;
@@ -121,21 +131,52 @@ export default function CampaignDetailPage() {
 
   async function handleAddAdSet() {
     if (!campaign || Number(addBudget) < 5) return;
+    if (!addVideoFile || !addAdTitle.trim() || !addLandingUrl.trim()) return;
     setAddLoading(true);
     setAddError("");
+    setAddUploadProgress(0);
     try {
+      const fd = new FormData();
+      fd.append("file", addVideoFile);
+      const uploadRes = await api.post("/meta-ads/upload-asset", fd, {
+        onUploadProgress: (e) =>
+          setAddUploadProgress(Math.round(((e.loaded ?? 0) * 100) / (e.total ?? 1))),
+      });
+      const { videoId } = uploadRes.data as { videoId: string };
+
       await api.post("/meta-ads/add-adset", {
         campaignId: campaign.id,
         audienceTier: addTier,
         budget: Number(addBudget),
+        videoId,
+        adTitle: addAdTitle.trim(),
+        adDescription: addAdDescription.trim() || undefined,
+        landingPageUrl: addLandingUrl.trim(),
       });
       setShowAddModal(false);
       setAddTier("tier1");
       setAddBudget("5");
+      setAddVideoFile(null);
+      setAddAdTitle("");
+      setAddAdDescription("");
+      setAddLandingUrl("");
+      setAddUploadProgress(0);
     } catch {
       setAddError("Failed to add ad set. Please try again.");
     } finally {
       setAddLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!campaign) return;
+    setDeleteLoading(true);
+    try {
+      await campaignsApi.deleteCampaign(campaign.id);
+      router.push("/dashboard/campaigns");
+    } catch {
+      setDeleteLoading(false);
+      setShowDeleteConfirm(false);
     }
   }
 
@@ -265,6 +306,16 @@ export default function CampaignDetailPage() {
                 {actionLoading ? "Resuming…" : "Resume Campaign"}
               </button>
             )}
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="btn btn-secondary btn-sm"
+              style={{ color: "#F43F5E", borderColor: "rgba(244,63,94,0.3)" }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+              </svg>
+              Delete
+            </button>
           </div>
         </div>
       </div>
@@ -433,21 +484,60 @@ export default function CampaignDetailPage() {
         </div>
       )}
 
-      {/* ── Add New Ads Modal ── */}
-      {showAddModal && (
+      {/* ── Delete Confirmation Modal ── */}
+      {showDeleteConfirm && (
         <div
-          onClick={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowDeleteConfirm(false); }}
           style={{
             position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
-            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem",
           }}
         >
           <div style={{
             background: "var(--bg-card)", borderRadius: 20, padding: "2rem", border: "1px solid var(--border)",
             boxShadow: "0 20px 60px rgba(0,0,0,0.4)", width: "100%", maxWidth: 420,
           }}>
+            <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(244,63,94,0.12)", border: "1px solid rgba(244,63,94,0.25)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1.25rem" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F43F5E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+              </svg>
+            </div>
+            <h2 style={{ fontWeight: 700, fontSize: "1.125rem", color: "var(--text-primary)", marginBottom: "0.625rem" }}>Delete Campaign?</h2>
+            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)", lineHeight: 1.6, marginBottom: "1.75rem" }}>
+              Are you sure you want to delete <strong style={{ color: "var(--text-primary)" }}>{campaign.name}</strong>? This will delete all previous data and you won&apos;t be able to get it back.
+            </p>
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <button onClick={() => setShowDeleteConfirm(false)} className="btn btn-secondary" style={{ flex: 1 }} disabled={deleteLoading}>
+                No, keep it
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteLoading}
+                style={{ flex: 1, background: "#F43F5E", color: "#fff", border: "none", borderRadius: 10, padding: "0.625rem 1rem", fontWeight: 600, fontSize: "0.875rem", cursor: deleteLoading ? "not-allowed" : "pointer", opacity: deleteLoading ? 0.7 : 1 }}
+              >
+                {deleteLoading ? "Deleting…" : "Yes, delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add New Ads Modal ── */}
+      {showAddModal && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem",
+          }}
+        >
+          <div style={{
+            background: "var(--bg-card)", borderRadius: 20, padding: "2rem", border: "1px solid var(--border)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.4)", width: "100%", maxWidth: 480,
+            maxHeight: "90vh", overflowY: "auto",
+          }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-              <h2 style={{ fontWeight: 700, fontSize: "1.125rem", color: "var(--text-primary)" }}>Add New Ad Set</h2>
+              <h2 style={{ fontWeight: 700, fontSize: "1.125rem", color: "var(--text-primary)" }}>Add New Ad</h2>
               <button
                 onClick={() => setShowAddModal(false)}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "0.25rem", borderRadius: 6, display: "flex" }}
@@ -459,6 +549,93 @@ export default function CampaignDetailPage() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+
+              {/* Video upload */}
+              <div>
+                <label style={{ fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", display: "block", marginBottom: "0.5rem" }}>
+                  Ad Video <span style={{ color: "#F43F5E" }}>*</span>
+                </label>
+                <label style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  gap: "0.5rem", padding: "1.25rem", borderRadius: 10, cursor: "pointer",
+                  border: `2px dashed ${addVideoFile ? "#3A60E7" : "var(--border)"}`,
+                  background: addVideoFile ? "rgba(58,96,231,0.06)" : "var(--bg-elevated)",
+                  transition: "all 0.15s",
+                }}>
+                  <input
+                    type="file"
+                    accept="video/mp4,video/quicktime"
+                    style={{ display: "none" }}
+                    onChange={(e) => setAddVideoFile(e.target.files?.[0] ?? null)}
+                  />
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={addVideoFile ? "#3A60E7" : "var(--text-muted)"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                  </svg>
+                  <span style={{ fontSize: "0.8rem", fontWeight: 500, color: addVideoFile ? "#3A60E7" : "var(--text-muted)", textAlign: "center" }}>
+                    {addVideoFile ? addVideoFile.name : "Click to upload video (MP4 / MOV)"}
+                  </span>
+                  {addVideoFile && (
+                    <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                      {(addVideoFile.size / (1024 * 1024)).toFixed(1)} MB
+                    </span>
+                  )}
+                </label>
+                {addLoading && addUploadProgress > 0 && addUploadProgress < 100 && (
+                  <div style={{ marginTop: "0.5rem" }}>
+                    <div style={{ height: 4, background: "var(--bg-elevated)", borderRadius: 99, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${addUploadProgress}%`, background: "#3A60E7", borderRadius: 99, transition: "width 0.2s" }} />
+                    </div>
+                    <p style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>Uploading… {addUploadProgress}%</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Ad Title */}
+              <div>
+                <label style={{ fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", display: "block", marginBottom: "0.5rem" }}>
+                  Ad Title <span style={{ color: "#F43F5E" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Listen to my new single"
+                  value={addAdTitle}
+                  onChange={(e) => setAddAdTitle(e.target.value)}
+                  className="dash-search"
+                  style={{ width: "100%", paddingLeft: "0.875rem", boxSizing: "border-box" }}
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label style={{ fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", display: "block", marginBottom: "0.5rem" }}>
+                  Description <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none" }}>(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Short description for the ad"
+                  value={addAdDescription}
+                  onChange={(e) => setAddAdDescription(e.target.value)}
+                  className="dash-search"
+                  style={{ width: "100%", paddingLeft: "0.875rem", boxSizing: "border-box" }}
+                />
+              </div>
+
+              {/* Landing URL */}
+              <div>
+                <label style={{ fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", display: "block", marginBottom: "0.5rem" }}>
+                  Landing Page URL <span style={{ color: "#F43F5E" }}>*</span>
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://open.spotify.com/..."
+                  value={addLandingUrl}
+                  onChange={(e) => setAddLandingUrl(e.target.value)}
+                  className="dash-search"
+                  style={{ width: "100%", paddingLeft: "0.875rem", boxSizing: "border-box" }}
+                />
+              </div>
+
+              {/* Tier */}
               <div>
                 <label style={{ fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", display: "block", marginBottom: "0.5rem" }}>
                   Audience Tier
@@ -475,6 +652,7 @@ export default function CampaignDetailPage() {
                 </select>
               </div>
 
+              {/* Budget */}
               <div>
                 <label style={{ fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", display: "block", marginBottom: "0.5rem" }}>
                   Daily Budget (min $5)
@@ -488,7 +666,7 @@ export default function CampaignDetailPage() {
                     value={addBudget}
                     onChange={(e) => setAddBudget(e.target.value)}
                     className="dash-search"
-                    style={{ width: "100%", paddingLeft: "1.75rem" }}
+                    style={{ width: "100%", paddingLeft: "1.75rem", boxSizing: "border-box" }}
                   />
                 </div>
                 {Number(addBudget) < 5 && (
@@ -503,20 +681,16 @@ export default function CampaignDetailPage() {
               )}
 
               <div style={{ display: "flex", gap: "0.625rem", marginTop: "0.25rem" }}>
-                <button
-                  onClick={() => setShowAddModal(false)}
-                  className="btn btn-secondary"
-                  style={{ flex: 1 }}
-                >
+                <button onClick={() => setShowAddModal(false)} className="btn btn-secondary" style={{ flex: 1 }}>
                   Cancel
                 </button>
                 <button
                   onClick={handleAddAdSet}
-                  disabled={addLoading || Number(addBudget) < 5}
+                  disabled={addLoading || Number(addBudget) < 5 || !addVideoFile || !addAdTitle.trim() || !addLandingUrl.trim()}
                   className="btn btn-primary"
                   style={{ flex: 1 }}
                 >
-                  {addLoading ? "Adding…" : "Add Ad Set"}
+                  {addLoading ? (addUploadProgress > 0 && addUploadProgress < 100 ? `Uploading ${addUploadProgress}%…` : "Creating…") : "Add Ad"}
                 </button>
               </div>
             </div>

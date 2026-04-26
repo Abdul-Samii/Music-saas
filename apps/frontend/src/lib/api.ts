@@ -34,6 +34,8 @@ export const campaignsApi = {
     api.post("/meta-ads/sync-statuses").then((r) => r.data),
   liveCampaigns: () =>
     api.get("/meta-ads/live-campaigns").then((r) => r.data),
+  deleteCampaign: (campaignId: string) =>
+    api.delete("/meta-ads/campaign", { params: { campaignId } }).then((r) => r.data),
 };
 
 export const analyticsApi = {

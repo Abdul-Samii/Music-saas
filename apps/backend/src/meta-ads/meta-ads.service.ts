@@ -846,6 +846,32 @@ export class MetaAdsService implements OnModuleInit {
     return { synced };
   }
 
+  // ── Delete campaign from Meta + local DB ─────────────────────────────────
+  async deleteCampaign(userId: string, campaignId: string): Promise<void> {
+    const userRows = await this.prisma.$queryRaw<
+      { metaAccessToken: string | null }[]
+    >`SELECT "metaAccessToken" FROM "User" WHERE id = ${userId} LIMIT 1`;
+    const token = userRows[0]?.metaAccessToken;
+
+    const campaign = await this.prisma.campaign.findFirst({
+      where: { id: campaignId, userId },
+      select: { metaCampaignId: true },
+    });
+    if (!campaign) return;
+
+    if (campaign.metaCampaignId && token) {
+      try {
+        await axios.post(`${GRAPH}/${campaign.metaCampaignId}`, null, {
+          params: { status: 'DELETED', access_token: token },
+        });
+      } catch {
+        // Continue even if Meta deletion fails (already deleted there)
+      }
+    }
+
+    await this.prisma.campaign.delete({ where: { id: campaignId } });
+  }
+
   // ── Pause / Resume campaign on Meta ────────────────────────────────────────
   async pauseOnMeta(userId: string, campaignId: string): Promise<void> {
     await this.setMetaCampaignStatus(userId, campaignId, 'PAUSED');
