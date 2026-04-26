@@ -3,6 +3,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
   Logger,
+  OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosError } from 'axios';
@@ -13,8 +14,24 @@ import { UsersService } from '../users/users.service';
 const GRAPH = 'https://graph.facebook.com/v25.0';
 
 @Injectable()
-export class MetaAdsService {
+export class MetaAdsService implements OnModuleInit {
   private readonly logger = new Logger(MetaAdsService.name);
+
+  onModuleInit() {
+    const FIVE_MINUTES = 5 * 60 * 1000;
+    setInterval(() => {
+      void this.syncAllUsers();
+    }, FIVE_MINUTES);
+  }
+
+  private async syncAllUsers() {
+    const users = await this.prisma.$queryRaw<
+      { id: string }[]
+    >`SELECT id FROM "User" WHERE "metaAccessToken" IS NOT NULL`;
+    for (const user of users) {
+      await this.syncCampaignStatuses(user.id).catch(() => {});
+    }
+  }
 
   constructor(
     private readonly config: ConfigService,
@@ -588,11 +605,8 @@ export class MetaAdsService {
         });
         updated++;
       } catch {
-        // Campaign deleted or inaccessible on Meta — mark as completed
-        await this.prisma.campaign.update({
-          where: { id: campaign.id },
-          data: { status: 'COMPLETED' },
-        });
+        // Campaign deleted on Meta — remove from local DB
+        await this.prisma.campaign.delete({ where: { id: campaign.id } });
         updated++;
       }
     }
