@@ -555,6 +555,50 @@ export class MetaAdsService {
     }
   }
 
+  // ── Sync campaign statuses from Meta → local DB ───────────────────────────
+  async syncCampaignStatuses(userId: string): Promise<{ updated: number }> {
+    const userRows = await this.prisma.$queryRaw<
+      { metaAccessToken: string | null }[]
+    >`SELECT "metaAccessToken" FROM "User" WHERE id = ${userId} LIMIT 1`;
+    const token = userRows[0]?.metaAccessToken;
+    if (!token) return { updated: 0 };
+
+    const campaigns = await this.prisma.campaign.findMany({
+      where: { userId, metaCampaignId: { not: null } },
+      select: { id: true, metaCampaignId: true },
+    });
+
+    let updated = 0;
+    for (const campaign of campaigns) {
+      try {
+        const { data } = await axios.get<{ status: string }>(
+          `${GRAPH}/${campaign.metaCampaignId}`,
+          { params: { fields: 'status', access_token: token } },
+        );
+        const metaStatus = data.status;
+        const localStatus =
+          metaStatus === 'ACTIVE'
+            ? 'ACTIVE'
+            : metaStatus === 'PAUSED'
+              ? 'PAUSED'
+              : 'COMPLETED';
+        await this.prisma.campaign.update({
+          where: { id: campaign.id },
+          data: { status: localStatus },
+        });
+        updated++;
+      } catch {
+        // Campaign deleted or inaccessible on Meta — mark as completed
+        await this.prisma.campaign.update({
+          where: { id: campaign.id },
+          data: { status: 'COMPLETED' },
+        });
+        updated++;
+      }
+    }
+    return { updated };
+  }
+
   // ── Sync Meta Insights → CampaignMetric rows ─────────────────────────────
   async syncInsights(
     userId: string,

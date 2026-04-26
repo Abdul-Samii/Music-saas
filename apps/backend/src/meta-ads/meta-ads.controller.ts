@@ -164,6 +164,13 @@ export class MetaAdsController {
     }
   }
 
+  // POST /meta-ads/sync-statuses
+  @Post('sync-statuses')
+  @HttpCode(HttpStatus.OK)
+  syncStatuses(@CurrentUser() user: JwtUser) {
+    return this.metaAds.syncCampaignStatuses(user.id);
+  }
+
   // POST /meta-ads/sync-insights  { campaignId }
   @Post('sync-insights')
   @HttpCode(HttpStatus.OK)
