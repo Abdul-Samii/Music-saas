@@ -273,7 +273,7 @@ export class MetaAdsService implements OnModuleInit {
         bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
         promoted_object: JSON.stringify({
           pixel_id: payload.pixelId,
-          custom_event_type: 'VIEW_CONTENT',
+          custom_event_type: 'CONTENT_VIEW',
         }),
         status: 'ACTIVE',
         targeting: JSON.stringify(targeting),
@@ -648,7 +648,7 @@ export class MetaAdsService implements OnModuleInit {
       ...(payload.pixelId && {
         promoted_object: JSON.stringify({
           pixel_id: payload.pixelId,
-          custom_event_type: 'VIEW_CONTENT',
+          custom_event_type: 'CONTENT_VIEW',
         }),
       }),
       status: 'ACTIVE',
