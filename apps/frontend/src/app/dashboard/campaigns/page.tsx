@@ -428,7 +428,7 @@ export default function CampaignsPage() {
                         </span>
                       </td>
                       <td style={{ textAlign: "right" }}>
-                        <KebabMenu campaign={c} onStatusChange={handleStatusChange} onDelete={handleDelete} />
+                        {c.localId && <KebabMenu campaign={c} onStatusChange={handleStatusChange} onDelete={handleDelete} />}
                       </td>
                     </tr>
                   );

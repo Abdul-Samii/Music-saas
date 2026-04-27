@@ -192,7 +192,7 @@ export default function CampaignDetailPage() {
     setBudgetLoading(true);
     try {
       await campaignsApi.increaseBudget(campaign.id, Number(budgetAmount));
-      setCampaign({ ...campaign, budget: campaign.budget + Number(budgetAmount) });
+      setCampaign({ ...campaign, budget: (campaign.budget ?? 0) + Number(budgetAmount) });
       setShowBudgetModal(false);
       setBudgetAmount("5");
     } catch {
@@ -239,7 +239,8 @@ export default function CampaignDetailPage() {
   const totalSpent = campaign.metrics.reduce((s, m) => s + m.spend, 0);
   const totalStreams = campaign.metrics.reduce((s, m) => s + ((m.streamsAfter ?? 0) - (m.streamsBefore ?? 0)), 0);
   const avgCps = totalStreams > 0 ? totalSpent / totalStreams : 0;
-  const budgetPct = campaign.budget > 0 ? Math.min((totalSpent / campaign.budget) * 100, 100) : 0;
+  const safeBudget = campaign.budget ?? 0;
+  const budgetPct = safeBudget > 0 ? Math.min((totalSpent / safeBudget) * 100, 100) : 0;
 
   // Build chart data from real metrics
   const chartData = campaign.metrics.map((m) => ({
@@ -411,10 +412,10 @@ export default function CampaignDetailPage() {
       {/* ── 4 stat cards ── */}
       <div className="dash-metrics-grid">
         {[
-          { label: "Total Budget",    value: `€${campaign.budget.toLocaleString()}`, sub: totalSpent > 0 ? `€${totalSpent.toFixed(0)} spent` : "No spend yet",        color: "#3A60E7" },
+          { label: "Total Budget",    value: `€${safeBudget.toLocaleString()}`, sub: totalSpent > 0 ? `€${totalSpent.toFixed(0)} spent` : "No spend yet",        color: "#3A60E7" },
           { label: "Streams",         value: totalStreams > 0 ? totalStreams.toLocaleString() : "—",    sub: "total streams driven",   color: "#1DB954" },
           { label: "Cost per Stream", value: avgCps > 0 ? `€${avgCps.toFixed(3)}` : "—",             sub: "avg across campaign",     color: "#4C1AEA" },
-          { label: "Budget Used",     value: `${budgetPct.toFixed(0)}%`,                              sub: `€${(campaign.budget - totalSpent).toFixed(0)} remaining`,  color: "#1877F2" },
+          { label: "Budget Used",     value: `${budgetPct.toFixed(0)}%`,                              sub: `€${(safeBudget - totalSpent).toFixed(0)} remaining`,  color: "#1877F2" },
         ].map((s) => (
           <div key={s.label} style={{ background: "var(--bg-card)", borderRadius: 16, padding: "1.25rem", border: "1px solid var(--border)", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
             <p style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-muted)", marginBottom: "0.625rem" }}>{s.label}</p>
@@ -510,7 +511,7 @@ export default function CampaignDetailPage() {
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.375rem" }}>
               <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>€{totalSpent.toFixed(0)} spent</span>
-              <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>€{campaign.budget.toLocaleString()} total</span>
+              <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>€{safeBudget.toLocaleString()} total</span>
             </div>
           </div>
         </div>
