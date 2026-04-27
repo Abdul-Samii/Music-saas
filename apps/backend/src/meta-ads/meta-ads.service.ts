@@ -284,7 +284,13 @@ export class MetaAdsService implements OnModuleInit {
       if (payload.endDate) {
         const start = new Date(payload.startDate ?? Date.now());
         const end = new Date(payload.endDate);
-        if (end > start) adSetParams['end_time'] = payload.endDate;
+        // Meta requires the ad set to run for at least 24 h. Date-only strings are
+        // interpreted as midnight UTC, so a same-day/next-day window submitted in
+        // the afternoon can be shorter than 24 h. Enforce a 25-hour minimum from now.
+        const minEnd = new Date(Date.now() + 25 * 60 * 60 * 1000);
+        const effectiveEnd = end > minEnd ? end : minEnd;
+        if (effectiveEnd > start)
+          adSetParams['end_time'] = effectiveEnd.toISOString();
       }
 
       let adSet: { id: string };
