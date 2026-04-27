@@ -55,6 +55,9 @@ interface Campaign {
   adVideoUrl: string | null;
   adImageHash: string | null;
   metrics: CampaignMetric[];
+  automationPhase: string | null;
+  automationWarning: string | null;
+  adsDisabledCount: number;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -91,6 +94,9 @@ export default function CampaignDetailPage() {
   const [addError, setAddError] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showBudgetModal, setShowBudgetModal] = useState(false);
+  const [budgetAmount, setBudgetAmount] = useState("5");
+  const [budgetLoading, setBudgetLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -178,6 +184,21 @@ export default function CampaignDetailPage() {
     } catch {
       setDeleteLoading(false);
       setShowDeleteConfirm(false);
+    }
+  }
+
+  async function handleIncreaseBudget() {
+    if (!campaign || Number(budgetAmount) < 5) return;
+    setBudgetLoading(true);
+    try {
+      await campaignsApi.increaseBudget(campaign.id, Number(budgetAmount));
+      setCampaign({ ...campaign, budget: campaign.budget + Number(budgetAmount) });
+      setShowBudgetModal(false);
+      setBudgetAmount("5");
+    } catch {
+      // silent
+    } finally {
+      setBudgetLoading(false);
     }
   }
 
@@ -320,6 +341,72 @@ export default function CampaignDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Automation banner ── */}
+      {campaign.automationPhase && (() => {
+        const phase = campaign.automationPhase!;
+        const banners: Record<string, { bg: string; border: string; icon: React.ReactNode; title: string; body: string; addBudget?: boolean }> = {
+          optimising: {
+            bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.3)",
+            icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>,
+            title: "Optimising Campaign",
+            body: "Your campaign is in the learning phase (first 72 hours). Results may vary — this is normal.",
+          },
+          evaluating: {
+            bg: "rgba(58,96,231,0.08)", border: "rgba(58,96,231,0.3)",
+            icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3A60E7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+            title: "Gathering Data",
+            body: "Your campaign is past the initial phase. We're collecting enough data to evaluate performance (up to 144 hours).",
+          },
+          poor: {
+            bg: "rgba(244,63,94,0.08)", border: "rgba(244,63,94,0.3)",
+            icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F43F5E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
+            title: `Ad ${campaign.adsDisabledCount ?? 0}`,
+            body: `${campaign.adsDisabledCount ?? 0} ad${(campaign.adsDisabledCount ?? 0) !== 1 ? "s were" : " was"} automatically paused — cost per result exceeded $0.60 with 500+ impressions.`,
+          },
+          average: {
+            bg: "rgba(249,115,22,0.08)", border: "rgba(249,115,22,0.3)",
+            icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+            title: "Add New and Better Ads",
+            body: "Your campaign's cost per result is between $0.25–$0.59. Consider uploading higher-quality creatives to improve performance.",
+          },
+          healthy: {
+            bg: "rgba(18,183,106,0.08)", border: "rgba(18,183,106,0.3)",
+            icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#12B76A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+            title: "This Campaign is Going Good",
+            body: "Cost per result is below $0.25 for the last 48h. We recommend adding more budget to increase results.",
+            addBudget: true,
+          },
+          top_performer: {
+            bg: "linear-gradient(135deg, rgba(58,96,231,0.10), rgba(76,26,234,0.10))",
+            border: "rgba(76,26,234,0.35)",
+            icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4C1AEA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>,
+            title: "Top 0.1% Campaign 🚀",
+            body: "This campaign is among the top 0.1% of all campaigns. Add more budget now to maximise your results.",
+            addBudget: true,
+          },
+        };
+        const b = banners[phase];
+        if (!b) return null;
+        return (
+          <div style={{ background: b.bg, border: `1px solid ${b.border}`, borderRadius: 14, padding: "1rem 1.25rem", display: "flex", alignItems: "flex-start", gap: "0.875rem" }}>
+            <div style={{ flexShrink: 0, marginTop: 2 }}>{b.icon}</div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontWeight: 700, fontSize: "0.875rem", color: "var(--text-primary)", marginBottom: "0.2rem" }}>{b.title}</p>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", lineHeight: 1.55 }}>{b.body}</p>
+            </div>
+            {b.addBudget && (
+              <button
+                onClick={() => setShowBudgetModal(true)}
+                className="btn btn-primary btn-sm"
+                style={{ flexShrink: 0, alignSelf: "center" }}
+              >
+                Add Budget
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── 4 stat cards ── */}
       <div className="dash-metrics-grid">
@@ -483,6 +570,53 @@ export default function CampaignDetailPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* ── Increase Budget Modal ── */}
+      {showBudgetModal && createPortal(
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowBudgetModal(false); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem" }}
+        >
+          <div style={{ background: "var(--bg-card)", borderRadius: 20, padding: "2rem", border: "1px solid var(--border)", boxShadow: "0 20px 60px rgba(0,0,0,0.4)", width: "100%", maxWidth: 380 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+              <h2 style={{ fontWeight: 700, fontSize: "1.125rem", color: "var(--text-primary)" }}>Add Budget</h2>
+              <button onClick={() => setShowBudgetModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", display: "flex" }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "1.25rem", lineHeight: 1.55 }}>
+              This amount will be added to the daily budget of each active ad set.
+            </p>
+            <label style={{ fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", display: "block", marginBottom: "0.5rem" }}>
+              Additional Daily Budget (min $5)
+            </label>
+            <div style={{ position: "relative", marginBottom: "1.5rem" }}>
+              <span style={{ position: "absolute", left: "0.875rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", fontWeight: 600 }}>$</span>
+              <input
+                type="number" min={5} step={1} value={budgetAmount}
+                onChange={(e) => setBudgetAmount(e.target.value)}
+                className="dash-search"
+                style={{ width: "100%", paddingLeft: "1.75rem", boxSizing: "border-box" }}
+              />
+            </div>
+            {Number(budgetAmount) < 5 && (
+              <p style={{ fontSize: "0.75rem", color: "#F43F5E", marginTop: "-1rem", marginBottom: "1rem" }}>Minimum $5/day required</p>
+            )}
+            <div style={{ display: "flex", gap: "0.625rem" }}>
+              <button onClick={() => setShowBudgetModal(false)} className="btn btn-secondary" style={{ flex: 1 }}>Cancel</button>
+              <button
+                onClick={handleIncreaseBudget}
+                disabled={budgetLoading || Number(budgetAmount) < 5}
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+              >
+                {budgetLoading ? "Updating…" : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Delete Confirmation Modal ── */}

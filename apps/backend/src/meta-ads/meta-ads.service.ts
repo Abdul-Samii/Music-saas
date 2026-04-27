@@ -18,10 +18,8 @@ export class MetaAdsService implements OnModuleInit {
   private readonly logger = new Logger(MetaAdsService.name);
 
   onModuleInit() {
-    const FIVE_MINUTES = 5 * 60 * 1000;
-    setInterval(() => {
-      void this.syncAllUsers();
-    }, FIVE_MINUTES);
+    setInterval(() => void this.syncAllUsers(), 5 * 60 * 1000);
+    setInterval(() => void this.runAutomationAllUsers(), 60 * 60 * 1000);
   }
 
   private async syncAllUsers() {
@@ -30,6 +28,15 @@ export class MetaAdsService implements OnModuleInit {
     >`SELECT id FROM "User" WHERE "metaAccessToken" IS NOT NULL`;
     for (const user of users) {
       await this.syncCampaignStatuses(user.id).catch(() => {});
+    }
+  }
+
+  private async runAutomationAllUsers() {
+    const users = await this.prisma.$queryRaw<
+      { id: string }[]
+    >`SELECT id FROM "User" WHERE "metaAccessToken" IS NOT NULL`;
+    for (const user of users) {
+      await this.runCampaignAutomation(user.id).catch(() => {});
     }
   }
 
@@ -240,7 +247,7 @@ export class MetaAdsService implements OnModuleInit {
       {
         params: {
           name: payload.name,
-          objective: 'OUTCOME_TRAFFIC',
+          objective: 'OUTCOME_SALES',
           status: 'ACTIVE',
           special_ad_categories: '[]',
           is_adset_budget_sharing_enabled: 'false',
@@ -262,21 +269,16 @@ export class MetaAdsService implements OnModuleInit {
         campaign_id: metaCampaignId,
         daily_budget: Math.round(tierBudget * 100),
         billing_event: 'IMPRESSIONS',
-        optimization_goal: 'LINK_CLICKS',
+        optimization_goal: 'OFFSITE_CONVERSIONS',
         bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        promoted_object: JSON.stringify({
+          pixel_id: payload.pixelId,
+          custom_event_type: 'VIEW_CONTENT',
+        }),
         status: 'ACTIVE',
         targeting: JSON.stringify(targeting),
         access_token: accessToken,
       };
-
-      const targetingCountries = (
-        targeting.geo_locations as { countries: string[] }
-      ).countries;
-      if (targetingCountries.includes('SG')) {
-        adSetParams['regional_regulated_categories'] = JSON.stringify([
-          'SINGAPORE_UNIVERSAL',
-        ]);
-      }
 
       if (payload.startDate) adSetParams['start_time'] = payload.startDate;
       if (payload.endDate) {
@@ -312,7 +314,37 @@ export class MetaAdsService implements OnModuleInit {
       tier1: ['AU', 'AT', 'BE', 'DK', 'FI', 'FR', 'DE', 'IE', 'IT', 'NL', 'NZ', 'NO', 'ES', 'SE', 'CH', 'GB', 'US'],
       tier2: ['BR', 'BG', 'CL', 'CO', 'CR', 'CZ', 'GR', 'HU', 'IL', 'LB', 'LT', 'MX', 'PA', 'PY', 'PL', 'PT', 'RO'],
       tier3: ['DZ', 'AR', 'AZ', 'BD', 'BY', 'DO', 'IQ', 'JO', 'KE', 'NG', 'OM', 'PK', 'PE', 'LK', 'UA'],
-      top: ['AN', 'AT', 'AU', 'AX', 'BE', 'CA', 'CH', 'CY', 'DE', 'DK', 'EE', 'ES', 'FI', 'GB', 'HK', 'IE', 'IL', 'IS', 'IT', 'JP', 'KR', 'LU', 'NL', 'NO', 'NZ', 'SE', 'SG', 'UM', 'US', 'VI'],
+      top: [
+        'AN',
+        'AT',
+        'AU',
+        'AX',
+        'BE',
+        'CA',
+        'CH',
+        'CY',
+        'DE',
+        'DK',
+        'EE',
+        'ES',
+        'FI',
+        'GB',
+        'HK',
+        'IE',
+        'IL',
+        'IS',
+        'IT',
+        'JP',
+        'KR',
+        'LU',
+        'NL',
+        'NO',
+        'NZ',
+        'SE',
+        'UM',
+        'US',
+        'VI',
+      ],
       bottom: ['AR', 'BO', 'BR', 'CL', 'CO', 'CR', 'DO', 'EC', 'GQ', 'GT', 'HN', 'MX', 'NI', 'PA', 'PE', 'PY', 'SV', 'UY'],
     };
 
@@ -597,6 +629,7 @@ export class MetaAdsService implements OnModuleInit {
       audienceTier: string;
       placement: string;
       budget: number;
+      pixelId?: string;
     },
   ): Promise<{ adSetId: string; adId: string }> {
     const accountId = adAccountId.replace('act_', '');
@@ -610,21 +643,18 @@ export class MetaAdsService implements OnModuleInit {
       campaign_id: payload.metaCampaignId,
       daily_budget: Math.round(payload.budget * 100),
       billing_event: 'IMPRESSIONS',
-      optimization_goal: 'LINK_CLICKS',
+      optimization_goal: 'OFFSITE_CONVERSIONS',
       bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+      ...(payload.pixelId && {
+        promoted_object: JSON.stringify({
+          pixel_id: payload.pixelId,
+          custom_event_type: 'VIEW_CONTENT',
+        }),
+      }),
       status: 'ACTIVE',
       targeting: JSON.stringify(targeting),
       access_token: accessToken,
     };
-
-    const targetingCountries = (
-      targeting.geo_locations as { countries: string[] }
-    ).countries;
-    if (targetingCountries.includes('SG')) {
-      adSetParams['regional_regulated_categories'] = JSON.stringify([
-        'SINGAPORE_UNIVERSAL',
-      ]);
-    }
 
     let adSet: { id: string };
     try {
@@ -858,6 +888,227 @@ export class MetaAdsService implements OnModuleInit {
       synced++;
     }
     return { synced };
+  }
+
+  // ── Campaign automation ───────────────────────────────────────────────────
+  async runCampaignAutomation(userId: string): Promise<void> {
+    const userRows = await this.prisma.$queryRaw<
+      { metaAccessToken: string | null }[]
+    >`SELECT "metaAccessToken" FROM "User" WHERE id = ${userId} LIMIT 1`;
+    const token = userRows[0]?.metaAccessToken;
+    if (!token) return;
+
+    const campaigns = await this.prisma.$queryRaw<
+      {
+        id: string;
+        launchedAt: Date | null;
+        createdAt: Date;
+        automationPhase: string | null;
+        metaAdIds: string[];
+        adsDisabledCount: number;
+      }[]
+    >`
+      SELECT id, "launchedAt", "createdAt", "automationPhase", "metaAdIds", "adsDisabledCount"
+      FROM "Campaign"
+      WHERE "userId" = ${userId}
+        AND "metaCampaignId" IS NOT NULL
+        AND status = 'ACTIVE'
+    `;
+
+    for (const campaign of campaigns) {
+      const launchedAt = campaign.launchedAt ?? campaign.createdAt;
+      const hoursSinceLaunch =
+        (Date.now() - new Date(launchedAt).getTime()) / (1000 * 60 * 60);
+
+      if (hoursSinceLaunch < 72) {
+        if (campaign.automationPhase !== 'optimising') {
+          await this.prisma.$executeRaw`
+            UPDATE "Campaign"
+            SET "automationPhase" = 'optimising', "automationWarning" = NULL
+            WHERE id = ${campaign.id}
+          `;
+        }
+      } else if (hoursSinceLaunch < 144) {
+        if (campaign.automationPhase !== 'evaluating') {
+          await this.prisma.$executeRaw`
+            UPDATE "Campaign"
+            SET "automationPhase" = 'evaluating', "automationWarning" = NULL
+            WHERE id = ${campaign.id}
+          `;
+        }
+      } else {
+        await this.evaluateAdMetrics(token, campaign).catch((err) =>
+          this.logger.error(
+            `Automation failed for campaign ${campaign.id}`,
+            err,
+          ),
+        );
+      }
+    }
+  }
+
+  private async evaluateAdMetrics(
+    token: string,
+    campaign: {
+      id: string;
+      metaAdIds: string[];
+      adsDisabledCount: number;
+      automationPhase: string | null;
+    },
+  ): Promise<void> {
+    const adIds = campaign.metaAdIds ?? [];
+    if (adIds.length === 0) return;
+
+    let newlyDisabled = 0;
+    let remainSpend = 0;
+    let remainClicks = 0;
+    let spend48h = 0;
+    let clicks48h = 0;
+    let has48hData = false;
+
+    for (const adId of adIds) {
+      type InsightRow = {
+        spend: string;
+        impressions: string;
+        clicks: string;
+        date_start: string;
+      };
+      let rows: InsightRow[] = [];
+      try {
+        const { data } = await axios.get<{ data: InsightRow[] }>(
+          `${GRAPH}/${adId}/insights`,
+          {
+            params: {
+              fields: 'spend,impressions,clicks',
+              date_preset: 'last_7d',
+              time_increment: '1',
+              access_token: token,
+            },
+          },
+        );
+        rows = data.data ?? [];
+      } catch {
+        continue;
+      }
+
+      let adSpend = 0;
+      let adClicks = 0;
+      let adImpressions = 0;
+      let ad48hSpend = 0;
+      let ad48hClicks = 0;
+      const now = Date.now();
+
+      for (const row of rows) {
+        const ageHours =
+          (now - new Date(row.date_start).getTime()) / (1000 * 60 * 60);
+        const s = parseFloat(row.spend) || 0;
+        const c = parseInt(row.clicks) || 0;
+        const imp = parseInt(row.impressions) || 0;
+        adSpend += s;
+        adClicks += c;
+        adImpressions += imp;
+        if (ageHours <= 48) {
+          ad48hSpend += s;
+          ad48hClicks += c;
+          has48hData = true;
+        }
+      }
+
+      const adCpr = adClicks > 0 ? adSpend / adClicks : 0;
+
+      if (adCpr > 0.6 && adImpressions >= 500) {
+        try {
+          const { data: adData } = await axios.get<{ status: string }>(
+            `${GRAPH}/${adId}`,
+            { params: { fields: 'status', access_token: token } },
+          );
+          if (adData.status !== 'PAUSED') {
+            await axios.post(`${GRAPH}/${adId}`, null, {
+              params: { status: 'PAUSED', access_token: token },
+            });
+            newlyDisabled++;
+          }
+        } catch {
+          // continue
+        }
+      } else {
+        remainSpend += adSpend;
+        remainClicks += adClicks;
+        spend48h += ad48hSpend;
+        clicks48h += ad48hClicks;
+      }
+    }
+
+    const totalDisabled = (campaign.adsDisabledCount ?? 0) + newlyDisabled;
+    const overallCpr = remainClicks > 0 ? remainSpend / remainClicks : 0;
+    const cpr48h = clicks48h > 0 ? spend48h / clicks48h : 0;
+
+    let phase = campaign.automationPhase ?? 'evaluated';
+    let warning: string | null = null;
+
+    if (newlyDisabled > 0) {
+      phase = 'poor';
+      warning = `Ad ${totalDisabled}`;
+    } else if (overallCpr >= 0.25 && overallCpr <= 0.59) {
+      phase = 'average';
+      warning = 'Add new and better ads';
+    } else if (has48hData && cpr48h > 0 && cpr48h < 0.15) {
+      phase = 'top_performer';
+      warning =
+        'This campaign is among 0.1% of the campaigns, add more budget now';
+    } else if (has48hData && cpr48h > 0 && cpr48h < 0.25) {
+      phase = 'healthy';
+      warning =
+        'This campaign is going good, we recommend to add more budget to increase results';
+    }
+
+    await this.prisma.$executeRaw`
+      UPDATE "Campaign"
+      SET "automationPhase"   = ${phase},
+          "automationWarning" = ${warning},
+          "adsDisabledCount"  = ${totalDisabled}
+      WHERE id = ${campaign.id}
+    `;
+  }
+
+  // ── Increase campaign budget (adds daily budget to each active adset) ─────
+  async increaseCampaignBudget(
+    userId: string,
+    campaignId: string,
+    additionalDailyBudget: number,
+  ): Promise<void> {
+    const userRows = await this.prisma.$queryRaw<
+      { metaAccessToken: string | null }[]
+    >`SELECT "metaAccessToken" FROM "User" WHERE id = ${userId} LIMIT 1`;
+    const token = userRows[0]?.metaAccessToken;
+    if (!token) throw new BadRequestException('Meta account not connected');
+
+    const rows = await this.prisma.$queryRaw<
+      { metaAdSetIds: string[]; budget: number }[]
+    >`SELECT "metaAdSetIds", budget FROM "Campaign" WHERE id = ${campaignId} AND "userId" = ${userId} LIMIT 1`;
+    const campaign = rows[0];
+    if (!campaign) throw new BadRequestException('Campaign not found');
+
+    for (const adSetId of campaign.metaAdSetIds ?? []) {
+      try {
+        const { data } = await axios.get<{ daily_budget: string }>(
+          `${GRAPH}/${adSetId}`,
+          { params: { fields: 'daily_budget', access_token: token } },
+        );
+        const currentCents = parseInt(data.daily_budget) || 0;
+        const newCents = currentCents + Math.round(additionalDailyBudget * 100);
+        await axios.post(`${GRAPH}/${adSetId}`, null, {
+          params: { daily_budget: newCents, access_token: token },
+        });
+      } catch {
+        // continue to next adset
+      }
+    }
+
+    const newBudget = (campaign.budget ?? 0) + additionalDailyBudget;
+    await this.prisma.$executeRaw`
+      UPDATE "Campaign" SET budget = ${newBudget} WHERE id = ${campaignId}
+    `;
   }
 
   // ── Delete campaign from Meta + local DB ─────────────────────────────────

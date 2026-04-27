@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -9,7 +9,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api/v1";
 const BLUE = "#3A60E7";
 const NAVY = "#0B1120";
 
-const STEPS = ["Campaign", "Conversion", "Budget", "Audience", "Placement", "Ad Creative", "Review"];
+const STEPS = ["Campaign", "Conversion", "Budget", "Audience", "Placement", "Ad Creative", "Advertiser", "Review"];
 
 const AUDIENCE_TIERS = [
   { value: "tier1",  label: "Tier 1",       desc: "Australia, Austria, Belgium, Denmark, Finland, France, Germany, Ireland, Italy, Netherlands, New Zealand, Norway, Spain, Sweden, Switzerland, United Kingdom, United States" },
@@ -20,8 +20,8 @@ const AUDIENCE_TIERS = [
 ];
 
 const PLACEMENTS = [
-  { value: "pro",      label: "Placement Pro",  desc: "Instagram + Facebook — Stories & Reels only", icon: "🎯" },
-  { value: "pro_plus", label: "Placement Pro+", desc: "Instagram only — Stories & Reels only",        icon: "✨" },
+  { value: "pro",      label: "Placement Pro",  desc: "This placement can increase results while giving you lower costs, but can also add less real listeners on your Spotify.", icon: "🎯" },
+  { value: "pro_plus", label: "Placement Pro+", desc: "This placement offers great results on campaigns and on real streams.",                                                   icon: "✨" },
 ];
 
 type Pixel = { id: string; name: string };
@@ -48,6 +48,20 @@ function inputStyle(extra?: React.CSSProperties): React.CSSProperties {
   };
 }
 
+function VideoPreview({ file }: { file: File }) {
+  const url = useMemo(() => URL.createObjectURL(file), [file]);
+  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  return (
+    <video
+      src={url}
+      style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 8, flexShrink: 0, background: "#000", display: "block" }}
+      preload="metadata"
+      muted
+      playsInline
+    />
+  );
+}
+
 export default function NewCampaignPage() {
   const router = useRouter();
   const { data: session } = useSession();
@@ -64,12 +78,10 @@ export default function NewCampaignPage() {
   const [pages, setPages] = useState<FbPage[]>([]);
   const [loadingPages, setLoadingPages] = useState(false);
 
-  // Step 5 — file upload
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [adFile, setAdFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
-  const [uploadError, setUploadError] = useState("");
+  // Step 5 — multi-video upload (min 3, max 8)
+  type AdSlot = { file: File | null; result: UploadResult | null; uploading: boolean; error: string };
+  const EMPTY_SLOT: AdSlot = { file: null, result: null, uploading: false, error: "" };
+  const [adSlots, setAdSlots] = useState<AdSlot[]>([EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT]);
 
   // Step 3 — tier dropdown
   const [tierDropdownOpen, setTierDropdownOpen] = useState(false);
@@ -93,6 +105,10 @@ export default function NewCampaignPage() {
     landingPageUrl: "",
     adTitle: "",
     adDescription: "",
+    // Advertiser & payer
+    advertiserName: "",
+    payerDiffers: false,
+    payerName: "",
   });
 
   // Load pixels on mount
@@ -137,26 +153,45 @@ export default function NewCampaignPage() {
   const selectedPage = pages.find((p) => p.id === form.facebookPageId);
   const igAccounts = selectedPage?.instagramAccounts ?? [];
 
-  async function handleUpload() {
-    if (!adFile || !token) return;
-    setUploading(true);
-    setUploadError("");
-    setUploadResult(null);
+  async function handleUploadSlot(index: number) {
+    const slot = adSlots[index];
+    if (!slot.file || !token) return;
+    setAdSlots((prev) => prev.map((s, i) => i === index ? { ...s, uploading: true, error: "" } : s));
     const fd = new FormData();
-    fd.append("file", adFile);
+    fd.append("file", slot.file);
     try {
       const { data } = await axios.post(`${API}/meta-ads/upload-asset`, fd, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUploadResult(data as UploadResult);
+      setAdSlots((prev) => prev.map((s, i) => i === index ? { ...s, result: data as UploadResult, uploading: false } : s));
     } catch {
-      setUploadError("Upload failed. Check your Meta connection and try again.");
-    } finally {
-      setUploading(false);
+      setAdSlots((prev) => prev.map((s, i) => i === index ? { ...s, uploading: false, error: "Upload failed. Try again." } : s));
     }
   }
 
-  const assetReady = uploadResult !== null;
+  const uploadedCount = adSlots.filter((s) => s.result !== null).length;
+  const assetReady = uploadedCount >= 3;
+
+  function validateAndSetSlot(index: number, file: File) {
+    const url = URL.createObjectURL(file);
+    const vid = document.createElement("video");
+    vid.preload = "metadata";
+    vid.onloadedmetadata = () => {
+      URL.revokeObjectURL(url);
+      const ratio = vid.videoWidth / vid.videoHeight;
+      const target = 9 / 16;
+      if (Math.abs(ratio - target) > 0.05) {
+        setAdSlots((prev) => prev.map((s, i) =>
+          i === index ? { ...s, file: null, result: null, error: `Wrong format (${vid.videoWidth}×${vid.videoHeight}). Videos must be 9:16 portrait, e.g. 1080×1920.` } : s,
+        ));
+      } else {
+        setAdSlots((prev) => prev.map((s, i) =>
+          i === index ? { ...s, file, result: null, error: "" } : s,
+        ));
+      }
+    };
+    vid.src = url;
+  }
 
   const canNext = [
     form.name.trim().length >= 2,                                              // 0 Campaign
@@ -167,7 +202,9 @@ export default function NewCampaignPage() {
     form.placement.length > 0,                                                 // 4 Placement
     form.facebookPageId.length > 0 && form.adTitle.trim().length >= 2         // 5 Ad Creative
       && form.landingPageUrl.trim().length > 0 && assetReady,
-    true,                                                                      // 6 Review
+    form.advertiserName.trim().length >= 2 &&                                 // 6 Advertiser
+      (!form.payerDiffers || form.payerName.trim().length >= 2),
+    true,                                                                      // 7 Review
   ][step];
 
   async function handleLaunch() {
@@ -191,8 +228,7 @@ export default function NewCampaignPage() {
           adDescription: form.adDescription || undefined,
           metaPageId: form.facebookPageId,
           metaIgActorId: form.instagramActorId || undefined,
-          adVideoUrl: uploadResult?.type === "video" ? uploadResult.videoId : undefined,
-          adImageHash: uploadResult?.type === "image" ? uploadResult.imageHash : undefined,
+          adVideoUrl: adSlots.find((s) => s.result?.type === "video") ? (adSlots.find((s) => s.result?.type === "video")!.result as { type: "video"; videoId: string }).videoId : undefined,
         },
         { headers: { Authorization: `Bearer ${token}` } },
       );
@@ -210,11 +246,12 @@ export default function NewCampaignPage() {
           endDate: form.endDate || undefined,
           pageId: form.facebookPageId,
           instagramActorId: form.instagramActorId || undefined,
-          videoId: uploadResult?.type === "video" ? uploadResult.videoId : undefined,
-          imageHash: uploadResult?.type === "image" ? uploadResult.imageHash : undefined,
+          videoIds: adSlots.filter((s) => s.result?.type === "video").map((s) => (s.result as { type: "video"; videoId: string }).videoId),
           adTitle: form.adTitle,
           adDescription: form.adDescription || undefined,
           landingPageUrl: form.landingPageUrl,
+          advertiserName: form.advertiserName,
+          payerName: form.payerDiffers ? form.payerName : undefined,
         },
         { headers: { Authorization: `Bearer ${token}` } },
       );
@@ -240,6 +277,7 @@ export default function NewCampaignPage() {
         <div>
           <h1 style={{ fontSize: "1.625rem", fontWeight: 800, color: NAVY, letterSpacing: "-0.02em" }}>New Campaign</h1>
           <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>Meta Ads · Sales campaign</p>
+          <p style={{ fontSize: "0.8125rem", color: BLUE, fontWeight: 600, marginTop: "0.2rem" }}>Create your campaign in under 3 minutes</p>
         </div>
       </div>
 
@@ -577,68 +615,120 @@ export default function NewCampaignPage() {
               </select>
             </Field>
 
-            {/* Video Upload */}
-            <Field label="Ad Video">
-              <div style={{ border: "1.5px dashed #C7D7FD", borderRadius: 12, padding: "1.25rem", background: "#F8FAFF", display: "flex", flexDirection: "column", gap: "0.75rem", alignItems: "center" }}>
-                {uploadResult ? (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem" }}>
-                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#F0FDF4", border: "1px solid #BBF7D0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#12B76A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12"/>
-                      </svg>
-                    </div>
-                    <p style={{ fontSize: "0.875rem", fontWeight: 700, color: "#166534" }}>Video uploaded</p>
-                    <p style={{ fontSize: "0.75rem", color: "#64748b" }}>{adFile?.name}</p>
-                    <button
-                      onClick={() => { setUploadResult(null); setAdFile(null); if (fileRef.current) fileRef.current.value = ""; }}
-                      style={{ fontSize: "0.75rem", color: "#64748b", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
-                      Change file
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/>
-                    </svg>
-                    <p style={{ fontSize: "0.8125rem", color: "#64748b", textAlign: "center" }}>
-                      Drop a video here, or{" "}
-                      <button onClick={() => fileRef.current?.click()} style={{ color: BLUE, background: "none", border: "none", cursor: "pointer", fontWeight: 600, fontSize: "0.8125rem", padding: 0 }}>
-                        browse
-                      </button>
-                    </p>
-                    <p style={{ fontSize: "0.72rem", color: "#94a3b8" }}>MP4, MOV · max 100 MB</p>
-                    {adFile && !uploadResult && (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem", width: "100%" }}>
-                        <p style={{ fontSize: "0.8rem", color: NAVY, fontWeight: 600 }}>{adFile.name}</p>
-                        <button
-                          onClick={handleUpload}
-                          disabled={uploading}
-                          style={{
-                            padding: "0.625rem 1.5rem", borderRadius: 8, fontWeight: 700, fontSize: "0.8125rem",
-                            background: uploading ? "#E2E6F0" : BLUE, color: uploading ? "#94a3b8" : "#fff",
-                            border: "none", cursor: uploading ? "not-allowed" : "pointer",
-                          }}>
-                          {uploading ? "Uploading to Meta..." : "Upload to Meta"}
-                        </button>
+            {/* Multi-video Upload */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.375rem" }}>
+                <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Ad Videos
+                </label>
+                <span style={{ fontSize: "0.72rem", color: uploadedCount >= 3 ? "#12B76A" : "#F59E0B", fontWeight: 600 }}>
+                  {uploadedCount}/8 uploaded · min 3 · recommended 4–6
+                </span>
+              </div>
+              <p style={{ fontSize: "0.78rem", color: "#64748b", marginBottom: "0.5rem", lineHeight: 1.55 }}>
+                This helps the campaign give you the best results while optimising the focus on the best ads without wasting too much of your budget.
+              </p>
+              <p style={{ fontSize: "0.75rem", color: "#F59E0B", fontWeight: 600, marginBottom: "0.875rem" }}>
+                Videos must be portrait 9:16 (e.g. 1080×1920). Landscape or square videos will be rejected.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+                {adSlots.map((slot, i) => (
+                  <div key={i} style={{
+                    display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.75rem",
+                    borderRadius: 12, border: `1.5px solid ${slot.result ? "#BBF7D0" : "#E2E6F0"}`,
+                    background: slot.result ? "#F0FDF4" : "#F8F9FC",
+                  }}>
+                    {/* thumbnail or slot number */}
+                    {slot.file ? (
+                      <div style={{ position: "relative", flexShrink: 0 }}>
+                        <VideoPreview file={slot.file} />
+                        <div style={{
+                          position: "absolute", bottom: 4, right: 4,
+                          width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                          background: slot.result ? "#12B76A" : "#F59E0B",
+                        }}>
+                          {slot.result ? (
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          ) : (
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ width: 60, height: 60, borderRadius: 8, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#E2E6F0", color: "#94a3b8", fontSize: "0.8rem", fontWeight: 700 }}>
+                        {i + 1}
                       </div>
                     )}
-                    {uploadError && (
-                      <p style={{ fontSize: "0.78rem", color: "#F43F5E", textAlign: "center" }}>{uploadError}</p>
+
+                    {slot.result ? (
+                      <>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: "0.8rem", fontWeight: 600, color: "#166534", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{slot.file?.name}</p>
+                          <p style={{ fontSize: "0.72rem", color: "#12B76A", marginTop: 2 }}>Uploaded</p>
+                        </div>
+                        <button onClick={() => setAdSlots((prev) => prev.map((s, idx) => idx === i ? { ...s, file: null, result: null, error: "" } : s))}
+                          style={{ fontSize: "0.72rem", color: "#64748b", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", flexShrink: 0 }}>
+                          Remove
+                        </button>
+                      </>
+                    ) : slot.file ? (
+                      <>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: "0.8rem", color: NAVY, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{slot.file.name}</p>
+                          {slot.error && <p style={{ fontSize: "0.72rem", color: "#F43F5E", marginTop: 2 }}>{slot.error}</p>}
+                        </div>
+                        <button onClick={() => void handleUploadSlot(i)} disabled={slot.uploading}
+                          style={{ padding: "0.35rem 0.875rem", borderRadius: 7, fontWeight: 700, fontSize: "0.75rem", border: "none", cursor: slot.uploading ? "not-allowed" : "pointer", background: slot.uploading ? "#E2E6F0" : BLUE, color: slot.uploading ? "#94a3b8" : "#fff", flexShrink: 0 }}>
+                          {slot.uploading ? "Uploading…" : "Upload"}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: "0.8rem", color: slot.error ? "#F43F5E" : "#94a3b8" }}>
+                            {slot.error ? slot.error : "No video selected"}
+                          </p>
+                        </div>
+                        <label htmlFor={`ad-slot-${i}`} style={{ padding: "0.35rem 0.875rem", borderRadius: 7, fontWeight: 600, fontSize: "0.75rem", border: `1px solid ${BLUE}`, cursor: "pointer", color: BLUE, background: "#fff", flexShrink: 0 }}>
+                          {slot.error ? "Try again" : "Select"}
+                        </label>
+                        <input id={`ad-slot-${i}`} type="file" accept="video/mp4,video/quicktime" style={{ display: "none" }}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) validateAndSetSlot(i, f);
+                            e.target.value = "";
+                          }} />
+                      </>
                     )}
-                  </>
-                )}
-                <input
-                  ref={fileRef} type="file" accept="video/mp4,video/quicktime"
-                  style={{ display: "none" }}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0] ?? null;
-                    setAdFile(f);
-                    setUploadResult(null);
-                    setUploadError("");
-                  }}
-                />
+                  </div>
+                ))}
               </div>
-            </Field>
+
+              {/* Add slot / count feedback */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "0.75rem" }}>
+                {adSlots.length < 8 ? (
+                  <button onClick={() => setAdSlots((prev) => [...prev, { file: null, result: null, uploading: false, error: "" }])}
+                    style={{ fontSize: "0.8rem", color: BLUE, background: "none", border: "none", cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: "0.35rem", padding: 0 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Add another video
+                  </button>
+                ) : (
+                  <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>Maximum 8 videos reached</span>
+                )}
+                {adSlots.length > 3 && (
+                  <button onClick={() => setAdSlots((prev) => prev.slice(0, -1))}
+                    style={{ fontSize: "0.75rem", color: "#94a3b8", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+                    Remove last slot
+                  </button>
+                )}
+              </div>
+              {uploadedCount < 3 && uploadedCount > 0 && (
+                <p style={{ fontSize: "0.75rem", color: "#F59E0B", marginTop: "0.5rem" }}>Upload at least {3 - uploadedCount} more video{3 - uploadedCount > 1 ? "s" : ""} to continue.</p>
+              )}
+              {uploadedCount === 0 && adSlots.some(s => s.file) && (
+                <p style={{ fontSize: "0.75rem", color: "#F59E0B", marginTop: "0.5rem" }}>Click Upload on each video to send it to Meta.</p>
+              )}
+            </div>
 
             {/* Ad Title */}
             <Field label="Ad Title">
@@ -675,15 +765,63 @@ export default function NewCampaignPage() {
               />
             </Field>
 
-            {/* Fixed CTA info */}
+          </div>
+        )}
+
+        {/* Step 6 — Advertiser & Payer */}
+        {step === 6 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            <div>
+              <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Advertiser & Payer</h2>
+              <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>Meta requires ad transparency. Enter who is advertising and who is paying for this campaign.</p>
+            </div>
+
+            <Field label="Advertiser Name">
+              <input
+                style={inputStyle()}
+                placeholder="Your name or business name"
+                value={form.advertiserName}
+                onChange={(e) => setForm({ ...form, advertiserName: e.target.value })}
+              />
+            </Field>
+
+            {/* Payer toggle */}
+            <div
+              onClick={() => setForm((f) => ({ ...f, payerDiffers: !f.payerDiffers, payerName: f.payerDiffers ? "" : f.payerName }))}
+              style={{ display: "flex", alignItems: "center", gap: "0.75rem", cursor: "pointer", userSelect: "none" }}
+            >
+              <div style={{
+                width: 20, height: 20, borderRadius: 5, border: `2px solid ${form.payerDiffers ? BLUE : "#CBD5E1"}`,
+                background: form.payerDiffers ? BLUE : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+              }}>
+                {form.payerDiffers && (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                )}
+              </div>
+              <span style={{ fontSize: "0.875rem", color: NAVY, fontWeight: 500 }}>The payer is different from the advertiser</span>
+            </div>
+
+            {form.payerDiffers && (
+              <Field label="Payer Name">
+                <input
+                  style={inputStyle()}
+                  placeholder="Name or business name of the payer"
+                  value={form.payerName}
+                  onChange={(e) => setForm({ ...form, payerName: e.target.value })}
+                />
+              </Field>
+            )}
+
             <div style={{ background: "#F0F4FF", border: "1px solid #C7D7FD", borderRadius: 10, padding: "0.75rem 1rem", fontSize: "0.8rem", color: BLUE }}>
-              CTA button is fixed to <strong>Learn More</strong> — Meta does not support a "Listen Now" CTA type via the API.
+              This information will be recorded for Meta&apos;s ad transparency requirements.
             </div>
           </div>
         )}
 
-        {/* Step 6 — Review */}
-        {step === 6 && (
+        {/* Step 7 — Review */}
+        {step === 7 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <div>
               <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Review & Launch</h2>
@@ -702,11 +840,13 @@ export default function NewCampaignPage() {
               { label: "Placement",         value: PLACEMENTS.find((p) => p.value === form.placement)?.label ?? "" },
               { label: "Facebook Page",     value: pages.find((p) => p.id === form.facebookPageId)?.name ?? form.facebookPageId },
               { label: "Instagram Account", value: igAccounts.find((ig) => ig.id === form.instagramActorId)?.username ? `@${igAccounts.find((ig) => ig.id === form.instagramActorId)!.username}` : "None" },
-              { label: "Ad Video",           value: uploadResult ? `Video — ${adFile?.name}` : "None" },
+              { label: "Ad Videos",          value: uploadedCount > 0 ? `${uploadedCount} video${uploadedCount > 1 ? "s" : ""} uploaded` : "None" },
               { label: "Ad Title",          value: form.adTitle },
               { label: "Description",       value: form.adDescription || "—" },
               { label: "Landing Page",      value: form.landingPageUrl },
-              { label: "CTA",               value: "Learn More" },
+              { label: "CTA",               value: "Listen Now" },
+              { label: "Advertiser",        value: form.advertiserName },
+              { label: "Payer",             value: form.payerDiffers ? form.payerName : "Same as advertiser" },
             ].map((row, i, arr) => (
               <div key={row.label} style={{
                 display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem",
@@ -766,7 +906,7 @@ export default function NewCampaignPage() {
               border: "none", cursor: submitting ? "not-allowed" : "pointer",
             }}
           >
-            {submitting ? "Launching..." : "🚀 Launch on Meta"}
+            {submitting ? "Launching..." : "Launch Now"}
           </button>
         )}
       </div>

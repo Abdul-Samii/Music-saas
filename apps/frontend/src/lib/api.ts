@@ -36,6 +36,8 @@ export const campaignsApi = {
     api.get("/meta-ads/live-campaigns").then((r) => r.data),
   deleteCampaign: (campaignId: string) =>
     api.delete("/meta-ads/campaign", { params: { campaignId } }).then((r) => r.data),
+  increaseBudget: (campaignId: string, additionalDailyBudget: number) =>
+    api.post("/meta-ads/increase-budget", { campaignId, additionalDailyBudget }).then((r) => r.data),
 };
 
 export const analyticsApi = {
