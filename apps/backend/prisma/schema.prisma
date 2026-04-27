@@ -58,6 +58,12 @@ model Campaign {
   adCreatives    AdCreative[]
   metrics        CampaignMetric[]
   createdAt      DateTime       @default(now())
+  launchedAt     DateTime?
+  automationPhase   String?
+  automationWarning String?
+  adsDisabledCount  Int        @default(0)
+  advertiserName    String?
+  payerName         String?
 }
 
 model AdCreative {

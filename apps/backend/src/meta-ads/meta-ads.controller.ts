@@ -222,6 +222,7 @@ export class MetaAdsController {
         audienceTier: body.audienceTier,
         placement: campaign.placement ?? 'pro',
         budget: body.budget,
+        pixelId: campaign.pixelId ?? undefined,
       },
     );
 
@@ -276,10 +277,13 @@ export class MetaAdsController {
       pageId: string;
       instagramActorId?: string;
       videoId?: string;
+      videoIds?: string[];
       imageHash?: string;
       adTitle: string;
       adDescription?: string;
       landingPageUrl: string;
+      advertiserName?: string;
+      payerName?: string;
     },
     @CurrentUser() user: JwtUser,
   ) {
@@ -308,6 +312,14 @@ export class MetaAdsController {
         ? body.tierBudgets
         : tiers.map(() => body.budget ?? 5);
 
+    // Resolve video IDs — prefer the multi-video array, fall back to single videoId
+    const videoIds: string[] =
+      Array.isArray(body.videoIds) && body.videoIds.length > 0
+        ? body.videoIds
+        : body.videoId
+          ? [body.videoId]
+          : [];
+
     // 1. Create one Meta campaign + one ad set per tier
     const { metaCampaignId, metaAdSetIds } =
       await this.metaAds.createMetaCampaign(metaAccessToken, metaAdAccountId, {
@@ -320,35 +332,57 @@ export class MetaAdsController {
         endDate: body.endDate,
       });
 
-    // 2. Create one shared ad creative
-    const metaAdCreativeId = await this.metaAds.createAdCreative(
-      metaAccessToken,
-      metaAdAccountId,
-      {
-        name: `${campaign.name} — Creative`,
-        pageId: body.pageId,
-        instagramActorId: body.instagramActorId,
-        videoId: body.videoId,
-        imageHash: body.imageHash,
-        adTitle: body.adTitle,
-        adDescription: body.adDescription,
-        landingPageUrl: body.landingPageUrl,
-      },
-    );
-
-    // 3. Create one ad per ad set
-    const metaAdIds: string[] = [];
-    for (const adSetId of metaAdSetIds) {
-      const adId = await this.metaAds.createMetaAd(
+    // 2. Create one ad creative per video (or one image creative if no videos)
+    const creativeIds: string[] = [];
+    if (videoIds.length > 0) {
+      for (let vi = 0; vi < videoIds.length; vi++) {
+        const creativeId = await this.metaAds.createAdCreative(
+          metaAccessToken,
+          metaAdAccountId,
+          {
+            name: `${campaign.name} — Creative ${vi + 1}`,
+            pageId: body.pageId,
+            instagramActorId: body.instagramActorId,
+            videoId: videoIds[vi],
+            adTitle: body.adTitle,
+            adDescription: body.adDescription,
+            landingPageUrl: body.landingPageUrl,
+          },
+        );
+        creativeIds.push(creativeId);
+      }
+    } else {
+      const creativeId = await this.metaAds.createAdCreative(
         metaAccessToken,
         metaAdAccountId,
         {
-          name: campaign.name,
-          adSetId,
-          creativeId: metaAdCreativeId,
+          name: `${campaign.name} — Creative`,
+          pageId: body.pageId,
+          instagramActorId: body.instagramActorId,
+          imageHash: body.imageHash,
+          adTitle: body.adTitle,
+          adDescription: body.adDescription,
+          landingPageUrl: body.landingPageUrl,
         },
       );
-      metaAdIds.push(adId);
+      creativeIds.push(creativeId);
+    }
+
+    // 3. Create one ad per (adset × creative)
+    const metaAdIds: string[] = [];
+    for (const adSetId of metaAdSetIds) {
+      for (let ci = 0; ci < creativeIds.length; ci++) {
+        const adId = await this.metaAds.createMetaAd(
+          metaAccessToken,
+          metaAdAccountId,
+          {
+            name: `${campaign.name} — Ad ${ci + 1}`,
+            adSetId,
+            creativeId: creativeIds[ci],
+          },
+        );
+        metaAdIds.push(adId);
+      }
     }
 
     // 4. Persist all IDs + mark active
@@ -360,7 +394,7 @@ export class MetaAdsController {
         metaAdId: metaAdIds[0],
         metaAdSetIds,
         metaAdIds,
-        metaAdCreativeId,
+        metaAdCreativeId: creativeIds[0],
         metaPageId: body.pageId,
         metaIgActorId: body.instagramActorId,
         pixelId: body.pixelId,
@@ -370,19 +404,29 @@ export class MetaAdsController {
         adTitle: body.adTitle,
         adDescription: body.adDescription,
         landingPageUrl: body.landingPageUrl,
-        adVideoUrl: body.videoId,
+        adVideoUrl: videoIds[0] ?? body.videoId,
         adImageHash: body.imageHash,
         startDate: body.startDate ? new Date(body.startDate) : null,
         endDate: body.endDate ? new Date(body.endDate) : null,
         status: 'ACTIVE',
+        launchedAt: new Date(),
       },
     });
+
+    if (body.advertiserName) {
+      await this.prisma.$executeRaw`
+        UPDATE "Campaign"
+        SET "advertiserName" = ${body.advertiserName},
+            "payerName"      = ${body.payerName ?? null}
+        WHERE id = ${body.campaignId}
+      `;
+    }
 
     return {
       success: true,
       metaCampaignId,
       metaAdSetIds,
-      metaAdCreativeId,
+      metaAdCreativeIds: creativeIds,
       metaAdIds,
     };
   }
@@ -396,6 +440,26 @@ export class MetaAdsController {
   ) {
     if (!campaignId) throw new BadRequestException('campaignId required');
     await this.metaAds.deleteCampaign(user.id, campaignId);
+    return { success: true };
+  }
+
+  // POST /meta-ads/increase-budget  { campaignId, additionalDailyBudget }
+  @Post('increase-budget')
+  @HttpCode(HttpStatus.OK)
+  async increaseBudget(
+    @Body() body: { campaignId: string; additionalDailyBudget: number },
+    @CurrentUser() user: JwtUser,
+  ) {
+    if (!body.campaignId || !body.additionalDailyBudget) {
+      throw new BadRequestException(
+        'campaignId and additionalDailyBudget required',
+      );
+    }
+    await this.metaAds.increaseCampaignBudget(
+      user.id,
+      body.campaignId,
+      body.additionalDailyBudget,
+    );
     return { success: true };
   }
 
