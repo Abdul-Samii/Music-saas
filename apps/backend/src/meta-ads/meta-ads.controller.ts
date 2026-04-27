@@ -409,18 +409,17 @@ export class MetaAdsController {
         startDate: body.startDate ? new Date(body.startDate) : null,
         endDate: body.endDate ? new Date(body.endDate) : null,
         status: 'ACTIVE',
-        launchedAt: new Date(),
       },
     });
 
-    if (body.advertiserName) {
-      await this.prisma.$executeRaw`
-        UPDATE "Campaign"
-        SET "advertiserName" = ${body.advertiserName},
-            "payerName"      = ${body.payerName ?? null}
-        WHERE id = ${body.campaignId}
-      `;
-    }
+    // New schema fields — use raw SQL until prisma generate is re-run on VPS
+    await this.prisma.$executeRaw`
+      UPDATE "Campaign"
+      SET "launchedAt"      = ${new Date()},
+          "advertiserName"  = ${body.advertiserName ?? null},
+          "payerName"       = ${body.payerName ?? null}
+      WHERE id = ${body.campaignId}
+    `;
 
     return {
       success: true,
