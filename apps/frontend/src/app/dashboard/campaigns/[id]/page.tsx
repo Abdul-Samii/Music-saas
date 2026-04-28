@@ -436,7 +436,7 @@ export default function CampaignDetailPage() {
           { label: "Total Budget",    value: `€${safeBudget.toLocaleString()}`, sub: totalSpent > 0 ? `€${totalSpent.toFixed(2)} spent` : "No spend yet",        color: "#3A60E7" },
           { label: "Streams",         value: totalStreams > 0 ? totalStreams.toLocaleString() : "—",    sub: "total streams driven",   color: "#1DB954" },
           { label: "Cost per Stream", value: avgCps > 0 ? `€${avgCps.toFixed(3)}` : "—",             sub: "avg across campaign",     color: "#4C1AEA" },
-          { label: "Budget Used",     value: `${budgetPct.toFixed(0)}%`,                              sub: `€${(safeBudget - totalSpent).toFixed(2)} remaining`,  color: "#1877F2" },
+          { label: "Amount Spent",    value: totalSpent > 0 ? `€${totalSpent.toFixed(2)}` : "€0.00", sub: `${budgetPct.toFixed(0)}% of €${safeBudget.toLocaleString()} budget`, color: "#1877F2" },
         ].map((s) => (
           <div key={s.label} style={{ background: "var(--bg-card)", borderRadius: 16, padding: "1.25rem", border: "1px solid var(--border)", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
             <p style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-muted)", marginBottom: "0.625rem" }}>{s.label}</p>
