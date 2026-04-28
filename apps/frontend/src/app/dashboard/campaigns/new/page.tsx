@@ -4,12 +4,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import axios from "axios";
+import { landingPagesApi, usersApi } from "@/lib/api";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api/v1";
 const BLUE = "#3A60E7";
 const NAVY = "#0B1120";
 
-const STEPS = ["Campaign", "Conversion", "Budget", "Audience", "Placement", "Ad Creative", "Advertiser", "Review"];
+const STEPS = ["Campaign", "Landing Page", "Conversion", "Budget", "Audience", "Placement", "Ad Creative", "Advertiser", "Review"];
 
 const AUDIENCE_TIERS = [
   { value: "tier1",  label: "Tier 1",       desc: "Australia, Austria, Belgium, Denmark, Finland, France, Germany, Ireland, Italy, Netherlands, New Zealand, Norway, Spain, Sweden, Switzerland, United Kingdom, United States" },
@@ -28,6 +29,10 @@ type Pixel = { id: string; name: string };
 type IgAccount = { id: string; username: string };
 type FbPage = { id: string; name: string; instagramAccounts: IgAccount[] };
 type UploadResult = { type: "video"; videoId: string } | { type: "image"; imageHash: string };
+
+function toSlug(str: string) {
+  return str.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 60);
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -70,22 +75,30 @@ export default function NewCampaignPage() {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
-  // Step 1 — pixels
+  // Artist slug (fetched from profile for landing page URL preview)
+  const [artistSlug, setArtistSlug] = useState("");
+
+  // Step 2 — pixels
   const [pixels, setPixels] = useState<Pixel[]>([]);
   const [loadingPixels, setLoadingPixels] = useState(false);
 
-  // Step 5 — pages + IG accounts
+  // Step 6 — pages + IG accounts
   const [pages, setPages] = useState<FbPage[]>([]);
   const [loadingPages, setLoadingPages] = useState(false);
 
-  // Step 5 — multi-video upload (min 3, max 8)
+  // Step 6 — multi-video upload (min 3, max 8)
   type AdSlot = { file: File | null; result: UploadResult | null; uploading: boolean; error: string };
   const EMPTY_SLOT: AdSlot = { file: null, result: null, uploading: false, error: "" };
   const [adSlots, setAdSlots] = useState<AdSlot[]>([EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT]);
 
-  // Step 3 — tier dropdown
+  // Step 4 — tier dropdown
   const [tierDropdownOpen, setTierDropdownOpen] = useState(false);
   const tierDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Landing page step state
+  const [lpThumbnailPreview, setLpThumbnailPreview] = useState("");
+  const [lpUploading, setLpUploading] = useState(false);
+  const [lpUploadError, setLpUploadError] = useState("");
 
   // Error from launch
   const [launchError, setLaunchError] = useState("");
@@ -99,10 +112,13 @@ export default function NewCampaignPage() {
     audienceTiers: [] as string[],
     tierBudgets: {} as Record<string, string>,
     placement: "",
+    // Landing page
+    landingThumbnailUrl: "",
+    spotifyUrl: "",
+    landingPageUrl: "",  // auto-filled at launch
     // Ad creative
     facebookPageId: "",
     instagramActorId: "",
-    landingPageUrl: "",
     adTitle: "",
     adDescription: "",
     // Advertiser & payer
@@ -110,6 +126,15 @@ export default function NewCampaignPage() {
     payerDiffers: false,
     payerName: "",
   });
+
+  // Fetch artist name for slug preview
+  useEffect(() => {
+    if (!token) return;
+    usersApi.me().then((u: { artistName?: string; name?: string }) => {
+      const raw = u.artistName ?? u.name ?? "artist";
+      setArtistSlug(toSlug(raw));
+    }).catch(() => {});
+  }, [token]);
 
   // Load pixels on mount
   useEffect(() => {
@@ -137,9 +162,9 @@ export default function NewCampaignPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Load FB pages when entering step 5
+  // Load FB pages when entering step 6
   useEffect(() => {
-    if (step !== 5 || !token || pages.length > 0) return;
+    if (step !== 6 || !token || pages.length > 0) return;
     setLoadingPages(true);
     axios.get(`${API}/meta-ads/pages`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => {
@@ -152,6 +177,23 @@ export default function NewCampaignPage() {
 
   const selectedPage = pages.find((p) => p.id === form.facebookPageId);
   const igAccounts = selectedPage?.instagramAccounts ?? [];
+
+  // Landing page thumbnail selection & upload
+  async function handleThumbnailSelect(file: File) {
+    setLpUploadError("");
+    const objectUrl = URL.createObjectURL(file);
+    setLpThumbnailPreview(objectUrl);
+    setLpUploading(true);
+    try {
+      const { url } = await landingPagesApi.uploadThumbnail(file);
+      setForm((f) => ({ ...f, landingThumbnailUrl: url }));
+    } catch {
+      setLpUploadError("Upload failed. Please try again.");
+      setForm((f) => ({ ...f, landingThumbnailUrl: "" }));
+    } finally {
+      setLpUploading(false);
+    }
+  }
 
   async function handleUploadSlot(index: number) {
     const slot = adSlots[index];
@@ -193,18 +235,25 @@ export default function NewCampaignPage() {
     vid.src = url;
   }
 
+  // Computed landing page preview URL
+  const songSlugPreview = toSlug(form.name);
+  const landingUrlPreview = artistSlug && songSlugPreview
+    ? `escalium.io/p/${artistSlug}/${songSlugPreview}`
+    : "";
+
   const canNext = [
     form.name.trim().length >= 2,                                              // 0 Campaign
-    form.pixelId.length > 0,                                                   // 1 Conversion
-    Number(form.budget) >= 5,                                                  // 2 Budget
+    form.landingThumbnailUrl.length > 0 && form.spotifyUrl.trim().length > 5, // 1 Landing Page
+    form.pixelId.length > 0,                                                   // 2 Conversion
+    Number(form.budget) >= 5,                                                  // 3 Budget
     form.audienceTiers.length > 0 &&
-      form.audienceTiers.every((v) => Number(form.tierBudgets[v] ?? 5) >= 5),  // 3 Audience
-    form.placement.length > 0,                                                 // 4 Placement
-    form.facebookPageId.length > 0 && form.adTitle.trim().length >= 2         // 5 Ad Creative
-      && form.landingPageUrl.trim().length > 0 && assetReady,
-    form.advertiserName.trim().length >= 2 &&                                 // 6 Advertiser
+      form.audienceTiers.every((v) => Number(form.tierBudgets[v] ?? 5) >= 5), // 4 Audience
+    form.placement.length > 0,                                                 // 5 Placement
+    form.facebookPageId.length > 0 && form.adTitle.trim().length >= 2         // 6 Ad Creative
+      && assetReady,
+    form.advertiserName.trim().length >= 2 &&                                 // 7 Advertiser
       (!form.payerDiffers || form.payerName.trim().length >= 2),
-    true,                                                                      // 7 Review
+    true,                                                                      // 8 Review
   ][step];
 
   async function handleLaunch() {
@@ -212,7 +261,17 @@ export default function NewCampaignPage() {
     setSubmitting(true);
     setLaunchError("");
     try {
-      // 1. Save draft campaign
+      // 1. Create the landing page
+      const lpRes = await landingPagesApi.create({
+        title: form.name,
+        songSlug: form.name,
+        thumbnailUrl: form.landingThumbnailUrl,
+        spotifyUrl: form.spotifyUrl,
+        pixelId: form.pixelId || undefined,
+      });
+      const landingPageUrl = lpRes.url;
+
+      // 2. Save draft campaign
       const { data: campaign } = await axios.post(
         `${API}/campaigns`,
         {
@@ -221,19 +280,21 @@ export default function NewCampaignPage() {
           startDate: form.startDate || undefined,
           endDate: form.endDate || undefined,
           pixelId: form.pixelId,
-          audienceTier: form.audienceTiers.join(','),
+          audienceTier: form.audienceTiers.join(","),
           placement: form.placement,
-          landingPageUrl: form.landingPageUrl,
+          landingPageUrl,
           adTitle: form.adTitle,
           adDescription: form.adDescription || undefined,
           metaPageId: form.facebookPageId,
           metaIgActorId: form.instagramActorId || undefined,
-          adVideoUrl: adSlots.find((s) => s.result?.type === "video") ? (adSlots.find((s) => s.result?.type === "video")!.result as { type: "video"; videoId: string }).videoId : undefined,
+          adVideoUrl: adSlots.find((s) => s.result?.type === "video")
+            ? (adSlots.find((s) => s.result?.type === "video")!.result as { type: "video"; videoId: string }).videoId
+            : undefined,
         },
         { headers: { Authorization: `Bearer ${token}` } },
       );
 
-      // 2. Launch on Meta (campaign → adset → creative → ad)
+      // 3. Launch on Meta
       await axios.post(
         `${API}/meta-ads/launch-campaign`,
         {
@@ -249,7 +310,7 @@ export default function NewCampaignPage() {
           videoIds: adSlots.filter((s) => s.result?.type === "video").map((s) => (s.result as { type: "video"; videoId: string }).videoId),
           adTitle: form.adTitle,
           adDescription: form.adDescription || undefined,
-          landingPageUrl: form.landingPageUrl,
+          landingPageUrl,
           advertiserName: form.advertiserName,
           payerName: form.payerDiffers ? form.payerName : undefined,
         },
@@ -346,8 +407,119 @@ export default function NewCampaignPage() {
           </div>
         )}
 
-        {/* Step 1 — Conversion */}
+        {/* Step 1 — Landing Page */}
         {step === 1 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            <div>
+              <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Create Landing Page</h2>
+              <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>
+                We&apos;ll build a hosted landing page for your song. Your Meta Pixel will be embedded automatically.
+              </p>
+            </div>
+
+            {/* URL preview */}
+            {landingUrlPreview && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", padding: "0.75rem 1rem", background: "#F0F4FF", border: "1px solid #C7D7FD", borderRadius: 10 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+                <div>
+                  <p style={{ fontSize: "0.72rem", color: BLUE, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.1rem" }}>Your landing page URL</p>
+                  <p style={{ fontSize: "0.85rem", color: NAVY, fontWeight: 700 }}>{landingUrlPreview}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Thumbnail upload */}
+            <div>
+              <label style={{ fontSize: "0.8rem", fontWeight: 700, color: NAVY, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.5rem" }}>
+                Song / Playlist Artwork <span style={{ color: "#F43F5E" }}>*</span>
+              </label>
+              <label style={{
+                display: "flex", alignItems: "center", gap: "1rem", cursor: "pointer",
+                padding: "1rem", borderRadius: 12,
+                border: `2px dashed ${form.landingThumbnailUrl ? "#12B76A" : lpUploadError ? "#F43F5E" : "#E2E6F0"}`,
+                background: form.landingThumbnailUrl ? "#F0FDF4" : "#F8F9FC",
+                transition: "all 0.15s",
+              }}>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleThumbnailSelect(f);
+                    e.target.value = "";
+                  }}
+                />
+                {lpThumbnailPreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={lpThumbnailPreview} alt="thumbnail" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 72, height: 72, borderRadius: 8, background: "#E2E6F0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                  </div>
+                )}
+                <div style={{ flex: 1 }}>
+                  {lpUploading ? (
+                    <p style={{ fontSize: "0.875rem", color: BLUE, fontWeight: 600 }}>Uploading…</p>
+                  ) : form.landingThumbnailUrl ? (
+                    <>
+                      <p style={{ fontSize: "0.875rem", fontWeight: 600, color: "#166534" }}>✓ Artwork uploaded</p>
+                      <p style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 2 }}>Click to change</p>
+                    </>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: "0.875rem", fontWeight: 600, color: NAVY }}>Upload artwork</p>
+                      <p style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 2 }}>JPG, PNG or WebP · Max 10 MB</p>
+                    </>
+                  )}
+                  {lpUploadError && <p style={{ fontSize: "0.75rem", color: "#F43F5E", marginTop: 2 }}>{lpUploadError}</p>}
+                </div>
+              </label>
+            </div>
+
+            {/* Spotify URL */}
+            <Field label="Spotify Link">
+              <input
+                style={inputStyle()}
+                type="url"
+                placeholder="https://open.spotify.com/track/..."
+                value={form.spotifyUrl}
+                onChange={(e) => setForm({ ...form, spotifyUrl: e.target.value })}
+              />
+              <p style={{ fontSize: "0.72rem", color: "#64748b" }}>Paste the Spotify link for your song or playlist. Listeners click this button on the landing page.</p>
+            </Field>
+
+            {/* Mini preview */}
+            {(lpThumbnailPreview || form.spotifyUrl) && (
+              <div style={{ border: "1px solid #E2E6F0", borderRadius: 14, overflow: "hidden" }}>
+                <p style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", padding: "0.625rem 1rem", background: "#F8F9FC", borderBottom: "1px solid #E2E6F0" }}>Page Preview</p>
+                <div style={{ padding: "1.25rem", background: "#1a1a2e", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.875rem" }}>
+                  {lpThumbnailPreview && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={lpThumbnailPreview} alt="artwork" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }} />
+                  )}
+                  <p style={{ color: "#fff", fontWeight: 800, fontSize: "1rem", textAlign: "center" }}>{form.name || "Song Title"}</p>
+                  {form.spotifyUrl && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", background: "#1DB954", borderRadius: 10, padding: "0.5rem 0.875rem", width: "100%", maxWidth: 240 }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+                      <div>
+                        <p style={{ color: "#fff", fontWeight: 700, fontSize: "0.78rem" }}>Stream on Spotify</p>
+                        <p style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.68rem" }}>Click (+) to Save it</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Step 2 — Conversion */}
+        {step === 2 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <div>
               <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Conversion Setup</h2>
@@ -386,8 +558,8 @@ export default function NewCampaignPage() {
           </div>
         )}
 
-        {/* Step 2 — Budget */}
-        {step === 2 && (
+        {/* Step 3 — Budget */}
+        {step === 3 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <div>
               <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Budget & Schedule</h2>
@@ -430,15 +602,14 @@ export default function NewCampaignPage() {
           </div>
         )}
 
-        {/* Step 3 — Audience */}
-        {step === 3 && (
+        {/* Step 4 — Audience */}
+        {step === 4 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <div>
               <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Audience Tiers</h2>
               <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>Select one or more tiers — each becomes a separate ad set. Minimum $5/day per tier.</p>
             </div>
 
-            {/* Dropdown */}
             <div ref={tierDropdownRef} style={{ position: "relative" }}>
               <button
                 type="button"
@@ -500,7 +671,6 @@ export default function NewCampaignPage() {
               )}
             </div>
 
-            {/* Per-tier budget inputs */}
             {form.audienceTiers.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                 <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: NAVY }}>Daily budget per tier</p>
@@ -543,8 +713,8 @@ export default function NewCampaignPage() {
           </div>
         )}
 
-        {/* Step 4 — Placement */}
-        {step === 4 && (
+        {/* Step 5 — Placement */}
+        {step === 5 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <div>
               <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Placement Template</h2>
@@ -569,17 +739,28 @@ export default function NewCampaignPage() {
               ))}
             </div>
             <div style={{ background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#92400E" }}>
-              ⚠️ "Allow limited spend to excluded placements" is always disabled for both templates.
+              ⚠️ &quot;Allow limited spend to excluded placements&quot; is always disabled for both templates.
             </div>
           </div>
         )}
 
-        {/* Step 5 — Ad Creative */}
-        {step === 5 && (
+        {/* Step 6 — Ad Creative */}
+        {step === 6 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <div>
               <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Ad Creative</h2>
               <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>Upload your video and set the ad copy. All fields except description are required.</p>
+            </div>
+
+            {/* Landing page URL (read-only) */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.875rem 1rem", background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 10 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#166534" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+              <div>
+                <p style={{ fontSize: "0.72rem", fontWeight: 700, color: "#166534", textTransform: "uppercase", letterSpacing: "0.05em" }}>Landing Page (auto-created)</p>
+                <p style={{ fontSize: "0.8rem", color: "#166534", fontWeight: 600 }}>{landingUrlPreview || "escalium.io/p/…"}</p>
+              </div>
             </div>
 
             {/* Facebook Page */}
@@ -638,7 +819,6 @@ export default function NewCampaignPage() {
                     borderRadius: 12, border: `1.5px solid ${slot.result ? "#BBF7D0" : "#E2E6F0"}`,
                     background: slot.result ? "#F0FDF4" : "#F8F9FC",
                   }}>
-                    {/* thumbnail or slot number */}
                     {slot.file ? (
                       <div style={{ position: "relative", flexShrink: 0 }}>
                         <VideoPreview file={slot.file} />
@@ -704,7 +884,6 @@ export default function NewCampaignPage() {
                 ))}
               </div>
 
-              {/* Add slot / count feedback */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "0.75rem" }}>
                 {adSlots.length < 8 ? (
                   <button onClick={() => setAdSlots((prev) => [...prev, { file: null, result: null, uploading: false, error: "" }])}
@@ -753,23 +932,11 @@ export default function NewCampaignPage() {
               />
               <p style={{ fontSize: "0.72rem", color: "#94a3b8", textAlign: "right" }}>{form.adDescription.length}/125</p>
             </Field>
-
-            {/* Landing Page URL */}
-            <Field label="Landing Page URL">
-              <input
-                style={inputStyle()}
-                placeholder="https://open.spotify.com/track/..."
-                type="url"
-                value={form.landingPageUrl}
-                onChange={(e) => setForm({ ...form, landingPageUrl: e.target.value })}
-              />
-            </Field>
-
           </div>
         )}
 
-        {/* Step 6 — Advertiser & Payer */}
-        {step === 6 && (
+        {/* Step 7 — Advertiser & Payer */}
+        {step === 7 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <div>
               <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Advertiser & Payer</h2>
@@ -785,7 +952,6 @@ export default function NewCampaignPage() {
               />
             </Field>
 
-            {/* Payer toggle */}
             <div
               onClick={() => setForm((f) => ({ ...f, payerDiffers: !f.payerDiffers, payerName: f.payerDiffers ? "" : f.payerName }))}
               style={{ display: "flex", alignItems: "center", gap: "0.75rem", cursor: "pointer", userSelect: "none" }}
@@ -820,33 +986,34 @@ export default function NewCampaignPage() {
           </div>
         )}
 
-        {/* Step 7 — Review */}
-        {step === 7 && (
+        {/* Step 8 — Review */}
+        {step === 8 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <div>
               <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Review & Launch</h2>
-              <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>Everything looks good? Click Launch to create the campaign on Meta.</p>
+              <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>Everything looks good? Click Launch to create your landing page and campaign on Meta.</p>
             </div>
 
             {[
-              { label: "Campaign Name",     value: form.name },
-              { label: "Campaign Type",     value: "Sales (fixed)" },
-              { label: "Pixel",             value: pixels.find((p) => p.id === form.pixelId)?.name ?? form.pixelId },
-              { label: "Conversion",        value: "Website → View Content → Maximize Conversions" },
-              { label: "Start Date",        value: form.startDate || "Immediately" },
-              { label: "End Date",          value: form.endDate || "No end date" },
-              { label: "Audience Tiers",    value: form.audienceTiers.map((v) => `${AUDIENCE_TIERS.find((t) => t.value === v)?.label ?? v} ($${form.tierBudgets[v] ?? 5}/day)`).join(", ") },
+              { label: "Campaign Name",      value: form.name },
+              { label: "Campaign Type",      value: "Sales (fixed)" },
+              { label: "Landing Page",       value: landingUrlPreview || "—" },
+              { label: "Spotify Link",       value: form.spotifyUrl || "—" },
+              { label: "Pixel",              value: pixels.find((p) => p.id === form.pixelId)?.name ?? form.pixelId },
+              { label: "Conversion",         value: "Website → View Content → Maximize Conversions" },
+              { label: "Start Date",         value: form.startDate || "Immediately" },
+              { label: "End Date",           value: form.endDate || "No end date" },
+              { label: "Audience Tiers",     value: form.audienceTiers.map((v) => `${AUDIENCE_TIERS.find((t) => t.value === v)?.label ?? v} ($${form.tierBudgets[v] ?? 5}/day)`).join(", ") },
               { label: "Total Daily Budget", value: `$${form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 5), 0).toFixed(2)}/day` },
-              { label: "Placement",         value: PLACEMENTS.find((p) => p.value === form.placement)?.label ?? "" },
-              { label: "Facebook Page",     value: pages.find((p) => p.id === form.facebookPageId)?.name ?? form.facebookPageId },
-              { label: "Instagram Account", value: igAccounts.find((ig) => ig.id === form.instagramActorId)?.username ? `@${igAccounts.find((ig) => ig.id === form.instagramActorId)!.username}` : "None" },
+              { label: "Placement",          value: PLACEMENTS.find((p) => p.value === form.placement)?.label ?? "" },
+              { label: "Facebook Page",      value: pages.find((p) => p.id === form.facebookPageId)?.name ?? form.facebookPageId },
+              { label: "Instagram Account",  value: igAccounts.find((ig) => ig.id === form.instagramActorId)?.username ? `@${igAccounts.find((ig) => ig.id === form.instagramActorId)!.username}` : "None" },
               { label: "Ad Videos",          value: uploadedCount > 0 ? `${uploadedCount} video${uploadedCount > 1 ? "s" : ""} uploaded` : "None" },
-              { label: "Ad Title",          value: form.adTitle },
-              { label: "Description",       value: form.adDescription || "—" },
-              { label: "Landing Page",      value: form.landingPageUrl },
-              { label: "CTA",               value: "Listen Now" },
-              { label: "Advertiser",        value: form.advertiserName },
-              { label: "Payer",             value: form.payerDiffers ? form.payerName : "Same as advertiser" },
+              { label: "Ad Title",           value: form.adTitle },
+              { label: "Description",        value: form.adDescription || "—" },
+              { label: "CTA",                value: "Listen Now" },
+              { label: "Advertiser",         value: form.advertiserName },
+              { label: "Payer",              value: form.payerDiffers ? form.payerName : "Same as advertiser" },
             ].map((row, i, arr) => (
               <div key={row.label} style={{
                 display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem",
@@ -885,15 +1052,15 @@ export default function NewCampaignPage() {
         {step < STEPS.length - 1 ? (
           <button
             onClick={() => setStep((s) => s + 1)}
-            disabled={!canNext}
+            disabled={!canNext || (step === 1 && lpUploading)}
             style={{
               padding: "0.75rem 1.75rem", borderRadius: 10, fontWeight: 700, fontSize: "0.875rem",
-              background: canNext ? `linear-gradient(135deg, ${BLUE}, #4C1AEA)` : "#E2E6F0",
-              color: canNext ? "#fff" : "#94a3b8", border: "none",
-              cursor: canNext ? "pointer" : "not-allowed",
+              background: (canNext && !(step === 1 && lpUploading)) ? `linear-gradient(135deg, ${BLUE}, #4C1AEA)` : "#E2E6F0",
+              color: (canNext && !(step === 1 && lpUploading)) ? "#fff" : "#94a3b8", border: "none",
+              cursor: (canNext && !(step === 1 && lpUploading)) ? "pointer" : "not-allowed",
             }}
           >
-            Continue →
+            {step === 1 && lpUploading ? "Uploading…" : "Continue →"}
           </button>
         ) : (
           <button

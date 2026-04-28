@@ -12,6 +12,7 @@ import { SpotifyModule } from './spotify/spotify.module';
 import { MediaModule } from './media/media.module';
 import { EarlyAccessModule } from './early-access/early-access.module';
 import { AdminModule } from './admin/admin.module';
+import { LandingPagesModule } from './landing-pages/landing-pages.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { AdminModule } from './admin/admin.module';
     MediaModule,
     EarlyAccessModule,
     AdminModule,
+    LandingPagesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

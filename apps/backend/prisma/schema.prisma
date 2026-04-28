@@ -27,7 +27,23 @@ model User {
   spotifyArtistId     String?
   campaigns           Campaign[]
   adCreatives         AdCreative[]
+  landingPages        LandingPage[]
   createdAt           DateTime    @default(now())
+}
+
+model LandingPage {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  artistSlug   String
+  songSlug     String
+  title        String
+  thumbnailUrl String
+  spotifyUrl   String?
+  pixelId      String?
+  createdAt    DateTime @default(now())
+
+  @@unique([artistSlug, songSlug])
 }
 
 model Campaign {
