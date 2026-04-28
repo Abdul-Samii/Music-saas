@@ -433,10 +433,10 @@ export default function CampaignDetailPage() {
       {/* ── 4 stat cards ── */}
       <div className="dash-metrics-grid">
         {[
-          { label: "Total Budget",    value: `€${safeBudget.toLocaleString()}`, sub: totalSpent > 0 ? `€${totalSpent.toFixed(0)} spent` : "No spend yet",        color: "#3A60E7" },
+          { label: "Total Budget",    value: `€${safeBudget.toLocaleString()}`, sub: totalSpent > 0 ? `€${totalSpent.toFixed(2)} spent` : "No spend yet",        color: "#3A60E7" },
           { label: "Streams",         value: totalStreams > 0 ? totalStreams.toLocaleString() : "—",    sub: "total streams driven",   color: "#1DB954" },
           { label: "Cost per Stream", value: avgCps > 0 ? `€${avgCps.toFixed(3)}` : "—",             sub: "avg across campaign",     color: "#4C1AEA" },
-          { label: "Budget Used",     value: `${budgetPct.toFixed(0)}%`,                              sub: `€${(safeBudget - totalSpent).toFixed(0)} remaining`,  color: "#1877F2" },
+          { label: "Budget Used",     value: `${budgetPct.toFixed(0)}%`,                              sub: `€${(safeBudget - totalSpent).toFixed(2)} remaining`,  color: "#1877F2" },
         ].map((s) => (
           <div key={s.label} style={{ background: "var(--bg-card)", borderRadius: 16, padding: "1.25rem", border: "1px solid var(--border)", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
             <p style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--text-muted)", marginBottom: "0.625rem" }}>{s.label}</p>
@@ -531,7 +531,7 @@ export default function CampaignDetailPage() {
               <div style={{ height: "100%", width: `${budgetPct}%`, background: budgetPct >= 90 ? "#F43F5E" : "linear-gradient(90deg, #3A60E7, #4C1AEA)", borderRadius: 99, transition: "width 0.4s ease" }} />
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.375rem" }}>
-              <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>€{totalSpent.toFixed(0)} spent</span>
+              <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>€{totalSpent.toFixed(2)} spent</span>
               <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>€{safeBudget.toLocaleString()} total</span>
             </div>
           </div>
