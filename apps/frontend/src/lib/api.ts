@@ -73,6 +73,27 @@ export const creativeApi = {
   myCreatives: () => api.get("/media/my-creatives").then((r) => r.data),
 };
 
+export const landingPagesApi = {
+  uploadThumbnail: (file: File, onProgress?: (p: number) => void) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return api
+      .post("/landing-pages/thumbnail", fd, {
+        onUploadProgress: (e) =>
+          onProgress?.(Math.round(((e.loaded ?? 0) * 100) / (e.total ?? 1))),
+      })
+      .then((r) => r.data as { url: string });
+  },
+  create: (data: {
+    title: string;
+    songSlug: string;
+    thumbnailUrl: string;
+    spotifyUrl?: string;
+    pixelId?: string;
+  }) => api.post("/landing-pages", data).then((r) => r.data as { url: string; id: string; artistSlug: string; songSlug: string }),
+  myPages: () => api.get("/landing-pages/my").then((r) => r.data),
+};
+
 export const usersApi = {
   me: () => api.get("/users/me").then((r) => r.data),
   update: (data: Record<string, unknown>) =>
