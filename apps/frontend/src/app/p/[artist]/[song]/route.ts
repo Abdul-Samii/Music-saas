@@ -46,6 +46,8 @@ function buildHtml(page: LandingPage): string {
 <meta property="og:title" content="${escHtml(page.title)}">
 <meta property="og:image" content="${escHtml(page.thumbnailUrl)}">
 <meta property="og:type" content="music.song">
+<link rel="preconnect" href="https://api.escalium.io">
+<link rel="preload" as="image" href="${escHtml(page.thumbnailUrl)}" fetchpriority="high">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden}
@@ -55,8 +57,8 @@ body{
   position:relative;min-height:100vh;overflow:hidden;
 }
 .bg{
-  position:fixed;inset:-60px;
-  background:url('${escHtml(page.thumbnailUrl)}') center/cover no-repeat;
+  position:fixed;inset:0;width:100%;height:100%;
+  object-fit:cover;
   filter:blur(48px) brightness(0.38) saturate(1.3);
   transform:scale(1.15);z-index:0;
 }
@@ -101,9 +103,9 @@ body{
 </style>
 </head>
 <body>
-<div class="bg"></div>
+<img class="bg" src="${escHtml(page.thumbnailUrl)}" alt="" aria-hidden="true" fetchpriority="low">
 <div class="wrap">
-  <img class="art" src="${escHtml(page.thumbnailUrl)}" alt="${escHtml(page.title)}" fetchpriority="high">
+  <img class="art" src="${escHtml(page.thumbnailUrl)}" alt="${escHtml(page.title)}" width="272" height="272" fetchpriority="high">
   <h1 class="title">${escHtml(page.title)}</h1>
   ${spotifyBtn}
   <p class="footer">POWERED BY ESCALIUM</p>
@@ -121,14 +123,12 @@ export async function GET(
 
   let page: LandingPage | null = null;
   try {
-    const url = `${API}/landing-pages/${artist}/${song}`;
-    console.log('[landing-page] fetching', url);
-    const res = await fetch(url, { cache: 'no-store' });
-    console.log('[landing-page] status', res.status);
+    const res = await fetch(`${API}/landing-pages/${artist}/${song}`, {
+      next: { revalidate: 3600 },
+    });
     if (res.ok) page = (await res.json()) as LandingPage;
-    else console.log('[landing-page] body', await res.text());
-  } catch (err) {
-    console.error('[landing-page] fetch error', err);
+  } catch {
+    // fall through to 404
   }
 
   if (!page) {

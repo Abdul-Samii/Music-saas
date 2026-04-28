@@ -19,7 +19,11 @@ async function bootstrap() {
     credentials: true,
   });
   // Serve uploaded audio files at /uploads/...
-  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/uploads',
+    maxAge: '365d',
+    immutable: true,
+  });
   await app.listen(process.env.PORT ?? 3000);
 }
 void bootstrap();
