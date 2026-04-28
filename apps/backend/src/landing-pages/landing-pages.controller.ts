@@ -12,6 +12,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as path from 'path';
+import * as fs from 'fs/promises';
+import sharp from 'sharp';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { LandingPagesService, toSlug } from './landing-pages.service';
@@ -52,9 +54,17 @@ export class LandingPagesController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
-    const apiUrl =
-      process.env.API_URL ?? 'https://api.escalium.io';
-    return { url: `${apiUrl}/uploads/thumbnails/${file.filename}` };
+
+    const outPath = file.path.replace(/\.[^.]+$/, '.jpg');
+    await sharp(file.path)
+      .resize(900, 900, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 82, mozjpeg: true })
+      .toFile(outPath);
+
+    if (outPath !== file.path) await fs.unlink(file.path);
+
+    const apiUrl = process.env.API_URL ?? 'https://api.escalium.io';
+    return { url: `${apiUrl}/uploads/thumbnails/${path.basename(outPath)}` };
   }
 
   // POST /landing-pages  — create landing page record

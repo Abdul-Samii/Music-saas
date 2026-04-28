@@ -20,7 +20,7 @@ interface LandingPage {
 
 function buildHtml(page: LandingPage): string {
   const pixel = page.pixelId
-    ? `<script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${escHtml(page.pixelId)}');fbq('track','PageView');fbq('track','ViewContent');</script><noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${escHtml(page.pixelId)}&ev=PageView&noscript=1" alt=""></noscript>`
+    ? `<script>window.addEventListener('load',function(){!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${escHtml(page.pixelId)}');fbq('track','PageView');fbq('track','ViewContent');});</script><noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${escHtml(page.pixelId)}&ev=PageView&noscript=1" alt=""></noscript>`
     : '';
 
   const spotifyBtn = page.spotifyUrl
@@ -103,13 +103,13 @@ body{
 </style>
 </head>
 <body>
-<img class="bg" src="${escHtml(page.thumbnailUrl)}" alt="" aria-hidden="true" fetchpriority="low">
 <div class="wrap">
   <img class="art" src="${escHtml(page.thumbnailUrl)}" alt="${escHtml(page.title)}" width="272" height="272" fetchpriority="high">
   <h1 class="title">${escHtml(page.title)}</h1>
   ${spotifyBtn}
   <p class="footer">POWERED BY ESCALIUM</p>
 </div>
+<img class="bg" src="${escHtml(page.thumbnailUrl)}" alt="" aria-hidden="true" fetchpriority="low">
 ${pixel}
 </body>
 </html>`;
