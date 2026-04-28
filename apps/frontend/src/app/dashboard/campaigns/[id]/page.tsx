@@ -100,14 +100,35 @@ export default function CampaignDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    campaignsApi.get(id)
-      .then((data) => {
+
+    async function load() {
+      try {
+        const data = await campaignsApi.get(id);
         const camp = data as Campaign;
         setCampaign({ ...camp, metrics: camp.metrics ?? [] });
         if (searchParams.get("action") === "addAd") setShowAddModal(true);
-      })
-      .catch(() => setError("Failed to load campaign."))
-      .finally(() => setLoading(false));
+
+        // Silently sync status + spend data from Meta, then refresh
+        if (camp.metaCampaignId) {
+          Promise.all([
+            campaignsApi.syncStatuses(),
+            campaignsApi.syncInsights(camp.id),
+          ])
+            .then(() => campaignsApi.get(id))
+            .then((fresh) => {
+              const f = fresh as Campaign;
+              setCampaign({ ...f, metrics: f.metrics ?? [] });
+            })
+            .catch(() => {});
+        }
+      } catch {
+        setError("Failed to load campaign.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void load();
   }, [id, searchParams]);
 
   async function handlePause() {
