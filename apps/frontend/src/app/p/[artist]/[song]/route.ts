@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.escalium.io/api/v1';
+const API = process.env.BACKEND_INTERNAL_URL ?? 'https://api.escalium.io/api/v1';
 
 function escHtml(str: string) {
   return str
@@ -121,12 +121,14 @@ export async function GET(
 
   let page: LandingPage | null = null;
   try {
-    const res = await fetch(`${API}/landing-pages/${artist}/${song}`, {
-      next: { revalidate: 3600 },
-    });
+    const url = `${API}/landing-pages/${artist}/${song}`;
+    console.log('[landing-page] fetching', url);
+    const res = await fetch(url, { cache: 'no-store' });
+    console.log('[landing-page] status', res.status);
     if (res.ok) page = (await res.json()) as LandingPage;
-  } catch {
-    // fall through to 404
+    else console.log('[landing-page] body', await res.text());
+  } catch (err) {
+    console.error('[landing-page] fetch error', err);
   }
 
   if (!page) {
