@@ -411,7 +411,17 @@ export default function CampaignsPage() {
                           </Link>
                         ) : (
                           <div>
-                            <p style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: "0.125rem" }}>{c.name}</p>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.125rem" }}>
+                              <p style={{ fontWeight: 600, color: "var(--text-primary)" }}>{c.name}</p>
+                              <span style={{
+                                fontSize: "0.6rem", fontWeight: 700, letterSpacing: "0.06em",
+                                textTransform: "uppercase", padding: "0.15rem 0.5rem",
+                                borderRadius: 999, border: "1px solid #CBD5E1",
+                                color: "#64748b", background: "#F8FAFC", whiteSpace: "nowrap",
+                              }}>
+                                External
+                              </span>
+                            </div>
                             <p style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
                               Meta · {fmtDate(c.createdTime)}
                             </p>
