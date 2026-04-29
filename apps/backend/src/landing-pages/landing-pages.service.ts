@@ -21,6 +21,7 @@ export class LandingPagesService {
       artistSlug: string;
       songSlug: string;
       title: string;
+      description?: string;
       thumbnailUrl: string;
       spotifyUrl?: string;
       pixelId?: string;

@@ -74,6 +74,7 @@ export class LandingPagesController {
     @Body()
     body: {
       title: string;
+      description?: string;
       songSlug: string;
       thumbnailUrl: string;
       spotifyUrl?: string;
@@ -93,6 +94,7 @@ export class LandingPagesController {
       artistSlug,
       songSlug,
       title: body.title,
+      description: body.description,
       thumbnailUrl: body.thumbnailUrl,
       spotifyUrl: body.spotifyUrl,
       pixelId: body.pixelId,
