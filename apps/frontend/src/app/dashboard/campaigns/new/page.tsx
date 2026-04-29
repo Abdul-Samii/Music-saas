@@ -20,9 +20,21 @@ const AUDIENCE_TIERS = [
   { value: "bottom", label: "Bottom Tiers", desc: "A mix of lower-cost markets with affordable advertising rates and lower streaming payouts." },
 ];
 
+const PLACEMENT_ICONS: Record<string, React.ReactNode> = {
+  pro: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3A60E7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+    </svg>
+  ),
+  pro_plus: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3A60E7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+    </svg>
+  ),
+};
 const PLACEMENTS = [
-  { value: "pro",      label: "Placement Pro",  desc: "This placement can increase results while giving you lower costs, but can also add less real listeners on your Spotify.", icon: "🎯" },
-  { value: "pro_plus", label: "Placement Pro+", desc: "This placement offers great results on campaigns and on real streams.",                                                   icon: "✨" },
+  { value: "pro",      label: "Placement Pro",  desc: "This placement can increase results while giving you lower costs, but can also add less real listeners on your Spotify." },
+  { value: "pro_plus", label: "Placement Pro+", desc: "This placement offers great results on campaigns and on real streams." },
 ];
 
 type Pixel = { id: string; name: string };
@@ -345,37 +357,52 @@ export default function NewCampaignPage() {
         </div>
       </div>
 
-      {/* Step indicator */}
-      <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
-        {STEPS.map((label, i) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", flex: i < STEPS.length - 1 ? 1 : "none" }}>
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.375rem", cursor: i < step ? "pointer" : "default" }}
-              onClick={() => { if (i < step) setStep(i); }}
-            >
-              <div style={{
-                width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                fontWeight: 700, fontSize: "0.72rem", flexShrink: 0,
-                background: i < step ? "#12B76A" : i === step ? BLUE : "#F1F5F9",
-                color: i <= step ? "#fff" : "#94a3b8",
-                transition: "all 0.2s",
-              }}>
-                {i < step ? (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                ) : i + 1}
+      {/* Step indicator — two rows */}
+      {(() => {
+        const ROW1 = [0, 1, 2, 3, 4, 5];
+        const ROW2 = [6, 7, 8];
+        const renderRow = (indices: number[]) => (
+          <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+            {indices.map((i, pos) => (
+              <div key={STEPS[i]} style={{ display: "flex", alignItems: "center", flex: pos < indices.length - 1 ? 1 : "none" }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "0.375rem", cursor: i < step ? "pointer" : "default", flexShrink: 0 }}
+                  onClick={() => { if (i < step) setStep(i); }}
+                >
+                  <div style={{
+                    width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                    fontWeight: 700, fontSize: "0.72rem", flexShrink: 0,
+                    background: i < step ? "#12B76A" : i === step ? BLUE : "#F1F5F9",
+                    color: i <= step ? "#fff" : "#94a3b8",
+                    transition: "all 0.2s",
+                  }}>
+                    {i < step ? (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    ) : i + 1}
+                  </div>
+                  <span style={{ fontSize: "0.72rem", fontWeight: i === step ? 700 : 400, color: i === step ? NAVY : "#94a3b8", whiteSpace: "nowrap" }}>
+                    {STEPS[i]}
+                  </span>
+                </div>
+                {pos < indices.length - 1 && (
+                  <div style={{ flex: 1, height: 1.5, background: i < step ? "#12B76A" : "#E2E6F0", margin: "0 0.5rem", minWidth: 8, transition: "background 0.3s" }} />
+                )}
               </div>
-              <span style={{ fontSize: "0.72rem", fontWeight: i === step ? 700 : 400, color: i === step ? NAVY : "#94a3b8", whiteSpace: "nowrap" }}>
-                {label}
-              </span>
-            </div>
-            {i < STEPS.length - 1 && (
-              <div style={{ flex: 1, height: 1.5, background: i < step ? "#12B76A" : "#E2E6F0", margin: "0 0.5rem", minWidth: 8, transition: "background 0.3s" }} />
-            )}
+            ))}
           </div>
-        ))}
-      </div>
+        );
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            {renderRow(ROW1)}
+            <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+              <div style={{ width: 26, height: 1.5, background: "#E2E6F0", marginRight: "0.5rem", flexShrink: 0 }} />
+              {renderRow(ROW2)}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Step card */}
       <div style={{ background: "#fff", borderRadius: 20, border: "1px solid #E2E6F0", padding: "2rem", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
@@ -749,14 +776,11 @@ export default function NewCampaignPage() {
                   <input type="radio" name="placement" value={p.value} checked={form.placement === p.value}
                     onChange={(e) => setForm({ ...form, placement: e.target.value })} style={{ accentColor: BLUE, marginTop: 2 }} />
                   <div>
-                    <p style={{ fontWeight: 700, fontSize: "0.9rem", color: NAVY, marginBottom: "0.25rem" }}>{p.icon} {p.label}</p>
+                    <p style={{ fontWeight: 700, fontSize: "0.9rem", color: NAVY, marginBottom: "0.25rem", display: "flex", alignItems: "center", gap: "0.375rem" }}>{PLACEMENT_ICONS[p.value]}{p.label}</p>
                     <p style={{ fontSize: "0.8rem", color: "#64748b" }}>{p.desc}</p>
                   </div>
                 </label>
               ))}
-            </div>
-            <div style={{ background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, padding: "0.875rem 1rem", fontSize: "0.8rem", color: "#92400E" }}>
-              ⚠️ &quot;Allow limited spend to excluded placements&quot; is always disabled for both templates.
             </div>
           </div>
         )}
@@ -819,14 +843,14 @@ export default function NewCampaignPage() {
                 <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   Ad Videos
                 </label>
-                <span style={{ fontSize: "0.72rem", color: uploadedCount >= 3 ? "#12B76A" : "#F59E0B", fontWeight: 600 }}>
+                <span style={{ fontSize: "0.72rem", color: uploadedCount >= 3 ? "#12B76A" : BLUE, fontWeight: 600 }}>
                   {uploadedCount}/8 uploaded · min 3 · recommended 4–6
                 </span>
               </div>
               <p style={{ fontSize: "0.78rem", color: "#64748b", marginBottom: "0.5rem", lineHeight: 1.55 }}>
                 This helps the campaign give you the best results while optimising the focus on the best ads without wasting too much of your budget.
               </p>
-              <p style={{ fontSize: "0.75rem", color: "#F59E0B", fontWeight: 600, marginBottom: "0.875rem" }}>
+              <p style={{ fontSize: "0.75rem", color: BLUE, fontWeight: 600, marginBottom: "0.875rem" }}>
                 Videos must be portrait 9:16 (e.g. 1080×1920). Landscape or square videos will be rejected.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
@@ -927,7 +951,7 @@ export default function NewCampaignPage() {
                 <p style={{ fontSize: "0.75rem", color: "#F59E0B", marginTop: "0.5rem" }}>Upload at least {3 - uploadedCount} more video{3 - uploadedCount > 1 ? "s" : ""} to continue.</p>
               )}
               {uploadedCount === 0 && adSlots.some(s => s.file) && (
-                <p style={{ fontSize: "0.75rem", color: "#F59E0B", marginTop: "0.5rem" }}>Videos upload automatically once selected.</p>
+                <p style={{ fontSize: "0.75rem", color: BLUE, marginTop: "0.5rem" }}>Videos upload automatically once selected.</p>
               )}
             </div>
 
