@@ -187,7 +187,7 @@ function KebabMenu({ campaign, onStatusChange, onDelete }: {
               </button>
             )}
             {campaign.status === "ACTIVE" && campaign.localId && (
-              <button onClick={handlePause} style={{ ...menuItemStyle, color: "#F59E0B" }}>
+              <button onClick={handlePause} style={{ ...menuItemStyle, color: "#3A60E7" }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
                 </svg>
@@ -298,7 +298,7 @@ export default function CampaignsPage() {
         {[
           { label: "Total Campaigns",    value: loading ? "—" : campaigns.length,  color: "#3A60E7" },
           { label: "Active Now",         value: loading ? "—" : counts.active,    color: "#12B76A" },
-          { label: "Paused",             value: loading ? "—" : counts.paused,    color: "#F59E0B" },
+          { label: "Paused",             value: loading ? "—" : counts.paused,    color: "#3A60E7" },
           { label: "Total Daily Budget", value: loading ? "—" : campaigns.reduce((s, c) => s + c.dailyBudget, 0) > 0 ? `$${campaigns.reduce((s, c) => s + c.dailyBudget, 0).toFixed(2)}/day` : "—", color: "#4C1AEA" },
         ].map((s) => (
           <div key={s.label} className="card-stat" style={{ padding: "1.25rem" }}>
