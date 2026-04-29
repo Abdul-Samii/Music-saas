@@ -86,8 +86,8 @@
   --border-light: #243045;
   --border-focus: #3A60E7;
   --text-primary:   #E8EEFF;
-  --text-secondary: #7B8DB0;
-  --text-muted:     #3D4F72;
+  --text-secondary: #A8BADA;
+  --text-muted:     #6B80A8;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

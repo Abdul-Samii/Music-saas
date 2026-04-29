@@ -329,7 +329,7 @@ export default function CampaignDetailPage() {
                 onClick={handlePause}
                 disabled={actionLoading}
                 className="btn btn-secondary btn-sm"
-                style={{ color: "#F59E0B", borderColor: "rgba(245,158,11,0.3)" }}
+                style={{ color: "#3A60E7", borderColor: "rgba(58,96,231,0.3)" }}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>

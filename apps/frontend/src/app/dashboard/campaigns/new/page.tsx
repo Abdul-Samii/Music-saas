@@ -587,7 +587,7 @@ export default function NewCampaignPage() {
                   Loading pixels...
                 </div>
               ) : pixels.length === 0 ? (
-                <div style={{ padding: "1rem", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, fontSize: "0.8125rem", color: "#92400E" }}>
+                <div style={{ padding: "1rem", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 10, fontSize: "0.8125rem", color: "#1e40af" }}>
                   No pixels found. Go to Settings and make sure pixel creation succeeded, or create one in Meta Business Manager.
                 </div>
               ) : (
@@ -811,7 +811,7 @@ export default function NewCampaignPage() {
                   Loading pages...
                 </div>
               ) : pages.length === 0 ? (
-                <div style={{ padding: "1rem", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, fontSize: "0.8125rem", color: "#92400E" }}>
+                <div style={{ padding: "1rem", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 10, fontSize: "0.8125rem", color: "#1e40af" }}>
                   No Facebook Pages found. Make sure your connected Meta account manages at least one Page.
                 </div>
               ) : (
@@ -866,7 +866,7 @@ export default function NewCampaignPage() {
                         <div style={{
                           position: "absolute", bottom: 4, right: 4,
                           width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                          background: slot.result ? "#12B76A" : "#F59E0B",
+                          background: slot.result ? "#12B76A" : "#3A60E7",
                         }}>
                           {slot.result ? (
                             <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -948,7 +948,7 @@ export default function NewCampaignPage() {
                 )}
               </div>
               {uploadedCount < 3 && uploadedCount > 0 && (
-                <p style={{ fontSize: "0.75rem", color: "#F59E0B", marginTop: "0.5rem" }}>Upload at least {3 - uploadedCount} more video{3 - uploadedCount > 1 ? "s" : ""} to continue.</p>
+                <p style={{ fontSize: "0.75rem", color: "#3A60E7", marginTop: "0.5rem" }}>Upload at least {3 - uploadedCount} more video{3 - uploadedCount > 1 ? "s" : ""} to continue.</p>
               )}
               {uploadedCount === 0 && adSlots.some(s => s.file) && (
                 <p style={{ fontSize: "0.75rem", color: BLUE, marginTop: "0.5rem" }}>Videos upload automatically once selected.</p>
