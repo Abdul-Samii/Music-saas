@@ -38,6 +38,7 @@ model LandingPage {
   artistSlug   String
   songSlug     String
   title        String
+  description  String?
   thumbnailUrl String
   spotifyUrl   String?
   pixelId      String?

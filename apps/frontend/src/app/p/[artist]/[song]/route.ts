@@ -13,6 +13,7 @@ function escHtml(str: string) {
 interface LandingPage {
   id: string;
   title: string;
+  description: string | null;
   thumbnailUrl: string;
   spotifyUrl: string | null;
   pixelId: string | null;
@@ -26,13 +27,13 @@ function buildHtml(page: LandingPage): string {
   const spotifyBtn = page.spotifyUrl
     ? `<a class="btn-spotify" href="${escHtml(page.spotifyUrl)}" target="_blank" rel="noopener noreferrer">
         <div class="spotify-icon">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
         </div>
         <div class="btn-text">
           <span class="btn-title">Stream on Spotify</span>
           <span class="btn-sub">Click (+) on Spotify to Save it</span>
         </div>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </a>`
     : '';
 
@@ -46,6 +47,8 @@ function buildHtml(page: LandingPage): string {
 <meta property="og:title" content="${escHtml(page.title)}">
 <meta property="og:image" content="${escHtml(page.thumbnailUrl)}">
 <meta property="og:type" content="music.song">
+<link rel="icon" href="${escHtml(page.thumbnailUrl)}" type="image/jpeg">
+<link rel="apple-touch-icon" href="${escHtml(page.thumbnailUrl)}">
 <link rel="preconnect" href="https://api.escalium.io">
 <link rel="preload" as="image" href="${escHtml(page.thumbnailUrl)}" fetchpriority="high">
 <style>
@@ -78,24 +81,29 @@ body{
   text-align:center;line-height:1.18;
   letter-spacing:-0.025em;text-shadow:0 2px 12px rgba(0,0,0,0.5);
 }
+.desc{
+  color:rgba(255,255,255,0.65);font-size:0.875rem;
+  text-align:center;line-height:1.5;margin-top:-0.25rem;
+}
 .btn-spotify{
-  display:flex;align-items:center;gap:0.875rem;
-  background:#1DB954;border-radius:14px;
-  padding:0.9rem 1.125rem;text-decoration:none;
+  display:flex;align-items:center;gap:0.625rem;
+  background:#1DB954;border-radius:10px;
+  padding:0.4rem 0.75rem;text-decoration:none;
   width:100%;max-width:340px;
   transition:transform 0.15s ease,opacity 0.15s ease;
 }
 .btn-spotify:hover{transform:scale(1.025);opacity:.95}
 .btn-spotify:active{transform:scale(0.97)}
 .spotify-icon{
-  width:46px;height:46px;border-radius:50%;
+  width:32px;height:32px;border-radius:50%;
   background:rgba(255,255,255,0.18);
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
 }
 .btn-text{flex:1}
-.btn-title{color:#fff;font-size:1rem;font-weight:700;display:block}
-.btn-sub{color:rgba(255,255,255,0.72);font-size:0.75rem;display:block;margin-top:2px}
-.footer{font-size:0.7rem;color:rgba(255,255,255,0.35);text-align:center;letter-spacing:0.03em}
+.btn-title{color:#fff;font-size:0.82rem;font-weight:700;display:block}
+.btn-sub{color:rgba(255,255,255,0.72);font-size:0.65rem;display:block;margin-top:1px}
+.footer{font-size:0.7rem;color:rgba(255,255,255,0.35);text-align:center;letter-spacing:0.03em;text-decoration:none}
+.footer:hover{color:rgba(255,255,255,0.6)}
 @media(max-width:440px){
   .art{width:220px;height:220px}
   .title{font-size:1.5rem}
@@ -106,8 +114,9 @@ body{
 <div class="wrap">
   <img class="art" src="${escHtml(page.thumbnailUrl)}" alt="${escHtml(page.title)}" width="272" height="272" fetchpriority="high">
   <h1 class="title">${escHtml(page.title)}</h1>
+  ${page.description ? `<p class="desc">${escHtml(page.description)}</p>` : ''}
   ${spotifyBtn}
-  <p class="footer">POWERED BY ESCALIUM</p>
+  <a href="https://escalium.io" target="_blank" rel="noopener noreferrer" class="footer">POWERED BY ESCALIUM</a>
 </div>
 <img class="bg" src="${escHtml(page.thumbnailUrl)}" alt="" aria-hidden="true" fetchpriority="low">
 ${pixel}

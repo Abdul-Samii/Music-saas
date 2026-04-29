@@ -13,11 +13,11 @@ const NAVY = "#0B1120";
 const STEPS = ["Campaign", "Landing Page", "Conversion", "Budget", "Audience", "Placement", "Ad Creative", "Advertiser", "Review"];
 
 const AUDIENCE_TIERS = [
-  { value: "tier1",  label: "Tier 1",       desc: "Australia, Austria, Belgium, Denmark, Finland, France, Germany, Ireland, Italy, Netherlands, New Zealand, Norway, Spain, Sweden, Switzerland, United Kingdom, United States" },
-  { value: "tier2",  label: "Tier 2",       desc: "Brazil, Bulgaria, Chile, Colombia, Costa Rica, Czech Republic, Greece, Hungary, Israel, Lebanon, Lithuania, Mexico, Panama, Paraguay, Poland, Portugal, Romania" },
-  { value: "tier3",  label: "Tier 3",       desc: "Algeria, Argentina, Azerbaijan, Bangladesh, Belarus, Dominican Republic, Iraq, Jordan, Kenya, Nigeria, Oman, Pakistan, Peru, Sri Lanka, Ukraine" },
-  { value: "top",    label: "Top Tiers",    desc: "Netherlands Antilles, Austria, Australia, Åland Islands, Belgium, Canada, Switzerland, Cyprus, Germany, Denmark, Estonia, Spain, Finland, United Kingdom, Hong Kong, Ireland, Israel, Iceland, Italy, Japan, South Korea, Luxembourg, Netherlands, Norway, New Zealand, Sweden, United States Minor Outlying Islands, United States, US Virgin Islands" },
-  { value: "bottom", label: "Bottom Tiers", desc: "Argentina, Bolivia, Brazil, Chile, Colombia, Costa Rica, Dominican Republic, Ecuador, Equatorial Guinea, Guatemala, Honduras, Mexico, Nicaragua, Panama, Peru, Paraguay, El Salvador, Uruguay" },
+  { value: "tier1",  label: "Tier 1",       desc: "Countries with the highest advertising costs, but also the highest Cost per Thousand Streams (CPMS) on Spotify and other streaming platforms." },
+  { value: "tier2",  label: "Tier 2",       desc: "Countries with moderate advertising costs and average Cost per Thousand Streams (CPMS) on Spotify and other streaming platforms." },
+  { value: "tier3",  label: "Tier 3",       desc: "Countries with low advertising costs and lower Cost per Thousand Streams (CPMS) on Spotify and other streaming platforms." },
+  { value: "top",    label: "Top Tiers",    desc: "A strategic mix of high-paying countries and markets with balanced advertising costs." },
+  { value: "bottom", label: "Bottom Tiers", desc: "A mix of lower-cost markets with affordable advertising rates and lower streaming payouts." },
 ];
 
 const PLACEMENTS = [
@@ -114,6 +114,7 @@ export default function NewCampaignPage() {
     placement: "",
     // Landing page
     landingThumbnailUrl: "",
+    landingDescription: "",
     spotifyUrl: "",
     landingPageUrl: "",  // auto-filled at launch
     // Ad creative
@@ -195,12 +196,12 @@ export default function NewCampaignPage() {
     }
   }
 
-  async function handleUploadSlot(index: number) {
-    const slot = adSlots[index];
-    if (!slot.file || !token) return;
+  async function handleUploadSlot(index: number, fileOverride?: File) {
+    const file = fileOverride ?? adSlots[index].file;
+    if (!file || !token) return;
     setAdSlots((prev) => prev.map((s, i) => i === index ? { ...s, uploading: true, error: "" } : s));
     const fd = new FormData();
-    fd.append("file", slot.file);
+    fd.append("file", file);
     try {
       const { data } = await axios.post(`${API}/meta-ads/upload-asset`, fd, {
         headers: { Authorization: `Bearer ${token}` },
@@ -230,6 +231,7 @@ export default function NewCampaignPage() {
         setAdSlots((prev) => prev.map((s, i) =>
           i === index ? { ...s, file, result: null, error: "" } : s,
         ));
+        void handleUploadSlot(index, file);
       }
     };
     vid.src = url;
@@ -264,6 +266,7 @@ export default function NewCampaignPage() {
       // 1. Create the landing page
       const lpRes = await landingPagesApi.create({
         title: form.name,
+        description: form.landingDescription || undefined,
         songSlug: form.name,
         thumbnailUrl: form.landingThumbnailUrl,
         spotifyUrl: form.spotifyUrl,
@@ -481,6 +484,19 @@ export default function NewCampaignPage() {
               </label>
             </div>
 
+            {/* Description */}
+            <Field label="Description (optional)">
+              <input
+                style={inputStyle()}
+                type="text"
+                placeholder="e.g. New single out now — save it on Spotify!"
+                maxLength={120}
+                value={form.landingDescription}
+                onChange={(e) => setForm({ ...form, landingDescription: e.target.value })}
+              />
+              <p style={{ fontSize: "0.72rem", color: "#64748b" }}>Short line shown below the song title on the landing page.</p>
+            </Field>
+
             {/* Spotify URL */}
             <Field label="Spotify Link">
               <input
@@ -503,6 +519,7 @@ export default function NewCampaignPage() {
                     <img src={lpThumbnailPreview} alt="artwork" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }} />
                   )}
                   <p style={{ color: "#fff", fontWeight: 800, fontSize: "1rem", textAlign: "center" }}>{form.name || "Song Title"}</p>
+                  {form.landingDescription && <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.75rem", textAlign: "center" }}>{form.landingDescription}</p>}
                   {form.spotifyUrl && (
                     <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", background: "#1DB954", borderRadius: 10, padding: "0.5rem 0.875rem", width: "100%", maxWidth: 240 }}>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
@@ -855,12 +872,17 @@ export default function NewCampaignPage() {
                       <>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ fontSize: "0.8rem", color: NAVY, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{slot.file.name}</p>
-                          {slot.error && <p style={{ fontSize: "0.72rem", color: "#F43F5E", marginTop: 2 }}>{slot.error}</p>}
+                          {slot.uploading
+                            ? <p style={{ fontSize: "0.72rem", color: BLUE, marginTop: 2 }}>Uploading…</p>
+                            : slot.error && <p style={{ fontSize: "0.72rem", color: "#F43F5E", marginTop: 2 }}>{slot.error}</p>
+                          }
                         </div>
-                        <button onClick={() => void handleUploadSlot(i)} disabled={slot.uploading}
-                          style={{ padding: "0.35rem 0.875rem", borderRadius: 7, fontWeight: 700, fontSize: "0.75rem", border: "none", cursor: slot.uploading ? "not-allowed" : "pointer", background: slot.uploading ? "#E2E6F0" : BLUE, color: slot.uploading ? "#94a3b8" : "#fff", flexShrink: 0 }}>
-                          {slot.uploading ? "Uploading…" : "Upload"}
-                        </button>
+                        {slot.error && !slot.uploading && (
+                          <button onClick={() => void handleUploadSlot(i)}
+                            style={{ padding: "0.35rem 0.875rem", borderRadius: 7, fontWeight: 700, fontSize: "0.75rem", border: "none", cursor: "pointer", background: BLUE, color: "#fff", flexShrink: 0 }}>
+                            Retry
+                          </button>
+                        )}
                       </>
                     ) : (
                       <>
@@ -905,7 +927,7 @@ export default function NewCampaignPage() {
                 <p style={{ fontSize: "0.75rem", color: "#F59E0B", marginTop: "0.5rem" }}>Upload at least {3 - uploadedCount} more video{3 - uploadedCount > 1 ? "s" : ""} to continue.</p>
               )}
               {uploadedCount === 0 && adSlots.some(s => s.file) && (
-                <p style={{ fontSize: "0.75rem", color: "#F59E0B", marginTop: "0.5rem" }}>Click Upload on each video to send it to Meta.</p>
+                <p style={{ fontSize: "0.75rem", color: "#F59E0B", marginTop: "0.5rem" }}>Videos upload automatically once selected.</p>
               )}
             </div>
 

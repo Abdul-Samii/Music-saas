@@ -86,6 +86,7 @@ export const landingPagesApi = {
   },
   create: (data: {
     title: string;
+    description?: string;
     songSlug: string;
     thumbnailUrl: string;
     spotifyUrl?: string;
