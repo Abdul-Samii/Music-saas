@@ -48,7 +48,10 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user }) {
-      return ALLOWED_EMAILS.includes(user.email ?? "");
+      if (!ALLOWED_EMAILS.includes(user.email ?? "")) {
+        return "/login?error=not_allowed";
+      }
+      return true;
     },
     // jwt receives `account` on first sign-in — the only reliable place to call
     // the backend for OAuth providers (mutations to `user` in signIn don't persist here)
