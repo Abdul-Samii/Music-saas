@@ -15,6 +15,7 @@ export class EmailService {
 
   async sendVerificationEmail(to: string, name: string, token: string) {
     const url = `${process.env.FRONTEND_URL ?? 'https://escalium.io'}/verify-email?token=${token}`;
+    console.log(`[SIGNUP EMAIL] to=${to} name=${name} url=${url}`);
     await this.send(to, 'Verify your Escalium account', `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:2rem">
         <h2 style="color:#0B1120;margin-bottom:0.5rem">Hi ${name || 'there'} 👋</h2>

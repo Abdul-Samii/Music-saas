@@ -3,6 +3,15 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import axios from "axios";
 
+const ALLOWED_EMAILS = [
+  "demo@gmail.com",
+  "zakabusiness2020@gmail.com",
+  "klaaswijnands00@gmail.com",
+  "infozemmarketing@gmail.com",
+  "absami.us@gmail.com",
+  "martingarciaburgueno@gmail.com",
+];
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -38,6 +47,9 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    async signIn({ user }) {
+      return ALLOWED_EMAILS.includes(user.email ?? "");
+    },
     // jwt receives `account` on first sign-in — the only reliable place to call
     // the backend for OAuth providers (mutations to `user` in signIn don't persist here)
     async jwt({ token, user, account }) {
