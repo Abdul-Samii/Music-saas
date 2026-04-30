@@ -82,11 +82,11 @@ function LoginForm() {
           {step === "blocked" ? (
             <>
               <h1 style={{ fontSize: "1.5rem", fontWeight: 900, color: NAVY, letterSpacing: "-0.02em", marginBottom: "0.5rem" }}>
-                {searchParams.get("error") === "not_allowed" ? "You're not on the list" : "Access restricted"}
+                {searchParams.get("error") === "not_allowed" ? "You're on the waitlist" : "Access restricted"}
               </h1>
               <p style={{ color: "#4A5370", fontSize: "0.875rem" }}>
                 {searchParams.get("error") === "not_allowed"
-                  ? "Your email hasn't been granted access yet."
+                  ? "We'll email you as soon as you get access."
                   : "This platform is not yet publicly available."}
               </p>
             </>
@@ -118,7 +118,7 @@ function LoginForm() {
               </div>
               <p style={{ fontSize: "0.875rem", color: "#4A5370", lineHeight: 1.7, marginBottom: "1.5rem" }}>
                 {searchParams.get("error") === "not_allowed"
-                  ? "Your email is not on our access list. Contact us to request access."
+                  ? "You're on our waitlist. We'll send you an email once your account is approved and ready to go."
                   : "Escalium is currently in private early access. Join the waitlist to get notified when we launch."}
               </p>
               {searchParams.get("error") !== "not_allowed" && (
