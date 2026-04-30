@@ -9,6 +9,7 @@ import {
 } from "recharts";
 import { campaignsApi } from "@/lib/api";
 import api from "@/lib/api";
+import MetaGate from "@/components/MetaGate";
 
 const AUDIENCE_TIERS = [
   { value: "tier1",  label: "Tier 1"       },
@@ -273,6 +274,7 @@ export default function CampaignDetailPage() {
   const hasMetrics = chartData.length > 0;
 
   return (
+    <MetaGate>
     <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
 
       {/* ── Breadcrumb + header ── */}
@@ -868,5 +870,6 @@ export default function CampaignDetailPage() {
         }
       `}</style>
     </div>
+    </MetaGate>
   );
 }

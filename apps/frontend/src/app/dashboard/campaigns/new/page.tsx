@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import axios from "axios";
 import { landingPagesApi, usersApi } from "@/lib/api";
+import MetaGate from "@/components/MetaGate";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api/v1";
 const BLUE = "#3A60E7";
@@ -341,6 +342,7 @@ export default function NewCampaignPage() {
   }
 
   return (
+    <MetaGate>
     <div className="animate-fade-in" style={{ maxWidth: 680, margin: "0 auto", display: "flex", flexDirection: "column", gap: "2rem" }}>
 
       {/* Header */}
@@ -1124,5 +1126,6 @@ export default function NewCampaignPage() {
         )}
       </div>
     </div>
+    </MetaGate>
   );
 }
