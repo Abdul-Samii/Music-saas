@@ -1,9 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import axios from "axios";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api/v1";
+import api from "@/lib/api";
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -37,20 +35,16 @@ export default function SettingsPage() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
-  const token = (session as unknown as { accessToken?: string })?.accessToken;
-
   useEffect(() => {
-    if (!token) return;
-    axios.get(`${API}/meta-ads/status`, { headers: { Authorization: `Bearer ${token}` } })
+    api.get("/meta-ads/status")
       .then((r) => setMetaStatus(r.data))
       .catch(() => setMetaStatus({ connected: false, adAccountId: null, pixelId: null }));
-  }, [token]);
+  }, []);
 
   async function connectMeta() {
     const redirectUri = `${window.location.origin}/meta/callback`;
-    const res = await axios.get(`${API}/meta-ads/oauth-url`, {
+    const res = await api.get("/meta-ads/oauth-url", {
       params: { redirect_uri: redirectUri },
-      headers: { Authorization: `Bearer ${token}` },
     });
     window.location.href = res.data.url;
   }
@@ -59,7 +53,7 @@ export default function SettingsPage() {
     setShowDisconnectConfirm(false);
     setDisconnecting(true);
     try {
-      await axios.delete(`${API}/meta-ads/disconnect`, { headers: { Authorization: `Bearer ${token}` } });
+      await api.delete("/meta-ads/disconnect");
       setMetaStatus({ connected: false, adAccountId: null, pixelId: null });
     } finally {
       setDisconnecting(false);
