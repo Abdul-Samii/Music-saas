@@ -81,8 +81,14 @@ function LoginForm() {
 
           {step === "blocked" ? (
             <>
-              <h1 style={{ fontSize: "1.5rem", fontWeight: 900, color: NAVY, letterSpacing: "-0.02em", marginBottom: "0.5rem" }}>Access restricted</h1>
-              <p style={{ color: "#4A5370", fontSize: "0.875rem" }}>This platform is not yet publicly available.</p>
+              <h1 style={{ fontSize: "1.5rem", fontWeight: 900, color: NAVY, letterSpacing: "-0.02em", marginBottom: "0.5rem" }}>
+                {searchParams.get("error") === "not_allowed" ? "You're not on the list" : "Access restricted"}
+              </h1>
+              <p style={{ color: "#4A5370", fontSize: "0.875rem" }}>
+                {searchParams.get("error") === "not_allowed"
+                  ? "Your email hasn't been granted access yet."
+                  : "This platform is not yet publicly available."}
+              </p>
             </>
           ) : (
             <>
@@ -99,17 +105,27 @@ function LoginForm() {
           {/* Blocked state */}
           {step === "blocked" && (
             <div style={{ textAlign: "center" }}>
-              <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#FFF1F2", border: "1px solid rgba(244,63,94,0.2)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F43F5E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
+              <div style={{ width: 56, height: 56, borderRadius: "50%", background: searchParams.get("error") === "not_allowed" ? "#EEF2FF" : "#FFF1F2", border: `1px solid ${searchParams.get("error") === "not_allowed" ? "rgba(58,96,231,0.2)" : "rgba(244,63,94,0.2)"}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}>
+                {searchParams.get("error") === "not_allowed" ? (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                ) : (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F43F5E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                )}
               </div>
               <p style={{ fontSize: "0.875rem", color: "#4A5370", lineHeight: 1.7, marginBottom: "1.5rem" }}>
-                Escalium is currently in private early access. Join the waitlist to get notified when we launch.
+                {searchParams.get("error") === "not_allowed"
+                  ? "Your email is not on our access list. Contact us to request access."
+                  : "Escalium is currently in private early access. Join the waitlist to get notified when we launch."}
               </p>
-              <a href="/landing" style={{ display: "block", padding: "0.8rem", background: `linear-gradient(135deg, ${BLUE}, #4C1AEA)`, color: "#fff", borderRadius: 10, fontWeight: 700, fontSize: "0.9rem", textDecoration: "none", textAlign: "center" }}>
-                Join early access →
-              </a>
+              {searchParams.get("error") !== "not_allowed" && (
+                <a href="/landing" style={{ display: "block", padding: "0.8rem", background: `linear-gradient(135deg, ${BLUE}, #4C1AEA)`, color: "#fff", borderRadius: 10, fontWeight: 700, fontSize: "0.9rem", textDecoration: "none", textAlign: "center" }}>
+                  Join early access →
+                </a>
+              )}
               <button onClick={() => { setStep("email"); setEmail(""); setError(""); }} style={{ marginTop: "0.875rem", background: "none", border: "none", color: "#9BA3BF", fontSize: "0.8rem", cursor: "pointer" }}>
                 Try a different email
               </button>
