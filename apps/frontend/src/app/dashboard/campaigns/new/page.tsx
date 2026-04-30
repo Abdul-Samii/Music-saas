@@ -399,7 +399,6 @@ export default function NewCampaignPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
             {renderRow(ROW1)}
             <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
-              <div style={{ width: 26, height: 1.5, background: "#E2E6F0", marginRight: "0.5rem", flexShrink: 0 }} />
               {renderRow(ROW2)}
             </div>
           </div>
