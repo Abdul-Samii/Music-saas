@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { campaignsApi } from "@/lib/api";
+import MetaGate from "@/components/MetaGate";
 
 interface AdSet {
   id: string;
@@ -275,6 +276,7 @@ export default function CampaignsPage() {
   };
 
   return (
+    <MetaGate>
     <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
 
       {/* Header */}
@@ -456,5 +458,6 @@ export default function CampaignsPage() {
         }
       `}</style>
     </div>
+    </MetaGate>
   );
 }
