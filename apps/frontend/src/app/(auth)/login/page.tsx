@@ -1,7 +1,7 @@
 "use client";
 import { useState, FormEvent, Suspense } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const BLUE = "#3A60E7";
 const NAVY = "#0B1120";
@@ -30,7 +30,10 @@ const labelStyle = {
 
 function LoginForm() {
   const router = useRouter();
-  const [step, setStep] = useState<"email" | "password" | "blocked">("email");
+  const searchParams = useSearchParams();
+  const [step, setStep] = useState<"email" | "password" | "blocked">(
+    searchParams.get("error") === "not_allowed" ? "blocked" : "email"
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
