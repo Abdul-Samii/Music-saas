@@ -15,11 +15,9 @@ api.interceptors.request.use(async (config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  async (error) => {
+  (error) => {
     if (error?.response?.status === 401) {
-      const session = await getSession();
-      const expired = !session || new Date(session.expires) <= new Date();
-      if (expired) signOut({ callbackUrl: "/auth/login" });
+      signOut({ callbackUrl: "/auth/login" });
     }
     return Promise.reject(error);
   }

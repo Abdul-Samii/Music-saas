@@ -1,23 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
-import axios from "axios";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api/v1";
+import api from "@/lib/api";
 
 export default function MetaGate({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession();
-  const token = (session as any)?.accessToken as string | undefined;
   const [status, setStatus] = useState<"loading" | "connected" | "disconnected">("loading");
 
   useEffect(() => {
-    if (!token) return;
-    axios
-      .get(`${API}/meta-ads/status`, { headers: { Authorization: `Bearer ${token}` } })
+    api
+      .get("/meta-ads/status")
       .then((r) => setStatus(r.data?.connected ? "connected" : "disconnected"))
       .catch(() => setStatus("disconnected"));
-  }, [token]);
+  }, []);
 
   if (status === "loading") {
     return (
