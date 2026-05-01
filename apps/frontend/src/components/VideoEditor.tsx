@@ -32,22 +32,20 @@ async function renderVideo(
     video.addEventListener("loadedmetadata", () => {
       const vW = video.videoWidth || 1080;
       const vH = video.videoHeight || 1920;
-      const vAspect = vW / vH;
-      const targetAspect = 9 / 16;
 
-      let sx = 0, sy = 0, sw = vW, sh = vH;
-      if (vAspect > targetAspect) {
-        sw = Math.round(vH * targetAspect);
-        sx = Math.round((vW - sw) / 2);
-      } else if (vAspect < targetAspect) {
-        sh = Math.round(vW / targetAspect);
-        sy = Math.round((vH - sh) / 2);
-      }
+      // Fit video inside 9:16 with black bars (letterbox/pillarbox)
+      const scale = Math.min(720 / vW, 1280 / vH);
+      const dw = Math.round(vW * scale);
+      const dh = Math.round(vH * scale);
+      const dx = Math.round((720 - dw) / 2);
+      const dy = Math.round((1280 - dh) / 2);
 
       const canvas = document.createElement("canvas");
       canvas.width = 720;
       canvas.height = 1280;
       const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, 720, 1280);
 
       const mimeType = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"].find(
         (m) => MediaRecorder.isTypeSupported(m),
@@ -73,7 +71,8 @@ async function renderVideo(
           return;
         }
         onProgress(Math.min(((video.currentTime - startTime) / dur) * 100, 99));
-        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, 720, 1280);
+        ctx.fillRect(0, 0, 720, 1280);
+        ctx.drawImage(video, 0, 0, vW, vH, dx, dy, dw, dh);
         rafId = requestAnimationFrame(draw);
       };
 
@@ -167,7 +166,7 @@ export default function VideoEditor({ file, onConfirm, onCancel }: Props) {
               <video
                 ref={videoRef}
                 src={src}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                style={{ width: "100%", height: "100%", objectFit: "contain" }}
                 muted playsInline preload="metadata"
                 onLoadedMetadata={onMeta}
               />
