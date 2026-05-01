@@ -81,7 +81,7 @@ const HowItWorks = () => {
 		<section className="py-[120px] overflow-hidden">
 			<div className="container">
 				<FadeInUp>
-					<div className="text-center mb-8 md:mb-12">
+					<div className="text-center mb-12 md:mb-16">
 						<span className="sectionLabel mb-3">How it works</span>
 						<h2 className="text-3xl lg:text-5xl mb-6">
 							<TextAnimation text="From upload to live campaign in minutes." />

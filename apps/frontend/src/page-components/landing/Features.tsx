@@ -47,7 +47,7 @@ const Features = () => {
 		<section className="py-[120px] overflow-hidden bg-bg-card">
 			<div className="container">
 				<FadeInUp>
-					<div className="mb-8 md:mb-12">
+					<div className="mb-12 md:mb-16">
 						<span className="sectionLabel mb-3">Features</span>
 						<h2 className="text-3xl lg:text-5xl mb-6 max-w-[720px]">
 							<TextAnimation text="Everything you need to promote smarter." />
