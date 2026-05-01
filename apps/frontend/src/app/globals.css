@@ -93,6 +93,8 @@
 	/* ── Dark section (pricing CTA etc.) ── */
 	--color-dark-bg: #1a1a4e;
 	--color-dark-card: #22245e;
+
+	--shadow-card: 0px 10px 40px -10px rgba(0, 74, 198, 0.08);
 }
 :root {
 	/* ── Backgrounds ── */
@@ -475,6 +477,22 @@ select.input {
 	}
 }
 
+.or {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	margin: 12px auto;
+	text-transform: uppercase;
+}
+.or::before,
+.or::after {
+	content: "";
+	flex: 1;
+	height: 1px;
+	background: var(--color-border);
+}
+
 .animate-fade-in {
 	animation: fadeIn 0.35s ease forwards;
 }
@@ -776,16 +794,90 @@ select.input {
 		grid-template-columns: 1fr !important;
 	}
 }
+.btnShiny {
+	position: relative;
+	overflow: hidden;
+	background: #2563eb;
+	color: #fff;
+	border: none;
+	cursor: pointer;
+	font-family: inherit;
+	font-weight: 600;
+	box-shadow: 0 4px 18px rgba(37, 99, 235, 0.38);
+	transition:
+		background 0.2s,
+		transform 0.15s,
+		box-shadow 0.2s;
+}
+.btnShiny::after {
+	content: "";
+	position: absolute;
+	top: -50%;
+	left: -60%;
+	width: 35%;
+	height: 200%;
+	background: linear-gradient(
+		90deg,
+		transparent,
+		rgba(255, 255, 255, 0.4),
+		transparent
+	);
+	transform: skewX(-20deg);
+	animation: shine 2.8s infinite;
+}
+.btnShiny:hover {
+	background: var(--color-primary);
+	transform: translateY(-1px);
+	box-shadow: 0 8px 28px rgba(37, 99, 235, 0.5);
+}
+.btnShiny:active {
+	transform: translateY(0);
+}
 .link-hover {
 	position: relative;
 	overflow: hidden;
+	border-bottom: 2px solid;
+	letter-spacing: 1px;
+	padding-block: 4px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
+.link-hover .hovered,
 .link-hover .unhovered {
+	transition: all 0.3s ease;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	justify-content: center;
 }
 .link-hover .hovered {
 	position: absolute;
 	top: 0;
 	left: 0;
-	opacity: 0;
-	transition: opacity 0.2s ease;
+}
+
+.link-hover .hovered {
+	transform: translateY(100px) rotate(30deg);
+}
+.link-hover:hover .unhovered {
+	transform: translateY(-100px) rotate(-30deg);
+}
+
+.link-hover:hover .hovered {
+	transform: translateY(0) rotate(0deg);
+}
+::selection {
+	background: var(--color-primary) !important;
+	color: var(--color-white) !important;
+}
+.container {
+	margin-inline: auto;
+	padding-inline: 20px;
+}
+.flex-center {
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }

@@ -1,8 +1,9 @@
 import { Providers } from "@/components/providers";
 import type { Metadata } from "next";
 import { DM_Sans, DM_Serif_Display, Instrument_Serif } from "next/font/google";
-import "./globals.css";
 
+import ParallaxWrapper from "@/page-components/ParallaxWrapper";
+import "./globals.css";
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
 const dmSerifDisplay = DM_Serif_Display({
 	subsets: ["latin"],
@@ -122,7 +123,9 @@ export default function RootLayout({
 				className={`${dmSans.variable} ${dmSerifDisplay.variable} ${instrumentSerif.variable}`}
 				suppressHydrationWarning
 			>
-				<Providers>{children}</Providers>
+				<Providers>
+					<ParallaxWrapper>{children}</ParallaxWrapper>
+				</Providers>
 			</body>
 		</html>
 	);
