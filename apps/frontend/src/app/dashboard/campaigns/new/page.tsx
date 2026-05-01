@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import axios from "axios";
 import { landingPagesApi, usersApi } from "@/lib/api";
 import MetaGate from "@/components/MetaGate";
+import VideoEditor from "@/components/VideoEditor";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api/v1";
 const BLUE = "#3A60E7";
@@ -87,6 +88,7 @@ export default function NewCampaignPage() {
 
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [editingSlot, setEditingSlot] = useState<{ index: number; file: File } | null>(null);
 
   // Artist slug (fetched from profile for landing page URL preview)
   const [artistSlug, setArtistSlug] = useState("");
@@ -229,25 +231,7 @@ export default function NewCampaignPage() {
   const assetReady = uploadedCount >= 3;
 
   function validateAndSetSlot(index: number, file: File) {
-    const url = URL.createObjectURL(file);
-    const vid = document.createElement("video");
-    vid.preload = "metadata";
-    vid.onloadedmetadata = () => {
-      URL.revokeObjectURL(url);
-      const ratio = vid.videoWidth / vid.videoHeight;
-      const target = 9 / 16;
-      if (Math.abs(ratio - target) > 0.05) {
-        setAdSlots((prev) => prev.map((s, i) =>
-          i === index ? { ...s, file: null, result: null, error: `Wrong format (${vid.videoWidth}×${vid.videoHeight}). Videos must be 9:16 portrait, e.g. 1080×1920.` } : s,
-        ));
-      } else {
-        setAdSlots((prev) => prev.map((s, i) =>
-          i === index ? { ...s, file, result: null, error: "" } : s,
-        ));
-        void handleUploadSlot(index, file);
-      }
-    };
-    vid.src = url;
+    setEditingSlot({ index, file });
   }
 
   // Computed landing page preview URL
@@ -343,6 +327,20 @@ export default function NewCampaignPage() {
 
   return (
     <MetaGate>
+    {editingSlot && (
+      <VideoEditor
+        file={editingSlot.file}
+        onConfirm={(processed) => {
+          const { index } = editingSlot;
+          setEditingSlot(null);
+          setAdSlots((prev) => prev.map((s, i) =>
+            i === index ? { ...s, file: processed, result: null, error: "" } : s,
+          ));
+          void handleUploadSlot(index, processed);
+        }}
+        onCancel={() => setEditingSlot(null)}
+      />
+    )}
     <div className="animate-fade-in" style={{ maxWidth: 680, margin: "0 auto", display: "flex", flexDirection: "column", gap: "2rem" }}>
 
       {/* Header */}
@@ -860,7 +858,7 @@ export default function NewCampaignPage() {
                 This helps the campaign give you the best results while optimising the focus on the best ads without wasting too much of your budget.
               </p>
               <p style={{ fontSize: "0.75rem", color: BLUE, fontWeight: 600, marginBottom: "0.875rem" }}>
-                Videos must be portrait 9:16 (e.g. 1080×1920). Landscape or square videos will be rejected.
+                Any video format accepted. We&apos;ll crop to 9:16, mute audio, and let you trim the clip (max 60s).
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
                 {adSlots.map((slot, i) => (
@@ -927,7 +925,7 @@ export default function NewCampaignPage() {
                         <label htmlFor={`ad-slot-${i}`} style={{ padding: "0.35rem 0.875rem", borderRadius: 7, fontWeight: 600, fontSize: "0.75rem", border: `1px solid ${BLUE}`, cursor: "pointer", color: BLUE, background: "#fff", flexShrink: 0 }}>
                           {slot.error ? "Try again" : "Select"}
                         </label>
-                        <input id={`ad-slot-${i}`} type="file" accept="video/mp4,video/quicktime" style={{ display: "none" }}
+                        <input id={`ad-slot-${i}`} type="file" accept="video/*" style={{ display: "none" }}
                           onChange={(e) => {
                             const f = e.target.files?.[0];
                             if (f) validateAndSetSlot(i, f);
