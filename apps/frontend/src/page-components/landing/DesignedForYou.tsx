@@ -79,9 +79,14 @@ const DesignedForYou = () => {
 										</div>
 										<div className="w-0 grow">
 											<h3 className="text-lg font-semibold mb-1">
-												{c.title}
+												<TextAnimation text={c.title} />
 											</h3>
-											<p className="text-sm m-0">{c.desc}</p>
+											<p className="text-sm m-0">
+												<TextAnimation
+													text={c.desc}
+													staggerChildren={0.01}
+												/>
+											</p>
 										</div>
 									</div>
 								))}

@@ -1,13 +1,13 @@
 import { motion } from "framer-motion";
+import React from "react";
 
-const HeroAnimation = ({ children }) => {
+const FadeIn = ({ children }: { children: React.ReactNode }) => {
 	const container = {
-		hidden: { opacity: 0.5, scale: 0.9 },
+		hidden: { opacity: 0 },
 		show: {
 			opacity: 1,
-			scale: 1,
 			transition: {
-				duration: 0.5,
+				duration: 1,
 			},
 		},
 	};
@@ -24,4 +24,4 @@ const HeroAnimation = ({ children }) => {
 	);
 };
 
-export default HeroAnimation;
+export default FadeIn;

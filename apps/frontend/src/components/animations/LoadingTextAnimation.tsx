@@ -1,7 +1,13 @@
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
-const LoadingTextAnimation = ({ text, className }) => {
+const LoadingTextAnimation = ({
+	text,
+	className,
+}: {
+	text: string;
+	className?: string;
+}) => {
 	const container = {
 		hidden: { opacity: 0 },
 		show: {
@@ -22,7 +28,7 @@ const LoadingTextAnimation = ({ text, className }) => {
 			initial="hidden"
 			animate="show"
 			variants={container}
-			className={cn("inline", { [className]: className })}
+			className={cn("inline", className)}
 			transition={{
 				repeat: Infinity,
 				repeatType: "loop",

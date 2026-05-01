@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
+import React from "react";
 
-const FadeInRight = ({ children }) => {
+const FadeInUp = ({ children }: { children: React.ReactNode }) => {
 	const container = {
-		hidden: { opacity: 0, x: 50 },
+		hidden: { opacity: 0, y: 50 },
 		show: {
 			opacity: 1,
-			x: 0,
+			y: 0,
 			transition: {
 				duration: 1,
 			},
@@ -24,4 +25,4 @@ const FadeInRight = ({ children }) => {
 	);
 };
 
-export default FadeInRight;
+export default FadeInUp;

@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
+import React from "react";
 
-const FadeInLeft = ({ children }) => {
+const FadeInLeft = ({ children }: { children: React.ReactNode }) => {
 	const container = {
 		hidden: { opacity: 0, x: -50 },
 		show: {
