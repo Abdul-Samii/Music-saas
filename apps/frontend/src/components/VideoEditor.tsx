@@ -49,15 +49,16 @@ async function renderVideo(
       canvas.height = 1280;
       const ctx = canvas.getContext("2d")!;
 
-      const mimeType = ["video/mp4", "video/webm;codecs=vp9", "video/webm"].find(
+      const mimeType = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"].find(
         (m) => MediaRecorder.isTypeSupported(m),
       ) ?? "video/webm";
+      const blobType = mimeType.split(";")[0];
 
       const stream = canvas.captureStream(30);
       const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5_000_000 });
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-      recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
+      recorder.onstop = () => resolve(new Blob(chunks, { type: blobType }));
       recorder.onerror = (e) => reject(e);
 
       const dur = endTime - startTime;
@@ -90,23 +91,29 @@ async function renderVideo(
 
 export default function VideoEditor({ file, onConfirm, onCancel }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const srcRef = useRef("");
+  // useState (not useRef) so the video element re-renders with the object URL
+  const [src, setSrc] = useState("");
   const [duration, setDuration] = useState(0);
   const [startTime, setStartTime] = useState(0);
   const [endTime, setEndTime] = useState(MAX_DURATION);
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [videoReady, setVideoReady] = useState(false);
 
   useEffect(() => {
     const url = URL.createObjectURL(file);
-    srcRef.current = url;
+    setSrc(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
   function onMeta() {
     const v = videoRef.current!;
-    setDuration(v.duration);
-    setEndTime(Math.min(v.duration, MAX_DURATION));
+    const dur = v.duration;
+    setDuration(dur);
+    setEndTime(Math.min(dur, MAX_DURATION));
+    // Seek to first frame so preview isn't black
+    v.currentTime = 0.01;
+    v.addEventListener("seeked", () => setVideoReady(true), { once: true });
   }
 
   function seekVideo(t: number) {
@@ -121,9 +128,8 @@ export default function VideoEditor({ file, onConfirm, onCancel }: Props) {
     setProcessing(true);
     setProgress(0);
     try {
-      const blob = await renderVideo(srcRef.current, startTime, endTime, setProgress);
-      const ext = blob.type.includes("mp4") ? ".mp4" : ".webm";
-      const name = file.name.replace(/\.[^.]+$/, "") + "_trimmed" + ext;
+      const blob = await renderVideo(src, startTime, endTime, setProgress);
+      const name = file.name.replace(/\.[^.]+$/, "") + "_trimmed.webm";
       onConfirm(new File([blob], name, { type: blob.type }));
     } catch (e) {
       console.error("Video processing failed:", e);
@@ -141,6 +147,7 @@ export default function VideoEditor({ file, onConfirm, onCancel }: Props) {
         .ve-thumb::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 2.5px solid ${BLUE}; cursor: grab; pointer-events: all; box-shadow: 0 1px 6px rgba(0,0,0,0.2); border-style: solid; }
         .ve-thumb::-webkit-slider-runnable-track { height: 4px; background: transparent; }
         .ve-thumb::-moz-range-track { height: 4px; background: transparent; }
+        @keyframes ve-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
 
       <div style={{ position: "fixed", inset: 0, background: "rgba(11,17,32,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem" }}>
@@ -159,11 +166,18 @@ export default function VideoEditor({ file, onConfirm, onCancel }: Props) {
             <div style={{ position: "relative", width: 155, height: 275, borderRadius: 14, overflow: "hidden", background: "#000", boxShadow: "0 6px 24px rgba(0,0,0,0.35)" }}>
               <video
                 ref={videoRef}
-                src={srcRef.current}
+                src={src}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 muted playsInline preload="metadata"
                 onLoadedMetadata={onMeta}
               />
+              {!videoReady && (
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.55)" }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" style={{ animation: "ve-spin 1s linear infinite" }}>
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                </div>
+              )}
               <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: "0.62rem", fontWeight: 700, padding: "2px 7px", borderRadius: 4, letterSpacing: "0.04em" }}>
                 9:16
               </div>
@@ -189,9 +203,7 @@ export default function VideoEditor({ file, onConfirm, onCancel }: Props) {
               </label>
 
               <div style={{ position: "relative", height: 24, display: "flex", alignItems: "center" }}>
-                {/* Track background */}
                 <div style={{ position: "absolute", left: 0, right: 0, height: 4, background: "#E2E6F0", borderRadius: 2, pointerEvents: "none" }} />
-                {/* Selected range fill */}
                 <div style={{
                   position: "absolute",
                   left: `${(startTime / duration) * 100}%`,
@@ -201,7 +213,6 @@ export default function VideoEditor({ file, onConfirm, onCancel }: Props) {
                   pointerEvents: "none",
                   transition: "background 0.15s",
                 }} />
-                {/* Start thumb */}
                 <input
                   type="range" className="ve-thumb"
                   min={0} max={duration} step={0.1} value={startTime}
@@ -212,7 +223,6 @@ export default function VideoEditor({ file, onConfirm, onCancel }: Props) {
                     seekVideo(v);
                   }}
                 />
-                {/* End thumb */}
                 <input
                   type="range" className="ve-thumb"
                   min={0} max={duration} step={0.1} value={endTime}
@@ -238,7 +248,7 @@ export default function VideoEditor({ file, onConfirm, onCancel }: Props) {
             </div>
           )}
 
-          {/* Progress */}
+          {/* Processing progress */}
           {processing && (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
