@@ -30,7 +30,7 @@ const EmailForm = () => {
 				value={email}
 				placeholder="your@email.com"
 				className={cn(
-					"w-[120px] grow max-w-[280px] h-12 border border-white/20 rounded-md px-6 outline-0! shadow-none! ring-0 bg-white/5 bg-transparent",
+					"w-[180px] grow max-w-[280px] h-12 border border-white/20 rounded-md px-6 outline-0! shadow-none! ring-0 bg-white/5 bg-transparent",
 					{
 						"border-red-500": error,
 					},
@@ -42,7 +42,7 @@ const EmailForm = () => {
 				onKeyDown={(e) => e.key === "Enter" && submit()}
 			/>
 			<button
-				className="btnShiny rounded-md px-5 font-normal!"
+				className="btnShiny rounded-md px-5 font-normal! h-12"
 				onClick={submit}
 			>
 				Get early access →

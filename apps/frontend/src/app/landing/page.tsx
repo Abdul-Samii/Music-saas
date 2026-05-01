@@ -5,6 +5,7 @@ import Navbar from "@/page-components/landing/Navbar";
 
 import EmailForm from "@/page-components/EmailForm";
 import BuiltFor from "@/page-components/landing/BuiltFor";
+import DesignedForYou from "@/page-components/landing/DesignedForYou";
 import Features from "@/page-components/landing/Features";
 import HowItWorks from "@/page-components/landing/HowItWorks";
 import { useEffect, useRef, useState } from "react";
@@ -98,62 +99,19 @@ export default function LandingPage() {
 	}, []);
 
 	return (
-		<div className={s.page}>
+		<div className="page">
 			{/* ── NAV ── */}
 			<Navbar />
-
 			{/* ── HERO ── */}
 			<Hero />
 			{/* ── LOGOS ── */}
 			<BuiltFor />
-
 			{/* ── HOW IT WORKS ── */}
 			<HowItWorks />
-
 			{/* ── FEATURES ── */}
 			<Features />
-
 			{/* ── WHO IT'S FOR ── */}
-			<section className={s.section}>
-				<Reveal>
-					<span className={s.sectionLabel}>Who it&apos;s for</span>
-					<h2 className={s.sectionTitle}>
-						Made for everyone in the music industry.
-					</h2>
-					<p className={s.sectionSubtitle}>
-						Whether you&apos;re releasing your first single or managing a
-						full roster, Escalium scales with you.
-					</p>
-				</Reveal>
-				<Reveal delay={100}>
-					<div className={s.forWhoGrid}>
-						{[
-							{
-								emoji: "🎤",
-								title: "Artists",
-								desc: "Stop spending hours on Meta Ads. Upload your song, pick your clips, and promote — with no agency fees eating your budget.",
-							},
-							{
-								emoji: "🎛️",
-								title: "Producers",
-								desc: "Promote your beats with ad creatives that sound and look professional. Stand out where your buyers are scrolling.",
-							},
-							{
-								emoji: "🏢",
-								title: "Record labels",
-								desc: "Manage campaigns across your entire roster from one dashboard. Scale what works, cut what doesn't — fast.",
-							},
-						].map((c) => (
-							<div key={c.title} className={s.forWhoCard}>
-								<div className={s.forWhoEmoji}>{c.emoji}</div>
-								<h3 className={s.forWhoTitle}>{c.title}</h3>
-								<p className={s.forWhoDesc}>{c.desc}</p>
-							</div>
-						))}
-					</div>
-				</Reveal>
-			</section>
-
+			<DesignedForYou />
 			{/* ── PRICING ── */}
 			<section className={s.sectionDark}>
 				<Reveal>

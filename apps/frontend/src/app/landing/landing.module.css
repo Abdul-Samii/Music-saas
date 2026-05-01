@@ -1,17 +1,3 @@
-.page {
-	font-family:
-		"Geist",
-		-apple-system,
-		BlinkMacSystemFont,
-		"Segoe UI",
-		sans-serif;
-	background: #ffffff;
-	color: #0f172a;
-	overflow-x: hidden;
-	line-height: 1.6;
-	-webkit-font-smoothing: antialiased;
-}
-
 /* ── NAV ── */
 .nav {
 	position: fixed;
