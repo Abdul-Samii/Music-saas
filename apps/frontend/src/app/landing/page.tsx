@@ -9,43 +9,7 @@ import Features from "@/page-components/landing/Features";
 import HowItWorks from "@/page-components/landing/HowItWorks";
 import LandingFooter from "@/page-components/landing/LandingFooter";
 import PricingPlan from "@/page-components/landing/PricingPlan";
-import { useEffect, useRef, useState } from "react";
-import s from "./landing.module.css";
-
-/* ── Reveal on scroll ── */
-function Reveal({
-	children,
-	delay = 0,
-}: {
-	children: React.ReactNode;
-	delay?: number;
-}) {
-	const ref = useRef<HTMLDivElement>(null);
-	const [visible, setVisible] = useState(false);
-	useEffect(() => {
-		const el = ref.current;
-		if (!el) return;
-		const obs = new IntersectionObserver(
-			([e]) => {
-				if (e.isIntersecting) setVisible(true);
-			},
-			{ threshold: 0.1 },
-		);
-		obs.observe(el);
-		return () => obs.disconnect();
-	}, []);
-	return (
-		<div
-			ref={ref}
-			className={`${s.reveal} ${visible ? s.revealVisible : ""}`}
-			style={{ transitionDelay: `${delay}ms` }}
-		>
-			{children}
-		</div>
-	);
-}
-
-/* ── Feature icons ── */
+import { useEffect } from "react";
 
 export default function LandingPage() {
 	useEffect(() => {
@@ -66,25 +30,14 @@ export default function LandingPage() {
 
 	return (
 		<div className="page">
-			{/* ── NAV ── */}
 			<Navbar />
-			{/* ── HERO ── */}
 			<Hero />
-			{/* ── LOGOS ── */}
 			<BuiltFor />
-			{/* ── HOW IT WORKS ── */}
 			<HowItWorks />
-			{/* ── FEATURES ── */}
 			<Features />
-			{/* ── WHO IT'S FOR ── */}
 			<DesignedForYou />
-			{/* ── PRICING ── */}
 			<PricingPlan />
-
-			{/* ── CTA ── */}
 			<CTA />
-
-			{/* ── FOOTER ── */}
 			<LandingFooter />
 		</div>
 	);
