@@ -1042,33 +1042,41 @@ export default function NewCampaignPage() {
             </div>
 
             {[
-              { label: "Campaign Name",      value: form.name },
-              { label: "Campaign Type",      value: "Sales (fixed)" },
-              { label: "Landing Page",       value: landingUrlPreview || "—" },
-              { label: "Spotify Link",       value: form.spotifyUrl || "—" },
-              { label: "Pixel",              value: pixels.find((p) => p.id === form.pixelId)?.name ?? form.pixelId },
-              { label: "Conversion",         value: "Website → View Content → Maximize Conversions" },
-              { label: "Start Date",         value: form.startDate || "Immediately" },
-              { label: "End Date",           value: form.endDate || "No end date" },
-              { label: "Audience Tiers",     value: form.audienceTiers.map((v) => `${AUDIENCE_TIERS.find((t) => t.value === v)?.label ?? v} ($${form.tierBudgets[v] ?? 5}/day)`).join(", ") },
-              { label: "Total Daily Budget", value: `$${form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 5), 0).toFixed(2)}/day` },
-              { label: "Placement",          value: PLACEMENTS.find((p) => p.value === form.placement)?.label ?? "" },
-              { label: "Facebook Page",      value: pages.find((p) => p.id === form.facebookPageId)?.name ?? form.facebookPageId },
-              { label: "Instagram Account",  value: igAccounts.find((ig) => ig.id === form.instagramActorId)?.username ? `@${igAccounts.find((ig) => ig.id === form.instagramActorId)!.username}` : "None" },
-              { label: "Ad Videos",          value: uploadedCount > 0 ? `${uploadedCount} video${uploadedCount > 1 ? "s" : ""} uploaded` : "None" },
-              { label: "Ad Title",           value: form.adTitle },
-              { label: "Description",        value: form.adDescription || "—" },
-              { label: "CTA",                value: "Listen Now" },
-              { label: "Advertiser",         value: form.advertiserName },
-              { label: "Payer",              value: form.payerDiffers ? form.payerName : "Same as advertiser" },
+              { label: "Campaign Name",      value: form.name,                  goStep: 0 },
+              { label: "Campaign Type",      value: "Sales (fixed)",             goStep: 0 },
+              { label: "Landing Page",       value: landingUrlPreview || "—",    goStep: 1 },
+              { label: "Spotify Link",       value: form.spotifyUrl || "—",      goStep: 1 },
+              { label: "Pixel",              value: pixels.find((p) => p.id === form.pixelId)?.name ?? form.pixelId, goStep: 2 },
+              { label: "Conversion",         value: "Website → View Content → Maximize Conversions", goStep: 2 },
+              { label: "Start Date",         value: form.startDate || "Immediately", goStep: 3 },
+              { label: "End Date",           value: form.endDate || "No end date",   goStep: 3 },
+              { label: "Audience Tiers",     value: form.audienceTiers.map((v) => `${AUDIENCE_TIERS.find((t) => t.value === v)?.label ?? v} ($${form.tierBudgets[v] ?? 5}/day)`).join(", "), goStep: 4 },
+              { label: "Total Daily Budget", value: `$${form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 5), 0).toFixed(2)}/day`, goStep: 4 },
+              { label: "Placement",          value: PLACEMENTS.find((p) => p.value === form.placement)?.label ?? "", goStep: 5 },
+              { label: "Facebook Page",      value: pages.find((p) => p.id === form.facebookPageId)?.name ?? form.facebookPageId, goStep: 6 },
+              { label: "Instagram Account",  value: igAccounts.find((ig) => ig.id === form.instagramActorId)?.username ? `@${igAccounts.find((ig) => ig.id === form.instagramActorId)!.username}` : "None", goStep: 6 },
+              { label: "Ad Videos",          value: uploadedCount > 0 ? `${uploadedCount} video${uploadedCount > 1 ? "s" : ""} uploaded` : "None", goStep: 6 },
+              { label: "Ad Title",           value: form.adTitle,               goStep: 6 },
+              { label: "Description",        value: form.adDescription || "—",  goStep: 6 },
+              { label: "CTA",                value: "Listen Now",               goStep: 6 },
+              { label: "Advertiser",         value: form.advertiserName,        goStep: 7 },
+              { label: "Payer",              value: form.payerDiffers ? form.payerName : "Same as advertiser", goStep: 7 },
             ].map((row, i, arr) => (
               <div key={row.label} style={{
-                display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem",
+                display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem",
                 paddingBottom: i < arr.length - 1 ? "1rem" : 0,
                 borderBottom: i < arr.length - 1 ? "1px solid #F1F5F9" : "none",
               }}>
                 <span style={{ fontSize: "0.8125rem", color: "#64748b", fontWeight: 500, flexShrink: 0 }}>{row.label}</span>
-                <span style={{ fontSize: "0.8125rem", color: NAVY, fontWeight: 600, textAlign: "right", wordBreak: "break-all" }}>{row.value}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <span style={{ fontSize: "0.8125rem", color: NAVY, fontWeight: 600, textAlign: "right", wordBreak: "break-all" }}>{row.value}</span>
+                  <button
+                    onClick={() => setStep(row.goStep)}
+                    style={{ fontSize: "0.72rem", fontWeight: 600, color: BLUE, background: "#EEF2FF", border: "none", borderRadius: 6, padding: "0.2rem 0.5rem", cursor: "pointer", flexShrink: 0 }}
+                  >
+                    Edit
+                  </button>
+                </div>
               </div>
             ))}
 
