@@ -44,11 +44,11 @@ const features = [
 
 const Features = () => {
 	return (
-		<section className="py-[120px] overflow-hidden bg-[#f8fafc]">
+		<section className="py-[120px] overflow-hidden bg-bg-card">
 			<div className="container">
 				<FadeInUp>
 					<div className="mb-8 md:mb-12">
-						<span className="block mb-3 text-primary">Features</span>
+						<span className="sectionLabel mb-3">Features</span>
 						<h2 className="text-3xl lg:text-5xl mb-6 max-w-[720px]">
 							<TextAnimation text="Everything you need to promote smarter." />
 						</h2>

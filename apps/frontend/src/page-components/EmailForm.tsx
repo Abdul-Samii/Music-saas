@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
-const EmailForm = () => {
+const EmailForm = ({ inputClass }: { inputClass?: string }) => {
 	const [email, setEmail] = useState("");
 	const [error, setError] = useState(false);
 
@@ -30,7 +30,8 @@ const EmailForm = () => {
 				value={email}
 				placeholder="your@email.com"
 				className={cn(
-					"w-[180px] grow max-w-[280px] h-12 border border-white/20 rounded-md px-6 outline-0! shadow-none! ring-0 bg-white/5 bg-transparent",
+					"w-[180px] grow max-w-[280px] h-12 border border-white/20 rounded-md px-6 outline-0! shadow-none! ring-0 bg-white/5",
+					inputClass,
 					{
 						"border-red-500": error,
 					},

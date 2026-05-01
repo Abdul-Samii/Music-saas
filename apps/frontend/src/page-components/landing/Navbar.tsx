@@ -27,7 +27,7 @@ const Navbar = () => {
 					<a
 						href="#"
 						className={cn(
-							"text-[22px] text-white flex items-center gap-3 duration-300 transition-all",
+							"text-[22px] text-white flex items-center gap-3 duration-300 transition-all font-display",
 							{
 								"text-dark": scrollPosition > 0,
 							},

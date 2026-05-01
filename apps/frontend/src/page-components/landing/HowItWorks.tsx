@@ -82,7 +82,7 @@ const HowItWorks = () => {
 			<div className="container">
 				<FadeInUp>
 					<div className="text-center mb-8 md:mb-12">
-						<span className="block mb-3 text-primary">How it works</span>
+						<span className="sectionLabel mb-3">How it works</span>
 						<h2 className="text-3xl lg:text-5xl mb-6">
 							<TextAnimation text="From upload to live campaign in minutes." />
 						</h2>

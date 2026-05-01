@@ -894,3 +894,10 @@ select.input {
 	line-height: 1.6;
 	-webkit-font-smoothing: antialiased;
 }
+.sectionLabel {
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--color-primary);
+	font-size: 14px;
+	display: block;
+}
