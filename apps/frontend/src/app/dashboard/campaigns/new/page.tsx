@@ -77,6 +77,7 @@ function VideoPreview({ file }: { file: File }) {
       preload="metadata"
       muted
       playsInline
+      onLoadedMetadata={(e) => { e.currentTarget.currentTime = 0.1; }}
     />
   );
 }
