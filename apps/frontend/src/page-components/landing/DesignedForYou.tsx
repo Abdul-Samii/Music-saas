@@ -81,12 +81,12 @@ const DesignedForYou = () => {
 											<h3 className="text-lg font-semibold mb-1">
 												<TextAnimation text={c.title} />
 											</h3>
-											<p className="text-sm m-0">
+											<div className="text-sm">
 												<TextAnimation
 													text={c.desc}
 													staggerChildren={0.01}
 												/>
-											</p>
+											</div>
 										</div>
 									</div>
 								))}
