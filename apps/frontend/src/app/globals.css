@@ -57,6 +57,7 @@
 	--color-bg-card: #f8f9fc;
 	--color-bg-elevated: #f5f7ff;
 	--color-bg-hover: #eef1fb;
+	--color-body-2: #f9fafb;
 
 	/* ── Borders ── */
 	--color-border: #e2e6f0;
@@ -65,8 +66,8 @@
 
 	/* ── Text ── */
 	--color-text-primary: #281a01;
-	--color-text-secondary: #4a5370;
-	--color-text-muted: #9ba3bf;
+	--color-secondary: #4a5370;
+	--color-muted: #9ba3bf;
 	--color-navy: #0b1120;
 
 	/* ── Primary blue ── */
