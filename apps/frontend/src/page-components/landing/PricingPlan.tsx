@@ -44,7 +44,7 @@ const pricing = [
 
 const PricingPlan = () => {
 	return (
-		<section className="py-[120px] overflow-hidden bg-bg-card">
+		<section className="py-20 lg:py-[120px] overflow-hidden bg-bg-card">
 			<div className="container">
 				<FadeInUp>
 					<div className="text-center mb-8 md:mb-16">
@@ -59,7 +59,7 @@ const PricingPlan = () => {
 						</p>
 					</div>
 				</FadeInUp>
-				<Parallax speed={-5}>
+				<Parallax speed={-2}>
 					<FadeInUp>
 						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-[1320px] mx-auto">
 							{pricing.map((plan, i) => (

@@ -44,7 +44,7 @@ const features = [
 
 const Features = () => {
 	return (
-		<section className="py-[120px] overflow-hidden bg-bg-card">
+		<section className="py-20 lg:py-[120px] overflow-hidden bg-bg-card">
 			<div className="container">
 				<FadeInUp>
 					<div className="mb-12 md:mb-16">

@@ -3,7 +3,7 @@ import TextAnimation from "@/components/animations/TextAnimation";
 
 const DesignedForYou = () => {
 	return (
-		<section className="py-[120px] overflow-hidden">
+		<section className="py-20 lg:py-[120px] overflow-hidden">
 			<div className="container">
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-16">
 					<div>

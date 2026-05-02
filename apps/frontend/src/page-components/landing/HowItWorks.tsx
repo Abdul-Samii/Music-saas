@@ -78,7 +78,7 @@ const steps = [
 ];
 const HowItWorks = () => {
 	return (
-		<section className="py-[120px] overflow-hidden">
+		<section className="py-20 lg:py-[120px] overflow-hidden">
 			<div className="container">
 				<FadeInUp>
 					<div className="text-center mb-12 md:mb-16">
