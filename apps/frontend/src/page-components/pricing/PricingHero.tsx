@@ -1,4 +1,5 @@
 import TextAnimation from "@/components/animations/TextAnimation";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -108,15 +109,7 @@ const PricingHero = () => {
 					}}
 					className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[500px] h-[400px] rounded-full pointer-events-none"
 				/>
-				<div
-					style={{
-						maxWidth: 680,
-						margin: "0 auto",
-						padding: "9rem 2rem 5rem",
-						textAlign: "center",
-						position: "relative",
-					}}
-				>
+				<div className="max-w-[680px] mx-auto pt-36 pb-20 px-2 text-center relative">
 					<div className="sectionLabel mb-6">
 						Simple, transparent pricing
 					</div>
@@ -132,26 +125,22 @@ const PricingHero = () => {
 					{/* Toggle */}
 					<div className="bg-white inline-flex items-center gap-3 rounded-full px-7 py-2">
 						<span
-							style={{
-								fontSize: "0.875rem",
-								fontWeight: 600,
-								color: annual ? "#9BA3BF" : NAVY,
-							}}
+							className={cn("text-sm font-semibold", {
+								"text-gray-400": annual,
+								"text-navy": !annual,
+							})}
 						>
 							Monthly
 						</span>
 						<button
 							onClick={() => setAnnual(!annual)}
-							style={{
-								width: 44,
-								height: 24,
-								borderRadius: 99,
-								border: "none",
-								cursor: "pointer",
-								background: annual ? BLUE : "#E2E6F0",
-								position: "relative",
-								transition: "background 0.2s",
-							}}
+							className={cn(
+								"transition-all duration-200 relative border-0 cursor-pointer w-11 h-6 rounded-full",
+								{
+									"bg-blue": annual,
+									"bg-gray-300": !annual,
+								},
+							)}
 						>
 							<div
 								style={{
@@ -168,11 +157,10 @@ const PricingHero = () => {
 							/>
 						</button>
 						<span
-							style={{
-								fontSize: "0.875rem",
-								fontWeight: 600,
-								color: annual ? NAVY : "#9BA3BF",
-							}}
+							className={cn("text-sm font-semibold", {
+								"text-navy": annual,
+								"text-gray-400": !annual,
+							})}
 						>
 							Annual{" "}
 							<span
@@ -231,21 +219,7 @@ const PricingHero = () => {
 								}}
 							>
 								{plan.highlight && (
-									<div
-										style={{
-											position: "absolute",
-											top: -13,
-											left: "50%",
-											transform: "translateX(-50%)",
-											background: `linear-gradient(135deg, ${BLUE}, #4C1AEA)`,
-											color: "#fff",
-											fontSize: "0.68rem",
-											fontWeight: 700,
-											padding: "0.25rem 1rem",
-											borderRadius: 99,
-											whiteSpace: "nowrap",
-										}}
-									>
+									<div className="absolute top-[-13px] left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-500 to-primary text-white text-xs font-bold px-4 py-1 rounded-full whitespace-nowrap">
 										Most Popular
 									</div>
 								)}

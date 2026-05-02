@@ -67,9 +67,11 @@
 	--color-text-primary: #281a01;
 	--color-text-secondary: #4a5370;
 	--color-text-muted: #9ba3bf;
+	--color-navy: #0b1120;
 
 	/* ── Primary blue ── */
 	--color-primary: #3a60e7;
+	--color-blue: #3a60e7;
 	--color-primary-hover: #2e52d4;
 	--color-primary-light: rgba(58, 96, 231, 0.1);
 	--color-primary-glow: rgba(58, 96, 231, 0.25);
