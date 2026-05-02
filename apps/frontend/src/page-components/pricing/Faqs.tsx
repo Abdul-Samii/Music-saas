@@ -1,3 +1,4 @@
+import FadeInUp from "@/components/animations/FadeInUp";
 import { useState } from "react";
 const FAQ = [
 	{
@@ -37,39 +38,41 @@ const Faqs = () => {
 				overflow: "hidden",
 			}}
 		>
-			<div style={{ textAlign: "center", marginBottom: "3rem" }}>
-				<p
-					style={{
-						fontSize: "0.8rem",
-						fontWeight: 700,
-						textTransform: "uppercase",
-						letterSpacing: "0.1em",
-						marginBottom: "0.75rem",
-					}}
-					className="text-blue"
-				>
-					FAQ
-				</p>
-				<h2
-					style={{
-						fontSize: "clamp(1.5rem,3vw,2rem)",
-						fontWeight: 900,
-						letterSpacing: "-0.03em",
-					}}
-					className="text-navy"
-				>
-					Frequently Asked{" "}
-					<span
+			<FadeInUp>
+				<div style={{ textAlign: "center", marginBottom: "3rem" }}>
+					<p
 						style={{
-							WebkitBackgroundClip: "text",
-							WebkitTextFillColor: "transparent",
+							fontSize: "0.8rem",
+							fontWeight: 700,
+							textTransform: "uppercase",
+							letterSpacing: "0.1em",
+							marginBottom: "0.75rem",
 						}}
-						className="bg-linear-to-r from-blue to-primary"
+						className="text-blue"
 					>
-						Questions
-					</span>
-				</h2>
-			</div>
+						FAQ
+					</p>
+					<h2
+						style={{
+							fontSize: "clamp(1.5rem,3vw,2rem)",
+							fontWeight: 900,
+							letterSpacing: "-0.03em",
+						}}
+						className="text-navy"
+					>
+						Frequently Asked{" "}
+						<span
+							style={{
+								WebkitBackgroundClip: "text",
+								WebkitTextFillColor: "transparent",
+							}}
+							className="bg-linear-to-r from-blue to-primary"
+						>
+							Questions
+						</span>
+					</h2>
+				</div>
+			</FadeInUp>
 			<div
 				style={{
 					display: "flex",
@@ -78,67 +81,62 @@ const Faqs = () => {
 				}}
 			>
 				{FAQ.map((item, i) => (
-					<div
-						key={i}
-						style={{
-							background: "#fff",
-							border: "1px solid #E2E6F0",
-							borderRadius: 14,
-							overflow: "hidden",
-						}}
-					>
-						<button
-							onClick={() => setOpenFaq(openFaq === i ? null : i)}
-							style={{
-								width: "100%",
-								display: "flex",
-								justifyContent: "space-between",
-								alignItems: "center",
-								padding: "1.125rem 1.25rem",
-								background: "none",
-								border: "none",
-								cursor: "pointer",
-								textAlign: "left",
-								gap: "1rem",
-							}}
-						>
-							<span
+					<FadeInUp key={i}>
+						<div className="overflow-hidden bg-white rounded-[14px] border border-border">
+							<button
+								onClick={() => setOpenFaq(openFaq === i ? null : i)}
 								style={{
-									fontWeight: 600,
-									fontSize: "0.9rem",
+									width: "100%",
+									display: "flex",
+									justifyContent: "space-between",
+									alignItems: "center",
+									padding: "1.125rem 1.25rem",
+									background: "none",
+									border: "none",
+									cursor: "pointer",
+									textAlign: "left",
+									gap: "1rem",
 								}}
-								className="text-navy"
 							>
-								{item.q}
-							</span>
-							<span
-								style={{
-									fontSize: "1.25rem",
-									flexShrink: 0,
-									fontWeight: 300,
-									transform: openFaq === i ? "rotate(45deg)" : "none",
-									transition: "transform 0.2s",
-									display: "inline-block",
-								}}
-								className="text-blue"
-							>
-								+
-							</span>
-						</button>
-						{openFaq === i && (
-							<div style={{ padding: "0 1.25rem 1.125rem" }}>
-								<p
+								<span
 									style={{
-										fontSize: "0.875rem",
-										color: "#4A5370",
-										lineHeight: 1.75,
+										fontWeight: 600,
+										fontSize: "0.9rem",
 									}}
+									className="text-navy"
 								>
-									{item.a}
-								</p>
-							</div>
-						)}
-					</div>
+									{item.q}
+								</span>
+								<span
+									style={{
+										fontSize: "1.25rem",
+										flexShrink: 0,
+										fontWeight: 300,
+										transform:
+											openFaq === i ? "rotate(45deg)" : "none",
+										transition: "transform 0.2s",
+										display: "inline-block",
+									}}
+									className="text-blue"
+								>
+									+
+								</span>
+							</button>
+							{openFaq === i && (
+								<div style={{ padding: "0 1.25rem 1.125rem" }}>
+									<p
+										style={{
+											fontSize: "0.875rem",
+											color: "#4A5370",
+											lineHeight: 1.75,
+										}}
+									>
+										{item.a}
+									</p>
+								</div>
+							)}
+						</div>
+					</FadeInUp>
 				))}
 			</div>
 		</section>
