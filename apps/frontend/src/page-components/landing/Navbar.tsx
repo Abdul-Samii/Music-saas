@@ -1,4 +1,5 @@
 "use client";
+import { arrow_right } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
@@ -16,9 +17,9 @@ const Navbar = () => {
 	return (
 		<header
 			className={cn(
-				"fixed top-0 left-0 w-full z-100 py-4 transition-all duration-300",
+				"fixed top-0 left-0 w-full z-100 py-4 transition-all duration-300 border-b border-gray-100",
 				{
-					"bg-white py-4 border-b border-gray-100": scrollPosition > 0,
+					"bg-white": scrollPosition > 0,
 				},
 			)}
 		>
@@ -27,10 +28,7 @@ const Navbar = () => {
 					<a
 						href="#"
 						className={cn(
-							"text-[22px] text-white flex items-center gap-3 duration-300 transition-all font-display",
-							{
-								"text-dark": scrollPosition > 0,
-							},
+							"text-[22px] text-dark flex items-center gap-3 duration-300 transition-all font-display",
 						)}
 					>
 						{/* eslint-disable-next-line @next/next/no-img-element */}
@@ -59,7 +57,7 @@ const Navbar = () => {
 						// )}
 						className="btnShiny rounded-md px-5 font-normal! h-12"
 					>
-						Get early access
+						<span>Get early access</span> {arrow_right}
 					</button>
 				</nav>
 			</div>

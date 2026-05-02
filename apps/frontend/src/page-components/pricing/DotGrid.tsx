@@ -1,7 +1,18 @@
-export const DotGrid = ({ id = "dots" }: { id?: string }) => (
+import { cn } from "@/lib/utils";
+
+export const DotGrid = ({
+	id = "dots",
+	className,
+}: {
+	id?: string;
+	className?: string;
+}) => (
 	<svg
 		xmlns="http://www.w3.org/2000/svg"
-		className="opacity-30 inset-0 absolute pointer-events-none w-full h-full"
+		className={cn(
+			"opacity-30 inset-0 absolute pointer-events-none w-full h-full",
+			className,
+		)}
 	>
 		<defs>
 			<pattern

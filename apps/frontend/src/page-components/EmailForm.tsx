@@ -1,3 +1,4 @@
+import { arrow_right } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
@@ -46,7 +47,7 @@ const EmailForm = ({ inputClass }: { inputClass?: string }) => {
 				className="btnShiny rounded-md px-5 font-normal! h-12"
 				onClick={submit}
 			>
-				Get early access →
+				<span>Get early access</span> {arrow_right}
 			</button>
 		</div>
 	);

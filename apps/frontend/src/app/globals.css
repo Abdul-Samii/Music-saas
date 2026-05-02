@@ -808,6 +808,12 @@ select.input {
 	font-family: inherit;
 	font-weight: 600;
 	box-shadow: 0 4px 18px rgba(37, 99, 235, 0.38);
+
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+
 	transition:
 		background 0.2s,
 		transform 0.15s,

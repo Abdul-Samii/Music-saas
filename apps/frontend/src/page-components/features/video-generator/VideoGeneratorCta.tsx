@@ -1,4 +1,5 @@
 import FadeInUp from "@/components/animations/FadeInUp";
+import { arrow_right } from "@/components/icons";
 import { DotGrid } from "@/page-components/pricing/DotGrid";
 import Link from "next/link";
 import { Parallax } from "react-scroll-parallax";
@@ -51,7 +52,7 @@ const VideoGeneratorCta = () => {
 							href="/signup"
 							className="btnShiny rounded-md px-5 md:px-10 h-12 md:h-14 inline-flex items-center justify-center md:text-lg! min-w-[170px]"
 						>
-							Get Early Access
+							<span>Get early access</span> {arrow_right}
 						</Link>
 					</div>
 				</FadeInUp>
