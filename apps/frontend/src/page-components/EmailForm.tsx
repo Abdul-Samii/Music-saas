@@ -30,7 +30,7 @@ const EmailForm = ({ inputClass }: { inputClass?: string }) => {
 				value={email}
 				placeholder="your@email.com"
 				className={cn(
-					"w-[180px] grow max-w-[280px] h-12 border border-white/20 rounded-md px-6 outline-0! shadow-none! ring-0 bg-white/5",
+					"w-[180px] grow max-w-[320px] h-12 border border-white/20 rounded-md px-6 outline-0! shadow-none! ring-0 bg-white/5",
 					inputClass,
 					{
 						"border-red-500": error,
