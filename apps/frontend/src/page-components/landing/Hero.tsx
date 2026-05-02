@@ -9,7 +9,7 @@ import { DotGrid } from "../pricing/DotGrid";
 const Hero = () => {
 	return (
 		<section className="py-20 min-h-screen relative overflow-hidden flex flex-col justify-center bg-primary/2">
-			<DotGrid className="opacity-100" id="dots-hero" />
+			<DotGrid id="dots-hero" />
 			<div className="mx-auto max-w-5xl px-6 text-center relative z-20 max-lg:pt-16">
 				<Parallax speed={-25}>
 					<div>

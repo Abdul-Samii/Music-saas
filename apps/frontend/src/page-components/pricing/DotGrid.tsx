@@ -10,7 +10,7 @@ export const DotGrid = ({
 	<svg
 		xmlns="http://www.w3.org/2000/svg"
 		className={cn(
-			"opacity-30 inset-0 absolute pointer-events-none w-full h-full",
+			"inset-0 absolute pointer-events-none w-full h-full",
 			className,
 		)}
 	>
