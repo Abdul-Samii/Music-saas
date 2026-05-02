@@ -546,14 +546,25 @@ export default function CampaignDetailPage() {
           <h2 style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)", marginBottom: "1.25rem" }}>Ad Details</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
             {[
-              { label: "Ad Title",      value: campaign.adTitle },
-              { label: "Description",   value: campaign.adDescription },
-              { label: "Landing URL",   value: campaign.landingPageUrl },
-              { label: "Pixel ID",      value: campaign.pixelId },
+              { label: "Ad Title",    value: campaign.adTitle,        isUrl: false },
+              { label: "Description", value: campaign.adDescription,  isUrl: false },
+              { label: "Landing URL", value: campaign.landingPageUrl, isUrl: true  },
+              { label: "Pixel ID",    value: campaign.pixelId,        isUrl: false },
             ].filter((r) => r.value).map((row) => (
               <div key={row.label} style={{ padding: "0.875rem 1rem", background: "var(--bg-elevated)", borderRadius: 10, border: "1px solid var(--border)" }}>
                 <p style={{ fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", marginBottom: "0.375rem" }}>{row.label}</p>
-                <p style={{ fontSize: "0.875rem", color: "var(--text-primary)", fontWeight: 500, wordBreak: "break-all" }}>{row.value}</p>
+                {row.isUrl ? (
+                  <a
+                    href={row.value!.startsWith("http") ? row.value! : `https://${row.value}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: "0.875rem", color: "#3A60E7", fontWeight: 500, wordBreak: "break-all", textDecoration: "underline" }}
+                  >
+                    {row.value}
+                  </a>
+                ) : (
+                  <p style={{ fontSize: "0.875rem", color: "var(--text-primary)", fontWeight: 500, wordBreak: "break-all" }}>{row.value}</p>
+                )}
               </div>
             ))}
           </div>
