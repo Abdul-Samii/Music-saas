@@ -9,7 +9,7 @@ const NAVY = "#0B1120";
 const DotGrid = ({ id = "dots" }: { id?: string }) => (
 	<svg
 		xmlns="http://www.w3.org/2000/svg"
-		className="opacity-20 inset-0 absolute pointer-events-none w-full h-full"
+		className="opacity-30 inset-0 absolute pointer-events-none w-full h-full"
 	>
 		<defs>
 			<pattern
@@ -96,13 +96,13 @@ const PricingHero = () => {
 		<section>
 			{/* Hero */}
 			<div
-				className="relative overflow-hidden"
+				className="relative overflow-hidden pb-24"
 				style={{
 					background:
 						"url(/img/hero-bg-2.jpg) no-repeat center center/cover",
 				}}
 			>
-				<DotGrid id="dots-pr1" />
+				<div className="absolute pointer-events-none bg-black inset-0 opacity-50" />
 				<div
 					style={{
 						background:
@@ -110,6 +110,7 @@ const PricingHero = () => {
 					}}
 					className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[500px] h-[400px] rounded-full pointer-events-none"
 				/>
+				<DotGrid id="dots-pr1" />
 				<Parallax speed={-10}>
 					<div className="max-w-[680px] mx-auto pt-32 pb-28 px-2 text-center relative">
 						<FadeIn>
@@ -193,6 +194,7 @@ const PricingHero = () => {
 					padding: "0 2rem 5rem",
 					overflow: "visible",
 				}}
+				className="relative z-10 -translate-y-20 overflow-visible"
 			>
 				<DotGrid id="dots-pr2" />
 				<div
