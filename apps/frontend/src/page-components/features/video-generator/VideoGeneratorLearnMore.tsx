@@ -48,19 +48,7 @@ const VideoGeneratorLearnMore = () => {
 				<div className="flex flex-col gap-3 max-w-[1100px] mx-auto">
 					{SUB_PAGES.map((p) => (
 						<Link key={p.label} href={p.href} className="block">
-							<div
-								className="flex items-center justify-between gap-6 p-5 border hover:bg-secondary/5 duration-300 transition-all rounded-[12px]"
-								onMouseEnter={(e) =>
-									((
-										e.currentTarget as HTMLDivElement
-									).style.borderColor = "var(--primary)")
-								}
-								onMouseLeave={(e) =>
-									((
-										e.currentTarget as HTMLDivElement
-									).style.borderColor = "var(--border)")
-								}
-							>
+							<div className="flex items-center justify-between gap-6 p-5 border hover:bg-secondary/5 duration-300 transition-all rounded-[12px]">
 								<div className="flex-1">
 									<h6
 										style={{
