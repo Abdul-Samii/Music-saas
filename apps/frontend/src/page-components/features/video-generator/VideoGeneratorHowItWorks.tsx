@@ -1,3 +1,5 @@
+import SlideDown from "@/components/animations/SlideDown";
+
 const STEPS = [
 	{
 		step: "01",
@@ -71,65 +73,64 @@ const VideoGeneratorHowItWorks = () => {
 				<div className="max-w-[1000px] mx-auto">
 					<div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-6">
 						{STEPS.map((s) => (
-							<div
-								key={s.step}
-								className="card flex flex-col gap-4 bg-white! shadow-none! duration-300 transition-all hover:-translate-y-2"
-							>
-								<div
-									style={{
-										display: "flex",
-										alignItems: "center",
-										gap: "0.875rem",
-									}}
-								>
+							<SlideDown key={s.step}>
+								<div className="card flex flex-col gap-4 bg-white! shadow-none! duration-300 transition-all hover:-translate-y-2">
 									<div
 										style={{
-											width: 48,
-											height: 48,
-											borderRadius: 14,
-											background: s.color,
 											display: "flex",
 											alignItems: "center",
-											justifyContent: "center",
-											flexShrink: 0,
+											gap: "0.875rem",
 										}}
 									>
-										{s.icon}
+										<div
+											style={{
+												width: 48,
+												height: 48,
+												borderRadius: 14,
+												background: s.color,
+												display: "flex",
+												alignItems: "center",
+												justifyContent: "center",
+												flexShrink: 0,
+											}}
+										>
+											{s.icon}
+										</div>
+										<span
+											style={{
+												fontSize: "0.68rem",
+												fontWeight: 700,
+												color: "var(--text-muted)",
+												letterSpacing: "0.08em",
+												textTransform: "uppercase",
+											}}
+										>
+											Step {s.step}
+										</span>
 									</div>
-									<span
-										style={{
-											fontSize: "0.68rem",
-											fontWeight: 700,
-											color: "var(--text-muted)",
-											letterSpacing: "0.08em",
-											textTransform: "uppercase",
-										}}
-									>
-										Step {s.step}
-									</span>
+									<div>
+										<h3
+											style={{
+												fontWeight: 700,
+												fontSize: "1rem",
+												color: "var(--text-primary)",
+												marginBottom: "0.5rem",
+											}}
+										>
+											{s.title}
+										</h3>
+										<p
+											style={{
+												fontSize: "0.8125rem",
+												color: "var(--text-muted)",
+												lineHeight: 1.7,
+											}}
+										>
+											{s.desc}
+										</p>
+									</div>
 								</div>
-								<div>
-									<h3
-										style={{
-											fontWeight: 700,
-											fontSize: "1rem",
-											color: "var(--text-primary)",
-											marginBottom: "0.5rem",
-										}}
-									>
-										{s.title}
-									</h3>
-									<p
-										style={{
-											fontSize: "0.8125rem",
-											color: "var(--text-muted)",
-											lineHeight: 1.7,
-										}}
-									>
-										{s.desc}
-									</p>
-								</div>
-							</div>
+							</SlideDown>
 						))}
 					</div>
 				</div>
