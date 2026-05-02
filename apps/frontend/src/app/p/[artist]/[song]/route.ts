@@ -102,7 +102,7 @@ body{
 .btn-text{flex:1}
 .btn-title{color:#fff;font-size:0.82rem;font-weight:700;display:block}
 .btn-sub{color:rgba(255,255,255,0.72);font-size:0.65rem;display:block;margin-top:1px}
-.footer{font-size:0.7rem;color:rgba(255,255,255,0.35);text-align:center;letter-spacing:0.03em;text-decoration:none}
+.footer{position:fixed;bottom:1.25rem;left:0;right:0;text-align:center;font-size:0.7rem;color:rgba(255,255,255,0.35);letter-spacing:0.03em;text-decoration:none;z-index:2}
 .footer:hover{color:rgba(255,255,255,0.6)}
 @media(max-width:440px){
   .art{width:220px;height:220px}
@@ -116,8 +116,8 @@ body{
   <h1 class="title">${escHtml(page.title)}</h1>
   ${page.description ? `<p class="desc">${escHtml(page.description)}</p>` : ''}
   ${spotifyBtn}
-  <a href="https://escalium.io" target="_blank" rel="noopener noreferrer" class="footer">POWERED BY ESCALIUM</a>
 </div>
+<a href="https://escalium.io" target="_blank" rel="noopener noreferrer" class="footer">POWERED BY ESCALIUM</a>
 <img class="bg" src="${escHtml(page.thumbnailUrl)}" alt="" aria-hidden="true" fetchpriority="low">
 ${pixel}
 </body>
