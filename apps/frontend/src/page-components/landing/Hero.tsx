@@ -23,7 +23,7 @@ const Hero = () => {
 					},
 				]}
 			/>
-			<div className="mx-auto max-w-5xl px-6 text-center relative z-20 text-white">
+			<div className="mx-auto max-w-5xl px-6 text-center relative z-20 text-white max-lg:pt-16">
 				<Parallax speed={-25}>
 					<div>
 						<FadeInUp>
