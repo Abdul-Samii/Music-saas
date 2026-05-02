@@ -3,9 +3,11 @@ import { motion } from "framer-motion";
 const TextAnimation = ({
 	text,
 	staggerChildren = 0.04,
+	delay = 0,
 }: {
 	text: string;
 	staggerChildren?: number;
+	delay?: number;
 }) => {
 	const container = {
 		hidden: { opacity: 0 },
@@ -13,6 +15,7 @@ const TextAnimation = ({
 			opacity: 1,
 			transition: {
 				staggerChildren: staggerChildren,
+				delay: delay,
 			},
 		},
 	};
