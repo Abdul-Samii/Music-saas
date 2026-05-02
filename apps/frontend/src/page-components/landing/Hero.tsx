@@ -1,4 +1,3 @@
-import FadeInLeft from "@/components/animations/FadeInLeft";
 import FadeInUp from "@/components/animations/FadeInUp";
 import TextAnimation from "@/components/animations/TextAnimation";
 import { cn } from "@/lib/utils";
@@ -9,7 +8,7 @@ import GoogleButton from "../GoogleButton";
 const Hero = () => {
 	return (
 		<section
-			className="py-20 min-h-screen relative before:absolute before:inset-0 before:bg-[#111111]/60 overflow-hidden"
+			className="py-20 min-h-screen relative before:absolute before:inset-0 before:bg-[#111111]/60 overflow-hidden flex flex-col justify-center"
 			style={{
 				background: `url(/img/hero-bg.jpg) no-repeat center center / cover`,
 			}}
@@ -35,7 +34,7 @@ const Hero = () => {
 								<TextAnimation text="Promote your music. Scale your audience." />
 							</h1>
 
-							<p className="text-white/80 max-w-2xl mx-auto text-lg lg:text-xl mt-6 mb-8">
+							<p className="text-white/80 max-w-2xl mx-auto md:text-lg lg:text-xl mt-6 mb-8">
 								Create converting ads from your tracks and launch Meta
 								campaigns — all in one place. Built for artists,
 								producers and labels.
@@ -52,14 +51,6 @@ const Hero = () => {
 						</FadeInUp>
 					</div>
 				</Parallax>
-			</div>
-			<div className="absolute bottom-10 left-10">
-				<FadeInLeft>
-					<div className="text-white text-sm border-l-2 border-white pl-4">
-						Free to join <br />
-						No credit card required.
-					</div>
-				</FadeInLeft>
 			</div>
 		</section>
 	);

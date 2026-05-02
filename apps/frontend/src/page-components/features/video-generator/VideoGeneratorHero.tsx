@@ -27,12 +27,21 @@ const VideoGeneratorHero = () => {
 							AI Lyric Video Generator
 						</div>
 						<h1 className="text-white text-[clamp(2rem,5vw,3rem)] leading-[1.15] mb-4 tracking-tight font-black">
-							Turn your music into
+							AI Lyric Video Generator
 							<br />
 							<span className="gradient-text">
 								scroll-stopping lyric videos.
 							</span>
 						</h1>
+
+						{/* <h1 className="text-white text-[clamp(2rem,5vw,3rem)] leading-[1.15] mb-4 tracking-tight font-black">
+							Turn your music into
+							<br />
+							<span className="gradient-text">
+								scroll-stopping lyric videos.
+							</span>
+						</h1> */}
+
 						<p className="text-gray-400 mb-10 mx-auto max-w-[560px]">
 							Upload your track, let Whisper AI transcribe it, pick a
 							visual style, and export a 1080p lyric video — ready to use
@@ -46,16 +55,16 @@ const VideoGeneratorHero = () => {
 								flexWrap: "wrap",
 							}}
 						>
-							<Link href="/signup" className="btn btn-primary btn-lg">
-								Try It Free
+							<Link
+								href="/signup"
+								className="btnShiny rounded-md px-5 md:px-10 h-12 md:h-14 inline-flex items-center justify-center md:text-lg! min-w-[170px]"
+							>
+								Try It For Free
 							</Link>
-							<Link href="/pricing" className="btn btn-secondary btn-lg">
+							{/* <Link href="/pricing" className="btn btn-secondary btn-lg">
 								View Pricing
-							</Link>
+							</Link> */}
 						</div>
-						<p className="text-muted text-[0.8rem] mt-6">
-							Available in Weeks 4–6 · Currently in active development
-						</p>
 					</div>
 				</FadeInUp>
 			</Parallax>

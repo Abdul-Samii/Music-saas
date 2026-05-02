@@ -49,12 +49,9 @@ const PricingCta = () => {
 						</p>
 						<Link
 							href="/signup"
-							className="inline-flex items-center gap-2 bg-white text-navy rounded-full px-8 py-4 font-extrabold text-[0.95rem]"
+							className="btnShiny rounded-md px-5 md:px-10 h-12 md:h-14 inline-flex items-center justify-center md:text-lg! min-w-[170px]"
 						>
-							Create Your Free Account{" "}
-							<span className="w-5.5 h-5.5 rounded-full bg-navy text-white flex items-center justify-center">
-								+
-							</span>
+							Create Your Free Account
 						</Link>
 					</div>
 				</FadeInUp>

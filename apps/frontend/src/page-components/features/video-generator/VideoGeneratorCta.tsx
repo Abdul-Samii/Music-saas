@@ -47,7 +47,10 @@ const VideoGeneratorCta = () => {
 							Sign up free — no credit card required. Lyric video creator
 							goes live in Weeks 4–6.
 						</p>
-						<Link href="/signup" className="btn btn-primary btn-lg">
+						<Link
+							href="/signup"
+							className="btnShiny rounded-md px-5 md:px-10 h-12 md:h-14 inline-flex items-center justify-center md:text-lg! min-w-[170px]"
+						>
 							Get Early Access
 						</Link>
 					</div>
