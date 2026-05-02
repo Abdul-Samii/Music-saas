@@ -93,8 +93,8 @@ const DesignedForYou = () => {
 							</div>
 						</FadeInUp>
 					</div>
-					<div className="grid grid-cols-2 gap-4">
-						<div className="flex flex-col gap-4 justify-end">
+					<div className="grid grid-cols-2 gap-2 sm:gap-4">
+						<div className="flex flex-col gap-2 sm:gap-4 justify-end">
 							<FadeInUp>
 								<img
 									className="w-full rounded-2xl"
@@ -111,7 +111,7 @@ const DesignedForYou = () => {
 								</div>
 							</FadeInUp>
 						</div>
-						<div className="flex flex-col gap-4 justify-start">
+						<div className="flex flex-col gap-2 sm:gap-4 justify-start">
 							<FadeInUp>
 								<div className="shadow-sm p-6 sm:p-8 rounded-2xl">
 									<h5 className="text-base text-primary uppercase mb-2">
