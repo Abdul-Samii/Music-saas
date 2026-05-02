@@ -6,7 +6,7 @@ import { DotGrid } from "./DotGrid";
 const PricingCta = () => {
 	return (
 		<section
-			className="relative px-8 py-24 text-center overflow-hidden"
+			className="relative px-8 py-30 text-center overflow-hidden"
 			style={{
 				background: `url(/img/cta-bg.jpg) no-repeat bottom center / cover`,
 			}}
@@ -49,7 +49,7 @@ const PricingCta = () => {
 						</p>
 						<Link
 							href="/signup"
-							className="inline-flex items-center gap-2 bg-white text-navy rounded-full px-8 py-3 font-extrabold text-[0.95rem]"
+							className="inline-flex items-center gap-2 bg-white text-navy rounded-full px-8 py-4 font-extrabold text-[0.95rem]"
 						>
 							Create Your Free Account{" "}
 							<span className="w-5.5 h-5.5 rounded-full bg-navy text-white flex items-center justify-center">
