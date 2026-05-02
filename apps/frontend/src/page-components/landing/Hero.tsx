@@ -28,8 +28,7 @@ const Hero = () => {
 				<Parallax speed={-25}>
 					<div>
 						<FadeInUp>
-							<div className="flex items-center justify-center gap-2 mb-4 text-start">
-								<span className="w-2 h-2 bg-white rounded-full"></span>
+							<div className="sectionLabel mb-4">
 								<div>Now accepting early access signups</div>
 							</div>
 							<h1 className="text-white text-4xl lg:text-6xl lg:leading-[1.3] tracking-wide">
