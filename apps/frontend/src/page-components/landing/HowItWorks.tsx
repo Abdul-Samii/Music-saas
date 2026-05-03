@@ -1,5 +1,6 @@
 import FadeInUp from "@/components/animations/FadeInUp";
 import TextAnimation from "@/components/animations/TextAnimation";
+import { arrow_right } from "@/components/icons";
 import { Parallax } from "react-scroll-parallax";
 
 const steps = [
@@ -18,8 +19,8 @@ const steps = [
 				/>
 			</svg>
 		),
-		title: "Upload your track",
-		desc: "Drop your .mp3, .flac or .wav file. Add your lyrics. Escalium handles the rest automatically.",
+		title: "Upload your song",
+		desc: "Drag and dropp or select your .mp3 .flac or .wav",
 	},
 	{
 		num: (
@@ -36,8 +37,8 @@ const steps = [
 				/>
 			</svg>
 		),
-		title: "Pick your clips",
-		desc: "Browse our curated library of visual clips that sync to your audio and are proven to convert.",
+		title: "Generate ads in seconds",
+		desc: "Escalium makes winning ads and pieces of content focused on grabbing attention and turns them into streams in spotify",
 	},
 	{
 		num: (
@@ -54,8 +55,8 @@ const steps = [
 				/>
 			</svg>
 		),
-		title: "Generate your ad",
-		desc: "Your ad is rendered with lyrics, visuals and audio perfectly combined. Ready in seconds.",
+		title: "Create campaign",
+		desc: "Create campaign with just a few clicks and select your desire budget",
 	},
 	{
 		num: (
@@ -72,8 +73,8 @@ const steps = [
 				/>
 			</svg>
 		),
-		title: "Launch on Meta",
-		desc: "Set your budget, target your audience and launch directly on Facebook and Instagram.",
+		title: "Watch your streams grow",
+		desc: "Enjoy watching your streams grow while you focus on what you love, creating and producing music",
 	},
 ];
 const HowItWorks = () => {
@@ -84,13 +85,12 @@ const HowItWorks = () => {
 					<div className="text-center mb-12 md:mb-16">
 						<span className="sectionLabel mb-3">How it works</span>
 						<h2 className="text-3xl lg:text-5xl mb-6">
-							<TextAnimation text="From upload to live campaign in minutes." />
+							<TextAnimation text="All Built with one goal. Simplicity." />
 						</h2>
-						<p className="md:text-lg">
-							{/* <TextAnimation text="" /> */}
+						{/* <p className="md:text-lg">
 							No ad agency. No complicated tools. Just your music and
 							results.
-						</p>
+						</p> */}
 					</div>
 				</FadeInUp>
 				<Parallax speed={-5}>
@@ -116,6 +116,18 @@ const HowItWorks = () => {
 									</FadeInUp>
 								</div>
 							))}
+						</div>
+						<div className="flex justify-center mt-10">
+							<button
+								onClick={() =>
+									document
+										.getElementById("early-access")
+										?.scrollIntoView({ behavior: "smooth" })
+								}
+								className="btnShiny rounded-md px-5 font-normal! h-12"
+							>
+								<span>Get early access</span> {arrow_right}
+							</button>
 						</div>
 					</FadeInUp>
 				</Parallax>

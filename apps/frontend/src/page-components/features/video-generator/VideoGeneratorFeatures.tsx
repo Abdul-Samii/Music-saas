@@ -36,7 +36,7 @@ const VideoGeneratorFeatures = () => {
 										</FadeInUp>
 									</Parallax>
 								</div>
-								<div className="py-25 px-20 relative">
+								<div className="px-10 py-20 sm:py-25 sm:px-20 relative">
 									<img
 										src="/img/v-f-2.jpg"
 										className="w-full"

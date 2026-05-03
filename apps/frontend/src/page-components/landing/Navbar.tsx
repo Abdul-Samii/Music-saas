@@ -49,12 +49,6 @@ const Navbar = () => {
 								.getElementById("early-access")
 								?.scrollIntoView({ behavior: "smooth" })
 						}
-						// className={cn(
-						// 	"link-hover text-white duration-300 transition-all",
-						// 	{
-						// 		"text-dark": scrollPosition > 0,
-						// 	},
-						// )}
 						className="btnShiny rounded-md px-5 font-normal! h-12"
 					>
 						<span>Get early access</span> {arrow_right}
