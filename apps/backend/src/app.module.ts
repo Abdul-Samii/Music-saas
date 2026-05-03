@@ -13,6 +13,7 @@ import { MediaModule } from './media/media.module';
 import { EarlyAccessModule } from './early-access/early-access.module';
 import { AdminModule } from './admin/admin.module';
 import { LandingPagesModule } from './landing-pages/landing-pages.module';
+import { ZonesModule } from './zones/zones.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { LandingPagesModule } from './landing-pages/landing-pages.module';
     EarlyAccessModule,
     AdminModule,
     LandingPagesModule,
+    ZonesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

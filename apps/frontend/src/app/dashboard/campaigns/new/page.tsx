@@ -4,9 +4,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import axios from "axios";
-import { landingPagesApi, usersApi } from "@/lib/api";
+import { landingPagesApi, usersApi, zonesApi, type Zone } from "@/lib/api";
 import MetaGate from "@/components/MetaGate";
 import VideoEditor from "@/components/VideoEditor";
+import CountryPicker from "@/components/CountryPicker";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api/v1";
 const BLUE = "#3A60E7";
@@ -94,6 +95,14 @@ export default function NewCampaignPage() {
   // Artist slug (fetched from profile for landing page URL preview)
   const [artistSlug, setArtistSlug] = useState("");
 
+  // Step 4 — saved zones
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [useCustomZone, setUseCustomZone] = useState(false);
+  const [customZoneCountries, setCustomZoneCountries] = useState<string[]>([]);
+  const [customZoneBudget, setCustomZoneBudget] = useState("5");
+  const [customZoneName, setCustomZoneName] = useState("");
+  const [savingZone, setSavingZone] = useState(false);
+
   // Step 2 — pixels
   const [pixels, setPixels] = useState<Pixel[]>([]);
   const [loadingPixels, setLoadingPixels] = useState(false);
@@ -179,6 +188,12 @@ export default function NewCampaignPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Load saved zones when entering step 4
+  useEffect(() => {
+    if (step !== 4) return;
+    zonesApi.list().then(setZones).catch(() => {});
+  }, [step]);
+
   // Load FB pages when entering step 6
   useEffect(() => {
     if (step !== 6 || !token || pages.length > 0) return;
@@ -246,8 +261,10 @@ export default function NewCampaignPage() {
     form.landingThumbnailUrl.length > 0 && form.spotifyUrl.trim().length > 5, // 1 Landing Page
     form.pixelId.length > 0,                                                   // 2 Conversion
     Number(form.budget) >= 5,                                                  // 3 Budget
-    form.audienceTiers.length > 0 &&
-      form.audienceTiers.every((v) => Number(form.tierBudgets[v] ?? 5) >= 5), // 4 Audience
+    useCustomZone
+      ? customZoneCountries.length > 0 && Number(customZoneBudget) >= 5
+      : form.audienceTiers.length > 0 &&
+        form.audienceTiers.every((v) => Number(form.tierBudgets[v] ?? 5) >= 5), // 4 Audience
     form.placement.length > 0,                                                 // 5 Placement
     form.facebookPageId.length > 0 && form.adTitle.trim().length >= 2         // 6 Ad Creative
       && assetReady,
@@ -277,11 +294,13 @@ export default function NewCampaignPage() {
         `${API}/campaigns`,
         {
           name: form.name,
-          budget: form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 5), 0),
+          budget: useCustomZone
+            ? Number(customZoneBudget)
+            : form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 5), 0),
           startDate: form.startDate || undefined,
           endDate: form.endDate || undefined,
           pixelId: form.pixelId,
-          audienceTier: form.audienceTiers.join(","),
+          audienceTier: useCustomZone ? `custom:${customZoneName || "Custom Zone"}` : form.audienceTiers.join(","),
           placement: form.placement,
           landingPageUrl,
           adTitle: form.adTitle,
@@ -301,8 +320,15 @@ export default function NewCampaignPage() {
         {
           campaignId: (campaign as { id: string }).id,
           pixelId: form.pixelId,
-          audienceTiers: form.audienceTiers,
-          tierBudgets: form.audienceTiers.map((v) => Number(form.tierBudgets[v]) || 5),
+          audienceTiers: useCustomZone ? [] : form.audienceTiers,
+          tierBudgets: useCustomZone ? [] : form.audienceTiers.map((v) => Number(form.tierBudgets[v]) || 5),
+          ...(useCustomZone && {
+            customZone: {
+              countries: customZoneCountries,
+              budget: Number(customZoneBudget),
+              name: customZoneName || "Custom Zone",
+            },
+          }),
           placement: form.placement,
           startDate: form.startDate || undefined,
           endDate: form.endDate || undefined,
@@ -658,108 +684,158 @@ export default function NewCampaignPage() {
         {step === 4 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <div>
-              <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Audience Tiers</h2>
-              <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>Select one or more tiers — each becomes a separate ad set. Minimum $5/day per tier.</p>
+              <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Audience</h2>
+              <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>Use preset tiers or build a custom zone with specific countries.</p>
             </div>
 
-            <div ref={tierDropdownRef} style={{ position: "relative" }}>
-              <button
-                type="button"
-                onClick={() => setTierDropdownOpen((o) => !o)}
-                style={{
-                  width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
-                  padding: "0.75rem 1rem", borderRadius: 10, cursor: "pointer",
-                  border: `1.5px solid ${tierDropdownOpen ? BLUE : "#E2E6F0"}`,
-                  background: "#F8F9FC", fontSize: "0.875rem", fontWeight: 600, color: NAVY,
-                }}
-              >
-                <span>
-                  {form.audienceTiers.length === 0
-                    ? "Select tiers…"
-                    : form.audienceTiers.map((v) => AUDIENCE_TIERS.find((t) => t.value === v)?.label).join(", ")}
-                </span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                  style={{ transform: tierDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
-              </button>
+            {/* Tab switcher */}
+            <div style={{ display: "flex", background: "#F1F5F9", borderRadius: 10, padding: 4, gap: 2 }}>
+              {[{ label: "Preset Tiers", value: false }, { label: "Custom Zone", value: true }].map(({ label, value }) => (
+                <button key={label} onClick={() => setUseCustomZone(value)} style={{
+                  flex: 1, padding: "0.5rem", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 600, fontSize: "0.8rem",
+                  background: useCustomZone === value ? "#fff" : "transparent",
+                  color: useCustomZone === value ? NAVY : "#64748b",
+                  boxShadow: useCustomZone === value ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+                  transition: "all 0.15s",
+                }}>{label}</button>
+              ))}
+            </div>
 
-              {tierDropdownOpen && (
-                <div style={{
-                  position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 50,
-                  background: "#fff", borderRadius: 12, border: "1.5px solid #E2E6F0",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.08)", overflow: "hidden",
-                }}>
-                  {AUDIENCE_TIERS.map((tier) => {
-                    const selected = form.audienceTiers.includes(tier.value);
-                    return (
-                      <label key={tier.value} style={{
-                        display: "flex", alignItems: "flex-start", gap: "0.75rem", cursor: "pointer",
-                        padding: "0.875rem 1rem",
-                        background: selected ? "#F0F4FF" : "#fff",
-                        borderBottom: "1px solid #F1F5F9",
-                      }}>
-                        <input
-                          type="checkbox"
-                          checked={selected}
-                          onChange={() => setForm((f) => {
-                            const next = f.audienceTiers.includes(tier.value)
-                              ? f.audienceTiers.filter((t) => t !== tier.value)
-                              : [...f.audienceTiers, tier.value];
-                            const budgets = { ...f.tierBudgets };
-                            if (!f.audienceTiers.includes(tier.value)) budgets[tier.value] = budgets[tier.value] ?? "5";
-                            return { ...f, audienceTiers: next, tierBudgets: budgets };
-                          })}
-                          style={{ accentColor: BLUE, marginTop: 2, flexShrink: 0 }}
-                        />
-                        <div>
-                          <p style={{ fontWeight: 700, fontSize: "0.875rem", color: NAVY }}>{tier.label}</p>
-                          <p style={{ fontSize: "0.75rem", color: "#64748b", lineHeight: 1.4 }}>{tier.desc}</p>
-                        </div>
-                      </label>
-                    );
-                  })}
+            {/* ── Preset Tiers ── */}
+            {!useCustomZone && (
+              <>
+                <div ref={tierDropdownRef} style={{ position: "relative" }}>
+                  <button type="button" onClick={() => setTierDropdownOpen((o) => !o)} style={{
+                    width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
+                    padding: "0.75rem 1rem", borderRadius: 10, cursor: "pointer",
+                    border: `1.5px solid ${tierDropdownOpen ? BLUE : "#E2E6F0"}`,
+                    background: "#F8F9FC", fontSize: "0.875rem", fontWeight: 600, color: NAVY,
+                  }}>
+                    <span>{form.audienceTiers.length === 0 ? "Select tiers…" : form.audienceTiers.map((v) => AUDIENCE_TIERS.find((t) => t.value === v)?.label).join(", ")}</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: tierDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </button>
+                  {tierDropdownOpen && (
+                    <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 50, background: "#fff", borderRadius: 12, border: "1.5px solid #E2E6F0", boxShadow: "0 8px 24px rgba(0,0,0,0.08)", overflow: "hidden" }}>
+                      {AUDIENCE_TIERS.map((tier) => {
+                        const selected = form.audienceTiers.includes(tier.value);
+                        return (
+                          <label key={tier.value} style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", cursor: "pointer", padding: "0.875rem 1rem", background: selected ? "#F0F4FF" : "#fff", borderBottom: "1px solid #F1F5F9" }}>
+                            <input type="checkbox" checked={selected} onChange={() => setForm((f) => {
+                              const next = f.audienceTiers.includes(tier.value) ? f.audienceTiers.filter((t) => t !== tier.value) : [...f.audienceTiers, tier.value];
+                              const budgets = { ...f.tierBudgets };
+                              if (!f.audienceTiers.includes(tier.value)) budgets[tier.value] = budgets[tier.value] ?? "5";
+                              return { ...f, audienceTiers: next, tierBudgets: budgets };
+                            })} style={{ accentColor: BLUE, marginTop: 2, flexShrink: 0 }} />
+                            <div>
+                              <p style={{ fontWeight: 700, fontSize: "0.875rem", color: NAVY }}>{tier.label}</p>
+                              <p style={{ fontSize: "0.75rem", color: "#64748b", lineHeight: 1.4 }}>{tier.desc}</p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {form.audienceTiers.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: NAVY }}>Daily budget per tier</p>
-                {form.audienceTiers.map((v) => {
-                  const tier = AUDIENCE_TIERS.find((t) => t.value === v)!;
-                  const val = form.tierBudgets[v] ?? "5";
-                  const tooLow = Number(val) < 5;
-                  return (
-                    <div key={v} style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                      padding: "0.75rem 1rem", borderRadius: 10,
-                      border: `1.5px solid ${tooLow ? "#FECDD3" : "#E2E6F0"}`,
-                      background: tooLow ? "#FFF1F2" : "#F8F9FC",
-                    }}>
-                      <span style={{ fontWeight: 600, fontSize: "0.875rem", color: NAVY }}>{tier.label}</span>
+                {form.audienceTiers.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                    <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: NAVY }}>Daily budget per tier</p>
+                    {form.audienceTiers.map((v) => {
+                      const tier = AUDIENCE_TIERS.find((t) => t.value === v)!;
+                      const val = form.tierBudgets[v] ?? "5";
+                      const tooLow = Number(val) < 5;
+                      return (
+                        <div key={v} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1rem", borderRadius: 10, border: `1.5px solid ${tooLow ? "#FECDD3" : "#E2E6F0"}`, background: tooLow ? "#FFF1F2" : "#F8F9FC" }}>
+                          <span style={{ fontWeight: 600, fontSize: "0.875rem", color: NAVY }}>{tier.label}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <span style={{ color: "#64748b", fontWeight: 600 }}>$</span>
+                            <input type="number" min={5} value={val}
+                              onChange={(e) => setForm((f) => ({ ...f, tierBudgets: { ...f.tierBudgets, [v]: e.target.value } }))}
+                              style={{ width: 80, padding: "0.375rem 0.5rem", borderRadius: 8, border: `1.5px solid ${tooLow ? "#FECDD3" : "#E2E6F0"}`, fontSize: "0.875rem", fontWeight: 600, color: NAVY, background: "#fff", textAlign: "right" }} />
+                            <span style={{ color: "#64748b", fontSize: "0.8rem" }}>/day</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <p style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                      Total: <strong style={{ color: NAVY }}>${form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 0), 0).toFixed(2)}/day</strong>
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ── Custom Zone ── */}
+            {useCustomZone && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+
+                {/* Saved zones */}
+                {zones.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <p style={{ fontSize: "0.78rem", fontWeight: 700, color: NAVY }}>My Saved Zones</p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                      {zones.map((z) => (
+                        <button key={z.id} onClick={() => {
+                          setCustomZoneCountries(z.countries);
+                          setCustomZoneName(z.name);
+                        }} style={{
+                          display: "flex", alignItems: "center", gap: "0.4rem",
+                          padding: "0.35rem 0.75rem", borderRadius: 8, border: `1.5px solid ${customZoneName === z.name && customZoneCountries.length === z.countries.length ? BLUE : "#E2E6F0"}`,
+                          background: customZoneName === z.name && customZoneCountries.length === z.countries.length ? "#EEF2FF" : "#F8F9FC",
+                          cursor: "pointer", fontSize: "0.78rem", fontWeight: 600, color: NAVY,
+                        }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                          {z.name} <span style={{ color: "#94a3b8", fontWeight: 400 }}>({z.countries.length})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Country picker */}
+                <CountryPicker selected={customZoneCountries} onChange={setCustomZoneCountries} />
+
+                {/* Budget + save */}
+                {customZoneCountries.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem", padding: "1rem", background: "#F8F9FC", borderRadius: 12, border: "1.5px solid #E2E6F0" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontWeight: 600, fontSize: "0.875rem", color: NAVY }}>Daily budget</span>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                         <span style={{ color: "#64748b", fontWeight: 600 }}>$</span>
-                        <input
-                          type="number"
-                          min={5}
-                          value={val}
-                          onChange={(e) => setForm((f) => ({ ...f, tierBudgets: { ...f.tierBudgets, [v]: e.target.value } }))}
-                          style={{
-                            width: 80, padding: "0.375rem 0.5rem", borderRadius: 8,
-                            border: `1.5px solid ${tooLow ? "#FECDD3" : "#E2E6F0"}`,
-                            fontSize: "0.875rem", fontWeight: 600, color: NAVY, background: "#fff",
-                            textAlign: "right",
-                          }}
-                        />
+                        <input type="number" min={5} value={customZoneBudget} onChange={(e) => setCustomZoneBudget(e.target.value)}
+                          style={{ width: 80, padding: "0.375rem 0.5rem", borderRadius: 8, border: `1.5px solid ${Number(customZoneBudget) < 5 ? "#FECDD3" : "#E2E6F0"}`, fontSize: "0.875rem", fontWeight: 600, color: NAVY, background: "#fff", textAlign: "right" }} />
                         <span style={{ color: "#64748b", fontSize: "0.8rem" }}>/day</span>
                       </div>
                     </div>
-                  );
-                })}
-                <p style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                  Total: <strong style={{ color: NAVY }}>${form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 0), 0).toFixed(2)}/day</strong>
-                </p>
+
+                    {/* Save zone */}
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <input value={customZoneName} onChange={(e) => setCustomZoneName(e.target.value)}
+                        placeholder="Zone name (e.g. Spain + France)…"
+                        style={{ flex: 1, padding: "0.5rem 0.75rem", borderRadius: 8, border: "1.5px solid #E2E6F0", fontSize: "0.8rem", color: NAVY, background: "#fff", outline: "none" }} />
+                      <button
+                        disabled={!customZoneName.trim() || savingZone}
+                        onClick={async () => {
+                          if (!customZoneName.trim()) return;
+                          setSavingZone(true);
+                          try {
+                            const z = await zonesApi.create({ name: customZoneName.trim(), countries: customZoneCountries });
+                            setZones((prev) => [z, ...prev]);
+                          } finally { setSavingZone(false); }
+                        }}
+                        style={{
+                          padding: "0.5rem 0.875rem", borderRadius: 8, border: "none", cursor: customZoneName.trim() ? "pointer" : "not-allowed",
+                          background: customZoneName.trim() ? BLUE : "#E2E6F0", color: customZoneName.trim() ? "#fff" : "#94a3b8",
+                          fontSize: "0.78rem", fontWeight: 700, flexShrink: 0,
+                        }}
+                      >
+                        {savingZone ? "Saving…" : "Save zone"}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1057,8 +1133,8 @@ export default function NewCampaignPage() {
               { label: "Conversion",         value: "Website → View Content → Maximize Conversions", goStep: 2 },
               { label: "Start Date",         value: form.startDate || "Immediately", goStep: 3 },
               { label: "End Date",           value: form.endDate || "No end date",   goStep: 3 },
-              { label: "Audience Tiers",     value: form.audienceTiers.map((v) => `${AUDIENCE_TIERS.find((t) => t.value === v)?.label ?? v} ($${form.tierBudgets[v] ?? 5}/day)`).join(", "), goStep: 4 },
-              { label: "Total Daily Budget", value: `$${form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 5), 0).toFixed(2)}/day`, goStep: 4 },
+              { label: useCustomZone ? "Custom Zone" : "Audience Tiers", value: useCustomZone ? `${customZoneName || "Custom Zone"} · ${customZoneCountries.length} countries · $${customZoneBudget}/day` : form.audienceTiers.map((v) => `${AUDIENCE_TIERS.find((t) => t.value === v)?.label ?? v} ($${form.tierBudgets[v] ?? 5}/day)`).join(", "), goStep: 4 },
+              { label: "Total Daily Budget", value: useCustomZone ? `$${customZoneBudget}/day` : `$${form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 5), 0).toFixed(2)}/day`, goStep: 4 },
               { label: "Placement",          value: PLACEMENTS.find((p) => p.value === form.placement)?.label ?? "", goStep: 5 },
               { label: "Facebook Page",      value: pages.find((p) => p.id === form.facebookPageId)?.name ?? form.facebookPageId, goStep: 6 },
               { label: "Instagram Account",  value: igAccounts.find((ig) => ig.id === form.instagramActorId)?.username ? `@${igAccounts.find((ig) => ig.id === form.instagramActorId)!.username}` : "None", goStep: 6 },
