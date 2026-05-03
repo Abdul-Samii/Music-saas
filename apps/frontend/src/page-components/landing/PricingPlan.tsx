@@ -48,10 +48,9 @@ const PricingPlan = () => {
 			<div className="container">
 				<FadeInUp>
 					<div className="text-center mb-8 md:mb-16">
-						{/* <span className="block mb-3 text-primary">Pricing</span> */}
 						<span className="sectionLabel mb-3">Pricing</span>
 						<h2 className="text-3xl lg:text-5xl mb-6">
-							<TextAnimation text="Simple pricing. No surprises." />
+							<TextAnimation text="Choose your plan" />
 						</h2>
 						<p className="md:text-lg">
 							Start free. Pay only as you scale. A small commission on
