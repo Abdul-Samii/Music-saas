@@ -28,6 +28,7 @@ model User {
   campaigns           Campaign[]
   adCreatives         AdCreative[]
   landingPages        LandingPage[]
+  zones               Zone[]
   createdAt           DateTime    @default(now())
 }
 
@@ -47,6 +48,15 @@ model LandingPage {
   @@unique([artistSlug, songSlug])
 }
 
+model Zone {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  countries String[]
+  createdAt DateTime @default(now())
+}
+
 model Campaign {
   id             String         @id @default(cuid())
   userId         String
@@ -63,6 +73,7 @@ model Campaign {
   endDate          DateTime?
   pixelId          String?
   audienceTier     String?
+  customCountries  String[]       @default([])
   placement      String?
   landingPageUrl String?
   adTitle        String?

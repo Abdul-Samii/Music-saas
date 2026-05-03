@@ -105,6 +105,15 @@ export const landingPagesApi = {
   myPages: () => api.get("/landing-pages/my").then((r) => r.data),
 };
 
+export type Zone = { id: string; name: string; countries: string[]; createdAt: string };
+
+export const zonesApi = {
+  list: () => api.get("/zones").then((r) => r.data as Zone[]),
+  create: (data: { name: string; countries: string[] }) =>
+    api.post("/zones", data).then((r) => r.data as Zone),
+  delete: (id: string) => api.delete(`/zones/${id}`).then((r) => r.data),
+};
+
 export const usersApi = {
   me: () => api.get("/users/me").then((r) => r.data),
   update: (data: Record<string, unknown>) =>

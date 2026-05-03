@@ -236,6 +236,7 @@ export class MetaAdsService implements OnModuleInit {
       placement: string;
       startDate?: string;
       endDate?: string;
+      customZone?: { countries: string[]; budget: number; name: string };
     },
   ): Promise<{ metaCampaignId: string; metaAdSetIds: string[] }> {
     const accountId = adAccountId.replace('act_', '');
@@ -257,8 +258,27 @@ export class MetaAdsService implements OnModuleInit {
     );
     const metaCampaignId = camp.id as string;
 
-    // 2. Create one ad set per audience tier
+    // 2. Create one ad set per tier (or one custom zone ad set)
     const metaAdSetIds: string[] = [];
+
+    if (payload.customZone && payload.customZone.countries.length > 0) {
+      const targeting = this.buildTargeting('custom', payload.placement, payload.customZone.countries);
+      const adSetParams: Record<string, unknown> = {
+        name: `${payload.name} — ${payload.customZone.name}`,
+        campaign_id: metaCampaignId,
+        daily_budget: Math.round(payload.customZone.budget * 100),
+        billing_event: 'IMPRESSIONS',
+        optimization_goal: 'OFFSITE_CONVERSIONS',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        promoted_object: JSON.stringify({ pixel_id: payload.pixelId, custom_event_type: 'VIEW_CONTENT' }),
+        targeting: JSON.stringify(targeting),
+        access_token: accessToken,
+      };
+      if (payload.startDate) adSetParams.start_time = new Date(payload.startDate).toISOString();
+      if (payload.endDate) adSetParams.end_time = new Date(payload.endDate).toISOString();
+      const { data: adSet } = await axios.post(`${GRAPH}/act_${accountId}/adsets`, null, { params: adSetParams });
+      metaAdSetIds.push(adSet.id as string);
+    } else {
     for (let i = 0; i < payload.audienceTiers.length; i++) {
       const tier = payload.audienceTiers[i];
       const tierBudget = payload.tierBudgets[i] ?? 5;
@@ -311,11 +331,16 @@ export class MetaAdsService implements OnModuleInit {
 
       metaAdSetIds.push(adSet.id);
     }
+    } // end else (preset tiers)
 
     return { metaCampaignId, metaAdSetIds };
   }
 
-  private buildTargeting(audienceTier: string, placement: string) {
+  private buildTargeting(
+    audienceTier: string,
+    placement: string,
+    customCountries?: string[],
+  ) {
     const tierCountries: Record<string, string[]> = {
       tier1: ['AU', 'AT', 'BE', 'DK', 'FI', 'FR', 'DE', 'IE', 'IT', 'NL', 'NZ', 'NO', 'ES', 'SE', 'CH', 'GB', 'US'],
       tier2: ['BR', 'BG', 'CL', 'CO', 'CR', 'CZ', 'GR', 'HU', 'IL', 'LB', 'LT', 'MX', 'PA', 'PY', 'PL', 'PT', 'RO'],
@@ -351,10 +376,32 @@ export class MetaAdsService implements OnModuleInit {
         'US',
         'VI',
       ],
-      bottom: ['AR', 'BO', 'BR', 'CL', 'CO', 'CR', 'DO', 'EC', 'GQ', 'GT', 'HN', 'MX', 'NI', 'PA', 'PE', 'PY', 'SV', 'UY'],
+      bottom: [
+        'AR',
+        'BO',
+        'BR',
+        'CL',
+        'CO',
+        'CR',
+        'DO',
+        'EC',
+        'GQ',
+        'GT',
+        'HN',
+        'MX',
+        'NI',
+        'PA',
+        'PE',
+        'PY',
+        'SV',
+        'UY',
+      ],
     };
 
-    const countries = tierCountries[audienceTier] ?? tierCountries['tier1'];
+    const countries =
+      customCountries && customCountries.length > 0
+        ? customCountries
+        : (tierCountries[audienceTier] ?? tierCountries['tier1']);
 
     // Placement templates
     const publisher_platforms =
