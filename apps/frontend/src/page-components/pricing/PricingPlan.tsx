@@ -21,20 +21,7 @@ const PricingPlan = ({ annual }: { annual?: boolean }) => {
 								</div>
 							</SlideDown>
 						</Parallax>
-						<div
-							style={{
-								display: "flex",
-								justifyContent: "space-evenly",
-								gap: "3rem",
-								flexWrap: "wrap",
-								marginTop: "2.5rem",
-								padding: "1.5rem 2rem",
-								background: "#fff",
-								borderRadius: 16,
-								border: "1px solid #E2E6F0",
-								position: "relative",
-							}}
-						>
+						<div className="bg-white px-8 py-6 border border-border relative rounded-2xl flex justify-evenly flex-wrap mt-10 gap-x-12 gap-y-6">
 							{[
 								{
 									icon: (
