@@ -6,40 +6,66 @@ import { Parallax } from "react-scroll-parallax";
 
 export const pricing = [
 	{
-		plan: "Free",
+		plan: "Free Version",
 		price: "€0",
-		commission: "12% on ad spend",
-		items: ["5 ads per month", "Up to 20s per ad", "Meta campaign builder"],
+		annual: "€0",
+		commission: "12% ad spend fee ",
+		items: [
+			"2 Meta Ads Campaigns",
+			"Without Automatic Optimisation",
+			"Without Cost Per Stream",
+			"2 Landing Pages",
+			"Generate 5 Videos / month (15s)",
+		],
 		featured: false,
 		buttonText: "Get Started",
 	},
 	{
-		plan: "Pro",
-		price: "€39",
-		commission: "5% on ad spend",
-		items: ["50 ads per month", "Up to 30s per ad", "Meta campaign builder"],
-		featured: true,
-		buttonText: "Select Pro",
+		plan: "Artist",
+		price: "$49",
+		annual: "$39.2",
+		commission: "0% on ad spend",
+		items: [
+			"10 Meta Ads Campaigns",
+			"Basic Automatic Optimisation",
+			"Cost Per Stream",
+			"15 landing pages",
+			"Generate 30 videos / month (30s)",
+		],
+		featured: false,
+		buttonText: "Get Started",
 	},
 	{
-		plan: "Studio",
-		price: "€59",
-		commission: "3.5% on ad spend",
-		items: ["100 ads per month", "Up to 60s per ad", "Meta campaign builder"],
-		featured: false,
-		buttonText: "Select Studio",
+		plan: "Manager",
+		price: "$69",
+		annual: "$55.2",
+		commission: "0% on ad Spend",
+		items: [
+			"25 Meta Ads Campaigns",
+			"Automatic Optimisation",
+			"Cost Per Stream",
+			"45 landing pages",
+			"Generate 80 videos / month (45s)",
+		],
+		featured: true,
+		buttonText: "Get Started",
 	},
 	{
 		plan: "Label",
-		price: "€79",
-		commission: "1% on ad spend",
+		price: "$129",
+		annual: "$103.2",
+		commission: "0% on ad Spend",
 		items: [
-			"250 ads per month",
-			"Up to 2min per ad",
-			"Full roster management",
+			"Unlimited Meta Ads Campaigns",
+			"Unlimited Landing Pages",
+			"Automatic Optimisation",
+			"Cost Per Stream",
+			"500 Videos / month (60s)",
+			"Multi-artist management",
+			"Team access",
 		],
 		featured: false,
-		buttonText: "Contact Sales",
+		buttonText: "Get Started",
 	},
 ];
 
@@ -72,11 +98,17 @@ const PricingPlan = () => {
 		</section>
 	);
 };
-export const PricingCard = ({ plan }: { plan: (typeof pricing)[0] }) => {
+export const PricingCard = ({
+	plan,
+	annual,
+}: {
+	plan: (typeof pricing)[0];
+	annual?: boolean;
+}) => {
 	return (
 		<div
 			className={cn(
-				"group p-8 border border-gray-200 bg-white rounded-2xl relative hover:bg-dark-bg hover:text-white transition-all duration-300 hover:border-dark-bg",
+				"group p-8 border border-gray-200 bg-white rounded-2xl relative hover:bg-dark-bg hover:text-white transition-all duration-300 hover:border-dark-bg flex flex-col",
 				{
 					"border-primary": plan.featured,
 				},
@@ -89,18 +121,20 @@ export const PricingCard = ({ plan }: { plan: (typeof pricing)[0] }) => {
 			)}
 			<div className="text-xl mb-5">{plan.plan}</div>
 			<div className="text-3xl mb-8">
-				<span className="font-bold">{plan.price}</span>{" "}
+				<span className="font-bold">
+					{annual ? plan.annual : plan.price}
+				</span>{" "}
 				<span className="text-sm text-gray-400">/ mo</span>
 			</div>
 
 			<div className="text-base mb-6">{plan.commission}</div>
 
-			<ul className="flex flex-col gap-3">
+			<ul className="flex flex-col gap-3 mb-auto">
 				{plan.items.map((item) => (
 					<li key={item} className="text-sm flex gap-3">
 						<svg
 							width="15"
-							height="18"
+							height="20"
 							viewBox="0 0 12 12"
 							fill="none"
 							xmlns="http://www.w3.org/2000/svg"

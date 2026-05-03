@@ -5,63 +5,6 @@ import { Parallax } from "react-scroll-parallax";
 import { DotGrid } from "./DotGrid";
 import PricingPlan from "./PricingPlan";
 
-const PLANS = [
-	{
-		name: "Starter",
-		monthlyPrice: 29,
-		yearlyPrice: 23,
-		desc: "For artists just starting with paid promotion.",
-		features: [
-			{ text: "3 active campaigns / month", yes: true },
-			{ text: "Basic stream analytics", yes: true },
-			{ text: "1 lyric video / month", yes: true },
-			{ text: "Cost per Stream tracking", yes: true },
-			{ text: "Email support", yes: true },
-			{ text: "Meta Ads API access", yes: false },
-			{ text: "Unlimited lyric videos", yes: false },
-			{ text: "White-label reports", yes: false },
-		],
-		cta: "Get Started Free",
-		highlight: false,
-	},
-	{
-		name: "Pro",
-		monthlyPrice: 79,
-		yearlyPrice: 63,
-		desc: "For serious independent artists scaling their reach.",
-		features: [
-			{ text: "Unlimited active campaigns", yes: true },
-			{ text: "Full analytics dashboard", yes: true },
-			{ text: "Unlimited lyric videos", yes: true },
-			{ text: "Cost per Stream & Fan tracking", yes: true },
-			{ text: "Priority email + chat support", yes: true },
-			{ text: "Meta Ads API access", yes: true },
-			{ text: "Campaign performance alerts", yes: true },
-			{ text: "White-label reports", yes: false },
-		],
-		cta: "Start 14-Day Free Trial",
-		highlight: true,
-	},
-	{
-		name: "Agency",
-		monthlyPrice: 199,
-		yearlyPrice: 159,
-		desc: "For managers and labels running multiple artists.",
-		features: [
-			{ text: "Everything in Pro", yes: true },
-			{ text: "Up to 20 artist accounts", yes: true },
-			{ text: "White-label PDF reports", yes: true },
-			{ text: "Dedicated account manager", yes: true },
-			{ text: "Custom Meta Ads integrations", yes: true },
-			{ text: "Bulk campaign management", yes: true },
-			{ text: "API access for custom reporting", yes: true },
-			{ text: "SLA & uptime guarantee", yes: true },
-		],
-		cta: "Contact Sales",
-		highlight: false,
-	},
-];
-
 const PricingHero = () => {
 	const [annual, setAnnual] = useState(false);
 	return (
@@ -151,7 +94,7 @@ const PricingHero = () => {
 				</Parallax>
 			</section>
 
-			<PricingPlan />
+			<PricingPlan annual={annual} />
 		</>
 	);
 };
