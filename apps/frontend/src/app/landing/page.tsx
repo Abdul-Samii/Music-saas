@@ -35,10 +35,10 @@ export default function LandingPage() {
 			<Hero />
 			<HowItWorks />
 			<BestAlternatives />
+			<PricingPlan />
 			<Faqs />
 			<Features />
 			<DesignedForYou />
-			<PricingPlan />
 			<CTA />
 			<LandingFooter />
 		</div>

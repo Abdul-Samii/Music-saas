@@ -49,13 +49,13 @@ const Features = () => {
 				<FadeInUp>
 					<div className="mb-12 md:mb-16">
 						<span className="sectionLabel mb-3">Features</span>
-						<h2 className="text-3xl lg:text-5xl mb-6 max-w-[720px]">
-							<TextAnimation text="Everything you need to promote smarter." />
+						<h2 className="text-3xl lg:text-5xl mb-6 max-w-[880px]">
+							<TextAnimation text="Simplify your marketing and scale your music with advanced features" />
 						</h2>
-						<p className="md:text-lg">
+						{/* <p className="md:text-lg">
 							We built the tools music marketing agencies charge
 							thousands for — and made them simple.
-						</p>
+						</p> */}
 					</div>
 				</FadeInUp>
 				<FadeInUp>
