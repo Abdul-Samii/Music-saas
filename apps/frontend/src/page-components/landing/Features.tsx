@@ -3,6 +3,7 @@ import FadeInUp from "@/components/animations/FadeInUp";
 import TextAnimation from "@/components/animations/TextAnimation";
 import { Parallax } from "react-scroll-parallax";
 import "swiper/css";
+import { Autoplay } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
 
 const Features = () => {
@@ -79,7 +80,12 @@ const Features = () => {
 										lyrics so you can go viral as well!
 									</p>
 								</div>
-								<Swiper slidesPerView="auto" spaceBetween={20}>
+								<Swiper
+									slidesPerView="auto"
+									spaceBetween={20}
+									autoplay={true}
+									modules={[Autoplay]}
+								>
 									<SwiperSlide className="w-[280px]!">
 										<iframe
 											src="https://www.tiktok.com/embed/v2/7559596143911406870"
