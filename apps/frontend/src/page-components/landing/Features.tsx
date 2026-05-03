@@ -1,55 +1,18 @@
 import FadeIn from "@/components/animations/FadeIn";
 import FadeInUp from "@/components/animations/FadeInUp";
 import TextAnimation from "@/components/animations/TextAnimation";
-import { cn } from "@/lib/utils";
 import { Parallax } from "react-scroll-parallax";
-const features = [
-	{
-		d: "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
-		title: "Ads Generator",
-		desc: "Upload any audio and our engine auto-syncs your lyrics to converting visual clips.",
-		className: "lg:col-span-3",
-	},
-	{
-		d: "M2 2h20v20H2zM7 2v20M17 2v20M2 12h20",
-		title: "Video Library",
-		desc: "Hundreds of licensed clips curated for music promotion — not generic stock footage.",
-		className: "lg:col-span-5",
-	},
-	{
-		d: "M3 11l19-9-9 19-2-8-8-2z",
-		title: "Meta Ads integration",
-		desc: "Launch Facebook & Instagram campaigns from Escalium. No ad manager knowledge needed.",
-		className: "lg:col-span-4",
-	},
-	{
-		d: "M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09zM12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z",
-		title: "Launch",
-		desc: "From upload to live campaign in under 5 minutes. Speed is your advantage in music.",
-		className: "lg:col-span-4",
-	},
-	{
-		d: "M18 20V10M12 20V4M6 20v-6",
-		title: "Performance tracking",
-		desc: "Stream growth, click rates, cost per result — all in one clean dashboard.",
-		className: "lg:col-span-5",
-	},
-	{
-		d: "M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z",
-		title: "Free to start",
-		desc: "Create your first ads free. No credit card. Upgrade only when you're ready to scale.",
-		className: "lg:col-span-3",
-	},
-];
+import "swiper/css";
+import { Swiper, SwiperSlide } from "swiper/react";
 
 const Features = () => {
 	return (
 		<section className="py-20 lg:py-[120px] overflow-hidden bg-bg-card">
 			<div className="container">
 				<FadeInUp>
-					<div className="mb-12 md:mb-16">
+					<div className="text-center mb-16">
 						<span className="sectionLabel mb-3">Features</span>
-						<h2 className="text-3xl lg:text-5xl mb-6 max-w-[880px]">
+						<h2 className="text-3xl lg:text-5xl mx-auto mb-6 max-w-[880px]">
 							<TextAnimation text="Simplify your marketing and scale your music with advanced features" />
 						</h2>
 						{/* <p className="md:text-lg">
@@ -61,45 +24,103 @@ const Features = () => {
 				<FadeInUp>
 					<Parallax speed={-5}>
 						<FadeIn>
-							<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-12 gap-5">
-								{features.map((feature, i) => (
-									<div
-										className={cn(
-											"group relative sm:px-4 rounded-2xl bg-white shadow-card p-6 xl:p-10",
-											feature.className,
-											{
-												"bg-dark-bg text-white": i == 4,
-												"bg-primary text-white": i == 2,
-											},
-										)}
-										key={i}
-									>
-										<div>
-											<div
-												className={cn("text-primary mb-7 xl:mb-8", {
-													"text-white": i == 4 || i == 2,
-												})}
-											>
-												<svg
-													width="24"
-													height="24"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													strokeWidth="1.75"
-													strokeLinecap="round"
-													strokeLinejoin="round"
-												>
-													<path d={feature.d} />
-												</svg>
-											</div>
-											<h3 className="font-semibold mb-2 xl:text-xl xl:mb-3">
-												{feature.title}
-											</h3>
-											<p className="text-sm">{feature.desc}</p>
-										</div>
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-10 mb-10">
+								<div className="card bg-white! flex flex-col">
+									<div>
+										<h3 className="md:text-lg font-bold leading-[1.3]">
+											<TextAnimation text="Dashboard: your REAL cost per stream updated every minute" />
+										</h3>
+										<p className="text-sm text-muted mt-2 mb-4">
+											We show you the most important cost for your
+											artist. Not CPM, NOT CPC. The CPs (Cost per
+											Stream)
+										</p>
 									</div>
-								))}
+									<img
+										src="/img/chart.png"
+										alt=""
+										className="border border-border rounded w-full max-w-[400px] mt-auto"
+									/>
+								</div>
+								<div className="flex flex-col">
+									<div>
+										<h3 className="md:text-lg font-bold leading-[1.3]">
+											<TextAnimation text="Campaigns: Launch winning campaigns with our secret strategy in just 60 seconds" />
+										</h3>
+										<p className="text-sm text-muted mt-2 mb-4">
+											After investing +200.000$ on ads we found a
+											similarity across all our campaigns, the
+											structure. Now we give it to you so you can
+											start making winning campaigns at the best
+											costs
+										</p>
+									</div>
+									<img
+										src="/img/music-campaign.jpg"
+										alt=""
+										className="border border-border rounded w-full max-w-[370px] mt-auto"
+									/>
+								</div>
+							</div>
+							<div>
+								<div className="max-w-[720px] mb-6">
+									<h3 className="md:text-lg font-bold leading-[1.3]">
+										<TextAnimation text="Create lyric ads within seconds" />
+									</h3>
+									<p className="text-sm text-muted mt-2 mb-4">
+										Stop editing videos for hours just to get no
+										results on ads and 200 views on tiktok. After
+										creating more than 3.000 music ads, we found the
+										best videos and we’ve added them to our template
+										library so you can use it by just dragging your
+										song. And yes, you will get this viral tiktok
+										lyrics so you can go viral as well!
+									</p>
+								</div>
+								<Swiper slidesPerView="auto" spaceBetween={20}>
+									<SwiperSlide className="w-[280px]!">
+										<iframe
+											src="https://www.tiktok.com/embed/v2/7559596143911406870"
+											className="w-full bg-transparent aspect-9/16 rounded border border-border"
+											allowFullScreen={false}
+										></iframe>
+									</SwiperSlide>
+									<SwiperSlide className="w-[280px]!">
+										<iframe
+											src="https://www.tiktok.com/embed/v2/7484287745712524590"
+											className="w-full bg-transparent aspect-9/16 rounded border border-border"
+											allowFullScreen={false}
+										></iframe>
+									</SwiperSlide>
+									<SwiperSlide className="w-[280px]!">
+										<iframe
+											src="https://www.tiktok.com/embed/v2/7559596143911406870"
+											className="w-full bg-transparent aspect-9/16 rounded border border-border"
+											allowFullScreen={false}
+										></iframe>
+									</SwiperSlide>
+									<SwiperSlide className="w-[280px]!">
+										<iframe
+											src="https://www.tiktok.com/embed/v2/7484287745712524590"
+											className="w-full bg-transparent aspect-9/16 rounded border border-border"
+											allowFullScreen={false}
+										></iframe>
+									</SwiperSlide>
+									<SwiperSlide className="w-[280px]!">
+										<iframe
+											src="https://www.tiktok.com/embed/v2/7559596143911406870"
+											className="w-full bg-transparent aspect-9/16 rounded border border-border"
+											allowFullScreen={false}
+										></iframe>
+									</SwiperSlide>
+									<SwiperSlide className="w-[280px]!">
+										<iframe
+											src="https://www.tiktok.com/embed/v2/7484287745712524590"
+											className="w-full bg-transparent aspect-9/16 rounded border border-border"
+											allowFullScreen={false}
+										></iframe>
+									</SwiperSlide>
+								</Swiper>
 							</div>
 						</FadeIn>
 					</Parallax>
