@@ -8,12 +8,7 @@ const CTA = () => {
 	return (
 		<section
 			id="early-access"
-			// className="py-[120px] relative overflow-hidden bg-bg-card"
-			className="pb-8 relative overflow-hidden bg-bg-card"
-			// style={{
-			// 	background:
-			// 		"radial-gradient(ellipse 70% 60% at 50% 50%,#eff6ff, transparent)",
-			// }}
+			className="pb-8 relative overflow-hidden bg-primary/2"
 		>
 			<div className="container">
 				<div className="absolute bottom-0 left-1/2 w-full max-w-[650px] aspect-square bg-primary/5 opacity-30 rounded-full translate-y-1/2 -translate-x-1/2" />

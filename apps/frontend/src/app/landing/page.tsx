@@ -9,6 +9,7 @@ import Faqs from "@/page-components/landing/Faqs";
 import Features from "@/page-components/landing/Features";
 import HowItWorks from "@/page-components/landing/HowItWorks";
 import LandingFooter from "@/page-components/landing/LandingFooter";
+import OurStoryAndResults from "@/page-components/landing/OurStoryAndResults";
 import PricingPlan from "@/page-components/landing/PricingPlan";
 import { useEffect } from "react";
 
@@ -39,6 +40,7 @@ export default function LandingPage() {
 			<Faqs />
 			<Features />
 			<DesignedForYou />
+			<OurStoryAndResults />
 			<CTA />
 			<LandingFooter />
 		</div>

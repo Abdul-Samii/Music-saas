@@ -916,3 +916,9 @@ select.input {
 	font-size: 14px;
 	display: block;
 }
+.stories-description p {
+	margin-bottom: 16px;
+}
+.stories-description p:last-child {
+	margin-bottom: 0;
+}

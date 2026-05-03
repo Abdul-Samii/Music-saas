@@ -11,7 +11,9 @@ const Features = () => {
 			<div className="container">
 				<FadeInUp>
 					<div className="text-center mb-16">
-						<span className="sectionLabel mb-3">Features</span>
+						<button className="sectionLabel mx-auto mb-3">
+							Features
+						</button>
 						<h2 className="text-3xl lg:text-5xl mx-auto mb-6 max-w-[880px]">
 							<TextAnimation text="Simplify your marketing and scale your music with advanced features" />
 						</h2>
