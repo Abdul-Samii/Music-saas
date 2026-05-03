@@ -1,4 +1,5 @@
 import FadeInUp from "@/components/animations/FadeInUp";
+import TextAnimation from "@/components/animations/TextAnimation";
 import { DotGrid } from "@/page-components/pricing/DotGrid";
 import Link from "next/link";
 import { Parallax } from "react-scroll-parallax";
@@ -17,47 +18,162 @@ const VideoGeneratorHero = () => {
 			<Parallax speed={-10}>
 				<FadeInUp>
 					<div className="pt-32 pb-28 px-2 text-center relative">
-						<div className="sectionLabel mb-4">
-							AI Lyric Video Generator
-						</div>
 						<h1 className="text-[clamp(2rem,5vw,3rem)] leading-[1.15] mb-4 tracking-tight font-black">
-							AI Lyric Video Generator
-							<br />
-							<span className="gradient-text">
-								scroll-stopping lyric videos.
-							</span>
+							<TextAnimation text="AI Lyric Video Generator" />
 						</h1>
 
-						{/* <h1 className="text-white text-[clamp(2rem,5vw,3rem)] leading-[1.15] mb-4 tracking-tight font-black">
-							Turn your music into
-							<br />
-							<span className="gradient-text">
-								scroll-stopping lyric videos.
-							</span>
-						</h1> */}
-
 						<p className="text-gray-400 mb-10 mx-auto max-w-[560px]">
-							Upload your track, let Whisper AI transcribe it, pick a
-							visual style, and export a 1080p lyric video — ready to use
-							as a Meta Ad creative in minutes.
+							Create viral lyric videos for social media in seconds
 						</p>
-						<div
-							style={{
-								display: "flex",
-								gap: "1rem",
-								justifyContent: "center",
-								flexWrap: "wrap",
-							}}
-						>
-							<Link
-								href="/signup"
-								className="btnShiny rounded-md px-5 md:px-10 h-12 md:h-14 inline-flex items-center justify-center md:text-lg! min-w-[170px]"
-							>
-								Try It For Free
-							</Link>
-							{/* <Link href="/pricing" className="btn btn-secondary btn-lg">
-								View Pricing
-							</Link> */}
+						<div className="max-w-[650px] mx-auto">
+							<div className="border border-border bg-white shadow-card p-10 rounded-xl">
+								<p className="md:text-lg font-semibold">
+									Upload your song to get an instant preview
+								</p>
+								<div className="my-6">
+									<div className="flex items-center justify-center gap-1">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width={115.2}
+											height={38.4}
+											viewBox="0 0 72 24"
+											fill="none"
+											stroke="currentColor"
+											strokeWidth={2}
+											strokeLinecap="round"
+											strokeLinejoin="round"
+										>
+											{[
+												{
+													d: "M2 10v3",
+													delay: "0s",
+													color: "#4c1aea",
+												},
+												{
+													d: "M6 6v11",
+													delay: "0.222s",
+													color: "#4a28ec",
+												},
+												{
+													d: "M10 3v18",
+													delay: "0.444s",
+													color: "#4635ee",
+												},
+												{
+													d: "M14 8v7",
+													delay: "0.667s",
+													color: "#4242f0",
+												},
+												{
+													d: "M18 5v13",
+													delay: "0.889s",
+													color: "#3f4ff2",
+												},
+												{
+													d: "M22 10v3",
+													delay: "1.111s",
+													color: "#3d10d6",
+												},
+												{
+													d: "M26 10v3",
+													delay: "1.333s",
+													color: "#3b24de",
+												},
+												{
+													d: "M30 6v11",
+													delay: "1.556s",
+													color: "#3a38e6",
+												},
+												{
+													d: "M34 3v18",
+													delay: "1.778s",
+													color: "#3a60e7",
+												},
+												{
+													d: "M38 8v7",
+													delay: "2s",
+													color: "#3f6ff0",
+												},
+												{
+													d: "M42 5v13",
+													delay: "2.222s",
+													color: "#447ef8",
+												},
+												{
+													d: "M46 10v3",
+													delay: "2.444s",
+													color: "#3d10d6",
+												},
+												{
+													d: "M50 10v3",
+													delay: "2.667s",
+													color: "#4c1aea",
+												},
+												{
+													d: "M54 6v11",
+													delay: "2.889s",
+													color: "#3a60e7",
+												},
+												{
+													d: "M58 3v18",
+													delay: "3.111s",
+													color: "#3f6ff0",
+												},
+												{
+													d: "M62 8v7",
+													delay: "3.333s",
+													color: "#447ef8",
+												},
+												{
+													d: "M66 5v13",
+													delay: "3.556s",
+													color: "#4c1aea",
+												},
+												{
+													d: "M70 10v3",
+													delay: "3.778s",
+													color: "#3d10d6",
+												},
+											].map((bar, index) => (
+												<path
+													key={index}
+													d={bar.d}
+													className="bar"
+													style={{
+														stroke: bar.color,
+														animationDelay: bar.delay,
+													}}
+												/>
+											))}
+										</svg>
+									</div>
+								</div>
+								<Link
+									href="/signup"
+									className="btnShiny rounded-md px-5 md:px-7 h-12 inline-flex items-center justify-center"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										strokeWidth="1.5"
+										stroke="currentColor"
+										className="size-6"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"
+										/>
+									</svg>
+									Upload your song
+								</Link>
+								<div class="mt-3 text-xs text-muted-color">
+									Max 100MB ·{" "}
+									<span class="hidden sm:inline">Formats:</span> MP3,
+									WAV, FLAC, AAC, OGG, M4A
+								</div>
+							</div>
 						</div>
 					</div>
 				</FadeInUp>

@@ -1,14 +1,15 @@
 import FadeIn from "@/components/animations/FadeIn";
 import FadeInUp from "@/components/animations/FadeInUp";
 import TextAnimation from "@/components/animations/TextAnimation";
+import Script from "next/script";
 import { Parallax } from "react-scroll-parallax";
 import "swiper/css";
 import { Autoplay } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
-
 const Features = () => {
 	return (
 		<section className="py-20 lg:py-[120px] overflow-hidden bg-bg-card">
+			<Script src="https://www.tiktok.com/embed.js" strategy="lazyOnload" />
 			<div className="container">
 				<FadeInUp>
 					<div className="text-center mb-16">
@@ -81,53 +82,42 @@ const Features = () => {
 									</p>
 								</div>
 								<Swiper
-									slidesPerView="auto"
 									spaceBetween={20}
-									autoplay={true}
+									autoplay={{
+										delay: 3000,
+										disableOnInteraction: false,
+									}}
 									modules={[Autoplay]}
+									grabCursor={true}
+									className="!pb-10" // Padding to prevent clipping of hover effects
+									slidesPerView={"auto"}
 								>
-									<SwiperSlide className="w-[280px]!">
-										<iframe
-											src="https://www.tiktok.com/embed/v2/7559596143911406870"
-											className="w-full bg-transparent aspect-9/16 rounded border border-border"
-											allowFullScreen={false}
-										></iframe>
-									</SwiperSlide>
-									<SwiperSlide className="w-[280px]!">
-										<iframe
-											src="https://www.tiktok.com/embed/v2/7484287745712524590"
-											className="w-full bg-transparent aspect-9/16 rounded border border-border"
-											allowFullScreen={false}
-										></iframe>
-									</SwiperSlide>
-									<SwiperSlide className="w-[280px]!">
-										<iframe
-											src="https://www.tiktok.com/embed/v2/7559596143911406870"
-											className="w-full bg-transparent aspect-9/16 rounded border border-border"
-											allowFullScreen={false}
-										></iframe>
-									</SwiperSlide>
-									<SwiperSlide className="w-[280px]!">
-										<iframe
-											src="https://www.tiktok.com/embed/v2/7484287745712524590"
-											className="w-full bg-transparent aspect-9/16 rounded border border-border"
-											allowFullScreen={false}
-										></iframe>
-									</SwiperSlide>
-									<SwiperSlide className="w-[280px]!">
-										<iframe
-											src="https://www.tiktok.com/embed/v2/7559596143911406870"
-											className="w-full bg-transparent aspect-9/16 rounded border border-border"
-											allowFullScreen={false}
-										></iframe>
-									</SwiperSlide>
-									<SwiperSlide className="w-[280px]!">
-										<iframe
-											src="https://www.tiktok.com/embed/v2/7484287745712524590"
-											className="w-full bg-transparent aspect-9/16 rounded border border-border"
-											allowFullScreen={false}
-										></iframe>
-									</SwiperSlide>
+									{[
+										"7559596143911406870",
+										"7484287745712524590",
+										"7559596143911406870",
+										"7484287745712524590",
+										"7559596143911406870",
+										"7484287745712524590",
+									].map((id, index) => (
+										<SwiperSlide
+											key={index}
+											className="w-full max-w-81.25 min-h-[700px]"
+										>
+											<blockquote
+												className="tiktok-embed"
+												cite={`https://www.tiktok.com/@tiktok/video/${id}`}
+												data-video-id={id}
+												style={{
+													maxWidth: "325px",
+													minWidth: "325px",
+													margin: 0,
+												}}
+											>
+												<section></section>
+											</blockquote>
+										</SwiperSlide>
+									))}
 								</Swiper>
 							</div>
 						</FadeIn>
