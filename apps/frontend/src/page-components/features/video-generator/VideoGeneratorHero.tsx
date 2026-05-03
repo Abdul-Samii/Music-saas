@@ -168,10 +168,10 @@ const VideoGeneratorHero = () => {
 									</svg>
 									Upload your song
 								</Link>
-								<div class="mt-3 text-xs text-muted-color">
+								<div className="mt-3 text-xs text-muted-color">
 									Max 100MB ·{" "}
-									<span class="hidden sm:inline">Formats:</span> MP3,
-									WAV, FLAC, AAC, OGG, M4A
+									<span className="hidden sm:inline">Formats:</span>{" "}
+									MP3, WAV, FLAC, AAC, OGG, M4A
 								</div>
 							</div>
 						</div>
