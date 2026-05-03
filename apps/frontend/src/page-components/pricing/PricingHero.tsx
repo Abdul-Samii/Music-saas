@@ -1,10 +1,9 @@
 import FadeInUp from "@/components/animations/FadeInUp";
-import SlideDown from "@/components/animations/SlideDown";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
 import { useState } from "react";
 import { Parallax } from "react-scroll-parallax";
 import { DotGrid } from "./DotGrid";
+import PricingPlan from "./PricingPlan";
 
 const PLANS = [
 	{
@@ -152,138 +151,7 @@ const PricingHero = () => {
 				</Parallax>
 			</section>
 
-			{/* Plans */}
-			<section className="relative mx-auto max-w-[1060px] z-10 -translate-y-20 overflow-visible px-6 lg:px-8">
-				<div className="relative grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-6">
-					{PLANS.map((plan) => {
-						const price = annual ? plan.yearlyPrice : plan.monthlyPrice;
-						return (
-							<SlideDown key={plan.name}>
-								<div
-									style={{
-										boxShadow: plan.highlight
-											? "0 24px 80px rgba(11,17,32,0.18)"
-											: "0 2px 12px rgba(0,0,0,0.04)",
-									}}
-									className={cn(
-										"bg-white flex flex-col relative p-8 rounded-[20px] border border-[#E2E6F0]",
-										{
-											"border-2 border-primary/40": plan.highlight,
-										},
-									)}
-								>
-									{plan.highlight && (
-										<div className="absolute top-[-13px] left-1/2 transform -translate-x-1/2 bg-linear-to-r from-blue-500 to-primary text-white text-xs font-bold px-4 py-1 rounded-full whitespace-nowrap">
-											Most Popular
-										</div>
-									)}
-									<p
-										className={cn(
-											"text-[0.7rem] font-bold uppercase tracking-wider mb-3 text-muted",
-										)}
-									>
-										{plan.name}
-									</p>
-									<div className="flex items-baseline gap-1 mb-1.5">
-										<span className="text-[2.5rem] font-bold tracking-tight leading-none">
-											${price}
-										</span>
-										<span className="text-sm text-muted">/mo</span>
-									</div>
-									{annual && (
-										<p className="text-xs text-green-600 font-semibold mb-1.5">
-											Billed ${price * 12}/year
-										</p>
-									)}
-									<p
-										className={cn("text-[0.8125rem] mb-7", {
-											"text-muted": !plan.highlight,
-											"text-muted/50": plan.highlight,
-										})}
-									>
-										{plan.desc}
-									</p>
-									<ul className="list-none flex flex-col gap-2.5 mb-8 flex-1">
-										{plan.features.map((f) => (
-											<li
-												key={f.text}
-												className={cn(
-													"flex items-start gap-2.5 text-secondary text-[0.8125rem]",
-													{
-														"text-muted/50": !f.yes,
-													},
-												)}
-											>
-												<span
-													className={cn("font-bold shrink-0", {
-														"text-green-600": f.yes,
-														"text-muted": !f.yes,
-													})}
-												>
-													{f.yes ? "✓" : "✕"}
-												</span>
-												{f.text}
-											</li>
-										))}
-									</ul>
-									<Link
-										href={plan.name === "Agency" ? "#" : "/signup"}
-										className={cn(
-											"block text-center p-[0.8rem] rounded-[10px] font-bold text-[0.9rem] ",
-											{
-												"border border-border text-navy bg-bg-card":
-													!plan.highlight,
-												"bg-linear-to-r from-blue to-[#4C1AEA] text-white":
-													plan.highlight,
-											},
-										)}
-									>
-										{plan.cta}
-									</Link>
-								</div>
-							</SlideDown>
-						);
-					})}
-				</div>
-
-				{/* Trust signals */}
-				<div
-					style={{
-						display: "flex",
-						justifyContent: "center",
-						gap: "3rem",
-						flexWrap: "wrap",
-						marginTop: "2.5rem",
-						padding: "1.5rem 2rem",
-						background: "#fff",
-						borderRadius: 16,
-						border: "1px solid #E2E6F0",
-						position: "relative",
-					}}
-				>
-					{[
-						{ icon: "🔒", label: "No credit card to start" },
-						{ icon: "↩", label: "Cancel anytime" },
-						{ icon: "⚡", label: "Setup in under 5 minutes" },
-						{ icon: "🎵", label: "Built for independent artists" },
-					].map((t) => (
-						<div
-							key={t.label}
-							style={{
-								display: "flex",
-								alignItems: "center",
-								gap: "0.5rem",
-								fontSize: "0.8125rem",
-								color: "#4A5370",
-								fontWeight: 500,
-							}}
-						>
-							<span>{t.icon}</span>
-							{t.label}
-						</div>
-					))}
-				</div>
-			</section>
+			<PricingPlan />
 		</>
 	);
 };

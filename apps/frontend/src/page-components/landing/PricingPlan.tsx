@@ -1,9 +1,10 @@
 import FadeInUp from "@/components/animations/FadeInUp";
 import TextAnimation from "@/components/animations/TextAnimation";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import { Parallax } from "react-scroll-parallax";
 
-const pricing = [
+export const pricing = [
 	{
 		plan: "Free",
 		price: "€0",
@@ -115,17 +116,18 @@ export const PricingCard = ({ plan }: { plan: (typeof pricing)[0] }) => {
 				))}
 			</ul>
 			<div className="mt-6 flex justify-center">
-				<button
-					type="button"
+				<Link
+					href="/signup"
 					className={cn(
-						"text-primary border border-primary outline-0 shadow-none rounded-md w-full px-5 h-12 cursor-pointer font-semibold group-hover:bg-white group-hover:text-dark-bg group-hover:border-white transition-all duration-300",
+						"text-primary border border-border outline-0 shadow-none rounded-md w-full px-5 h-12 cursor-pointer font-semibold group-hover:bg-white group-hover:text-dark-bg group-hover:border-white transition-all duration-300 flex items-center justify-center",
 						{
-							"bg-primary text-white font-bold": plan.featured,
+							"bg-primary border-primary text-white font-bold":
+								plan.featured,
 						},
 					)}
 				>
 					{plan.buttonText}
-				</button>
+				</Link>
 			</div>
 		</div>
 	);
