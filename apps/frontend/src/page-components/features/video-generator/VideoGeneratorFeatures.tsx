@@ -72,12 +72,14 @@ const VideoGeneratorFeatures = () => {
 									{
 										title: "Background Library",
 										desc: "Choose from abstract loops, concert footage, gradient animations, and more.",
-										color: "#1DB954",
+										// color: "#1DB954",
+										color: "#3A60E7",
 									},
 									{
 										title: "1080p MP4 Export",
 										desc: "Broadcast-quality renders via FFmpeg. Download instantly or push to Meta Ads.",
-										color: "#F59E0B",
+										// color: "#F59E0B",
+										color: "#4C1AEA",
 									},
 									{
 										title: "Direct Meta Ads Push",

@@ -3,7 +3,7 @@ import SlideDown from "@/components/animations/SlideDown";
 const STEPS = [
 	{
 		step: "01",
-		color: "#3A60E7",
+		// color: "#3A60E7",
 		title: "Upload Your Track",
 		desc: "Drop in your MP3 or WAV. Whisper AI transcribes your lyrics automatically — no manual input needed.",
 		icon: (
@@ -25,7 +25,7 @@ const STEPS = [
 	},
 	{
 		step: "02",
-		color: "#4C1AEA",
+		// color: "#4C1AEA",
 		title: "Pick a Visual Style",
 		desc: "Choose from animated backgrounds — abstract, concert footage, nature — and select your lyric font and colour.",
 		icon: (
@@ -46,7 +46,7 @@ const STEPS = [
 	},
 	{
 		step: "03",
-		color: "#12B76A",
+		// color: "#12B76A",
 		title: "Export & Launch",
 		desc: "Render your lyric video in 1080p via FFmpeg. Download it or push it directly into a Meta Ads campaign.",
 		icon: (
@@ -82,18 +82,7 @@ const VideoGeneratorHowItWorks = () => {
 											gap: "0.875rem",
 										}}
 									>
-										<div
-											style={{
-												width: 48,
-												height: 48,
-												borderRadius: 14,
-												background: s.color,
-												display: "flex",
-												alignItems: "center",
-												justifyContent: "center",
-												flexShrink: 0,
-											}}
-										>
+										<div className="w-12 h-12 rounded-[14px] bg-primary flex-center shrink-0">
 											{s.icon}
 										</div>
 										<span

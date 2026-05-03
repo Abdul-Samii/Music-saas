@@ -9,7 +9,7 @@ import VideoGeneratorLearnMore from "@/page-components/features/video-generator/
 
 export default function VideoGeneratorPage() {
 	return (
-		<div style={{ minHeight: "100vh", background: "var(--bg)" }}>
+		<main className="bg-body-2">
 			<Navbar />
 			<VideoGeneratorHero />
 			<VideoGeneratorHowItWorks />
@@ -17,6 +17,6 @@ export default function VideoGeneratorPage() {
 			<VideoGeneratorLearnMore />
 			<VideoGeneratorCta />
 			<Footer />
-		</div>
+		</main>
 	);
 }

@@ -5,13 +5,7 @@ import { Parallax } from "react-scroll-parallax";
 
 const VideoGeneratorHero = () => {
 	return (
-		<section
-			className="relative overflow-hidden pb-24"
-			style={{
-				background: "url(/img/hero-bg-2.jpg) no-repeat center center/cover",
-			}}
-		>
-			<div className="absolute pointer-events-none bg-black inset-0 opacity-50" />
+		<section className="relative overflow-hidden pb-24 bg-white">
 			<div
 				style={{
 					background:
@@ -26,7 +20,7 @@ const VideoGeneratorHero = () => {
 						<div className="sectionLabel mb-4">
 							AI Lyric Video Generator
 						</div>
-						<h1 className="text-white text-[clamp(2rem,5vw,3rem)] leading-[1.15] mb-4 tracking-tight font-black">
+						<h1 className="text-[clamp(2rem,5vw,3rem)] leading-[1.15] mb-4 tracking-tight font-black">
 							AI Lyric Video Generator
 							<br />
 							<span className="gradient-text">

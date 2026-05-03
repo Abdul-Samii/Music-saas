@@ -8,7 +8,7 @@ const PricingCta = () => {
 			<Parallax speed={-5}>
 				<FadeInUp>
 					<div className="max-w-[560px] mx-auto relative">
-						<h2 className="text-[clamp(1.75rem,3.5vw,2.5rem)] mb-4 tracking-tight">
+						<h2 className="text-[clamp(1.75rem,3.5vw,2.5rem)] mb-8 tracking-tight">
 							Ready to grow your{" "}
 							<span
 								style={{
