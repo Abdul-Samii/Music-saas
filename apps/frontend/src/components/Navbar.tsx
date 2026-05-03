@@ -23,18 +23,12 @@ export default function Navbar() {
 					border: "1px solid rgba(255,255,255,0.2)",
 					borderRadius: 50,
 					boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
-					width: "calc(70.5% - 4rem)",
+					width: "calc(100% - 3rem)",
 					maxWidth: 850,
 				}}
+				className="max-md:px-3!"
 			>
-				<div
-					style={{
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "space-between",
-						width: "100%",
-					}}
-				>
+				<div className="gap-2 flex items-center justify-between w-full">
 					{/* Logo */}
 					<Link
 						href="/"
@@ -55,11 +49,9 @@ export default function Navbar() {
 						/>
 						<span
 							style={{
-								fontWeight: 900,
-								fontSize: "1.43rem",
-								color: "var(--text-primary)",
 								letterSpacing: "-0.02em",
 							}}
+							className="font-black sm:text-[1.43rem]"
 						>
 							ESCALIUM
 						</span>
@@ -149,22 +141,44 @@ export default function Navbar() {
 							className="nav-hamburger"
 							aria-label="Menu"
 						>
-							{open ? "✕" : "☰"}
+							{open ? (
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+									stroke="currentColor"
+									className="size-6"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M6 18 18 6M6 6l12 12"
+									/>
+								</svg>
+							) : (
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="1.5"
+									stroke="currentColor"
+									className="size-6"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+									/>
+								</svg>
+							)}
 						</button>
 						<Link
 							href="/signup"
 							style={{
-								background:
-									"linear-gradient(135deg, #3A60E7 0%, #4C1AEA 100%)",
-								color: "#fff",
-								padding: "0.5rem 1.25rem",
-								borderRadius: 99,
-								fontSize: "0.875rem",
-								fontWeight: 600,
-								textDecoration: "none",
 								boxShadow: "0 4px 15px rgba(58,96,231,0.35)",
-								whiteSpace: "nowrap",
 							}}
+							className="whitespace-nowrap font-semibold text-sm rounded-full py-2 px-4 sm:px-5 text-white bg-primary"
 						>
 							Start for Free
 						</Link>

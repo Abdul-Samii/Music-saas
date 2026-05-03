@@ -9,6 +9,13 @@ import { DotGrid } from "../pricing/DotGrid";
 const Hero = () => {
 	return (
 		<section className="py-20 min-h-screen relative overflow-hidden flex flex-col justify-center bg-primary/2">
+			<div
+				style={{
+					background:
+						"radial-gradient(circle, rgba(58,96,231,0.1) 0%, transparent 70%)",
+				}}
+				className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[500px] h-[400px] rounded-full pointer-events-none"
+			/>
 			<DotGrid id="dots-hero" />
 			<div className="mx-auto max-w-5xl px-6 text-center relative z-20 max-lg:pt-16">
 				<Parallax speed={-25}>
