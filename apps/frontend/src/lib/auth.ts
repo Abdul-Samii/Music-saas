@@ -47,7 +47,21 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user, account }) {
+      // Always upsert the user record for Google sign-ins, even if they'll be blocked below.
+      // The jwt callback won't run for blocked users, so this is the only place to capture them.
+      if (account?.provider === "google") {
+        try {
+          await axios.post(`${process.env.BACKEND_URL}/auth/google`, {
+            email: user.email,
+            name: user.name,
+            googleId: account.providerAccountId,
+          });
+        } catch {
+          // best-effort — don't block the flow if backend is temporarily down
+        }
+      }
+
       if (!ALLOWED_EMAILS.includes(user.email ?? "")) {
         return "/login?error=not_allowed";
       }
