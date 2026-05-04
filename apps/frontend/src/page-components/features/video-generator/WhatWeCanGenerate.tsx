@@ -52,7 +52,7 @@ const WhatWeCanGenerate = () => {
                 controlsList="nodownload nofullscreen noremoteplayback"
                 disablePictureInPicture
                 playsInline
-                className="w-full h-auto rounded-[10px]"
+                className="w-full h-auto rounded-[10px] max-sm:h-[533.33px] object-cover"
               />
               <h3 className="mt-3 font-bold text-xl text-center">{s.name}</h3>
             </SlideDown>
