@@ -71,7 +71,7 @@ export const pricing = [
 
 const PricingPlan = () => {
 	return (
-		<section className="pb-20 lg:pb-[120px] overflow-hidden bg-primary/2">
+		<section className="py-20 lg:py-[120px] overflow-hidden bg-primary/2">
 			<div className="container">
 				<FadeInUp>
 					<div className="text-center mb-8 md:mb-16">

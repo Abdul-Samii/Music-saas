@@ -49,7 +49,7 @@ const FAQ = [
 const Faqs = () => {
 	const [openFaq, setOpenFaq] = useState<number | null>(0);
 	return (
-		<section className="py-20 lg:py-[120px]">
+		<section className="pb-20 lg:pb-[120px] bg-primary/2">
 			<div className="container">
 				<FadeInUp>
 					<h2 className="text-3xl lg:text-5xl text-center mb-12">

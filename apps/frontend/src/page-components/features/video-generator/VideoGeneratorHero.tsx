@@ -18,7 +18,7 @@ const VideoGeneratorHero = () => {
 			<Parallax speed={-10}>
 				<FadeInUp>
 					<div className="pt-32 pb-28 px-2 text-center relative">
-						<h1 className="tetext-4xl lg:text-6xl lg:leading-[1.3] tracking-wide mb-4">
+						<h1 className="text-4xl lg:text-6xl lg:leading-[1.3] tracking-wide mb-4">
 							<TextAnimation text="AI Lyric Video Generator" />
 						</h1>
 

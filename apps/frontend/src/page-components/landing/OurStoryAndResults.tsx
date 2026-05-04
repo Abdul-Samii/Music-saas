@@ -154,7 +154,7 @@ const data = [
 				<h4 className="text-lg font-semibold mb-3">
 					<strong>Key Metrics</strong>
 				</h4>
-				<ul className="grid grid-cols-1 list-disc gap-2 mb-10 pl-4">
+				<ul className="grid grid-cols-1 list-disc gap-2 pl-4">
 					<li>
 						<span>100M+ Streams Generated</span>
 					</li>

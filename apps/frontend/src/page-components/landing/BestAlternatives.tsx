@@ -67,7 +67,7 @@ const ROWS = [
 ];
 const BestAlternatives = () => {
 	return (
-		<section className="relative overflow-hidden py-20 lg:py-[120px] bg-primary/2">
+		<section className="relative overflow-hidden py-20 lg:py-[120px] bg-white">
 			<div className="container">
 				<div className="max-w-[1060px] mx-auto">
 					<div className="text-center relative mb-12">
