@@ -55,4 +55,19 @@ export class LandingPagesService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  async trackView(id: string) {
+    await this.prisma.$executeRaw`UPDATE "LandingPage" SET views = views + 1 WHERE id = ${id}`;
+  }
+
+  async trackClick(id: string) {
+    await this.prisma.$executeRaw`UPDATE "LandingPage" SET clicks = clicks + 1 WHERE id = ${id}`;
+  }
+
+  async getAnalytics(userId: string, id: string) {
+    return this.prisma.landingPage.findFirst({
+      where: { id, userId },
+      select: { id: true, title: true, views: true, clicks: true, createdAt: true },
+    });
+  }
 }

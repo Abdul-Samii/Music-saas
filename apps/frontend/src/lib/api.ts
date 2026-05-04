@@ -103,6 +103,8 @@ export const landingPagesApi = {
     pixelId?: string;
   }) => api.post("/landing-pages", data).then((r) => r.data as { url: string; id: string; artistSlug: string; songSlug: string }),
   myPages: () => api.get("/landing-pages/my").then((r) => r.data),
+  analytics: (id: string) =>
+    api.get(`/landing-pages/analytics/${id}`).then((r) => r.data as { views: number; clicks: number; title: string }),
 };
 
 export type Zone = { id: string; name: string; countries: string[]; createdAt: string };

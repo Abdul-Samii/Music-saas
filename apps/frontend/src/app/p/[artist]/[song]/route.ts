@@ -19,10 +19,19 @@ interface LandingPage {
   pixelId: string | null;
 }
 
-function buildHtml(page: LandingPage): string {
+function buildHtml(page: LandingPage, apiBase: string): string {
   const pixel = page.pixelId
     ? `<script>window.addEventListener('load',function(){!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${escHtml(page.pixelId)}');fbq('track','PageView');fbq('track','ViewContent');});</script><noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id=${escHtml(page.pixelId)}&ev=PageView&noscript=1" alt=""></noscript>`
     : '';
+
+  const trackScript = `<script>
+(function(){
+  var api='${apiBase}';
+  fetch(api+'/landing-pages/${escHtml(page.id)}/view',{method:'POST',keepalive:true}).catch(function(){});
+  var btn=document.querySelector('.btn-spotify');
+  if(btn){btn.addEventListener('click',function(){fetch(api+'/landing-pages/${escHtml(page.id)}/click',{method:'POST',keepalive:true}).catch(function(){});});}
+})();
+</script>`;
 
   const spotifyBtn = page.spotifyUrl
     ? `<a class="btn-spotify" href="${escHtml(page.spotifyUrl)}" target="_blank" rel="noopener noreferrer">
@@ -120,6 +129,7 @@ body{
 <a href="https://escalium.io" target="_blank" rel="noopener noreferrer" class="footer">POWERED BY ESCALIUM</a>
 <img class="bg" src="${escHtml(page.thumbnailUrl)}" alt="" aria-hidden="true" fetchpriority="low">
 ${pixel}
+${trackScript}
 </body>
 </html>`;
 }
@@ -147,7 +157,8 @@ export async function GET(
     );
   }
 
-  return new NextResponse(buildHtml(page), {
+  const publicApiBase = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.escalium.io/api/v1';
+  return new NextResponse(buildHtml(page, publicApiBase), {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400',

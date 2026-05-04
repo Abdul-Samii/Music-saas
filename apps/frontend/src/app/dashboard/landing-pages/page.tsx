@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { landingPagesApi, usersApi } from "@/lib/api";
 
@@ -41,7 +41,6 @@ export default function LandingPagesPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [spotifyUrl, setSpotifyUrl] = useState("");
-  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState("");
   const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -49,6 +48,24 @@ export default function LandingPagesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [created, setCreated] = useState<{ url: string } | null>(null);
+
+  // Analytics modal
+  type Analytics = { views: number; clicks: number; title: string };
+  const [analyticsPage, setAnalyticsPage] = useState<LandingPage | null>(null);
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
+  async function openAnalytics(page: LandingPage) {
+    setAnalyticsPage(page);
+    setAnalytics(null);
+    setAnalyticsLoading(true);
+    try {
+      const data = await landingPagesApi.analytics(page.id);
+      setAnalytics(data);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }
 
   const songSlugPreview = toSlug(name);
   const landingUrlPreview = artistSlug && songSlugPreview
@@ -69,7 +86,6 @@ export default function LandingPagesPage() {
 
   async function handleThumbnail(file: File) {
     setUploadError("");
-    setThumbnailFile(file);
     setThumbnailPreview(URL.createObjectURL(file));
     setUploading(true);
     try {
@@ -107,7 +123,7 @@ export default function LandingPagesPage() {
       }, ...prev]);
       // Reset form
       setName(""); setDescription(""); setSpotifyUrl("");
-      setThumbnailFile(null); setThumbnailPreview(""); setThumbnailUrl("");
+      setThumbnailPreview(""); setThumbnailUrl("");
       setShowForm(false);
     } catch (err) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -121,6 +137,58 @@ export default function LandingPagesPage() {
 
   return (
     <div className="animate-fade-in" style={{ maxWidth: 720, margin: "0 auto", display: "flex", flexDirection: "column", gap: "2rem" }}>
+
+      {/* Analytics modal */}
+      {analyticsPage && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+          <div onClick={() => setAnalyticsPage(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)" }} />
+          <div style={{ position: "relative", background: "#fff", borderRadius: 20, padding: "2rem", width: "100%", maxWidth: 420, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
+              <div>
+                <p style={{ fontSize: "0.72rem", color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Analytics</p>
+                <h3 style={{ fontWeight: 800, fontSize: "1.1rem", color: NAVY }}>{analyticsPage.title}</h3>
+              </div>
+              <button onClick={() => setAnalyticsPage(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: "1.4rem", lineHeight: 1, padding: 0 }}>×</button>
+            </div>
+
+            {analyticsLoading ? (
+              <div style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading…</div>
+            ) : analytics ? (
+              <div style={{ display: "flex", gap: "1rem" }}>
+                {[
+                  { label: "Page Views", value: analytics.views, icon: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  )},
+                  { label: "Spotify Clicks", value: analytics.clicks, icon: (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1DB954" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                    </svg>
+                  )},
+                ].map((stat) => (
+                  <div key={stat.label} style={{ flex: 1, background: "#F8F9FC", borderRadius: 14, padding: "1.25rem", border: "1px solid #E2E6F0", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                    {stat.icon}
+                    <div>
+                      <p style={{ fontSize: "1.875rem", fontWeight: 800, color: NAVY, letterSpacing: "-0.03em" }}>{stat.value.toLocaleString()}</p>
+                      <p style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 500, marginTop: "0.2rem" }}>{stat.label}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: "#94a3b8", fontSize: "0.875rem", textAlign: "center" }}>Could not load analytics.</p>
+            )}
+
+            {analytics && analytics.views > 0 && (
+              <div style={{ marginTop: "1.25rem", padding: "0.875rem 1rem", background: "#F0F4FF", borderRadius: 10, fontSize: "0.8rem", color: BLUE }}>
+                Click-through rate: <strong>{analytics.views > 0 ? ((analytics.clicks / analytics.views) * 100).toFixed(1) : "0"}%</strong>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -288,6 +356,15 @@ export default function LandingPagesPage() {
                     </a>
                   </div>
                   <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
+                    <button
+                      onClick={() => void openAnalytics(page)}
+                      style={{ display: "flex", alignItems: "center", gap: "0.375rem", padding: "0.4rem 0.75rem", borderRadius: 8, border: "1px solid #E2E6F0", background: "#F8F9FC", cursor: "pointer", fontSize: "0.75rem", fontWeight: 600, color: "#64748b" }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                      </svg>
+                      Analytics
+                    </button>
                     <button
                       onClick={() => navigator.clipboard.writeText(`https://${url}`)}
                       style={{ display: "flex", alignItems: "center", gap: "0.375rem", padding: "0.4rem 0.75rem", borderRadius: 8, border: "1px solid #E2E6F0", background: "#F8F9FC", cursor: "pointer", fontSize: "0.75rem", fontWeight: 600, color: "#64748b" }}

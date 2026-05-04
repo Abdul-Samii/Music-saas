@@ -43,6 +43,8 @@ model LandingPage {
   thumbnailUrl String
   spotifyUrl   String?
   pixelId      String?
+  views        Int      @default(0)
+  clicks       Int      @default(0)
   createdAt    DateTime @default(now())
 
   @@unique([artistSlug, songSlug])
