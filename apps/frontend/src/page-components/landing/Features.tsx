@@ -4,7 +4,6 @@ import TextAnimation from "@/components/animations/TextAnimation";
 import Script from "next/script";
 import { Parallax } from "react-scroll-parallax";
 import "swiper/css";
-import { Autoplay } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
 const Features = () => {
 	return (
@@ -28,10 +27,10 @@ const Features = () => {
 				<FadeInUp>
 					<Parallax speed={-5}>
 						<FadeIn>
-							<div className="grid grid-cols-1 sm:grid-cols-2 gap-10 mb-10">
+							<div className="grid grid-cols-1 sm:grid-cols-2 gap-10 gap-y-20 lg:gap-x-20 mb-20">
 								<div className="card bg-white! flex flex-col">
 									<div>
-										<h3 className="md:text-lg font-bold leading-[1.3]">
+										<h3 className="text-xl md:text-2xl font-bold leading-[1.3]">
 											<TextAnimation text="Dashboard: your REAL cost per stream updated every minute" />
 										</h3>
 										<p className="text-sm text-muted mt-2 mb-4">
@@ -48,7 +47,7 @@ const Features = () => {
 								</div>
 								<div className="flex flex-col">
 									<div>
-										<h3 className="md:text-lg font-bold leading-[1.3]">
+										<h3 className="text-xl md:text-2xl font-bold leading-[1.3]">
 											<TextAnimation text="Campaigns: Launch winning campaigns with our secret strategy in just 60 seconds" />
 										</h3>
 										<p className="text-sm text-muted mt-2 mb-4">
@@ -68,7 +67,7 @@ const Features = () => {
 							</div>
 							<div>
 								<div className="max-w-[720px] mb-6">
-									<h3 className="md:text-lg font-bold leading-[1.3]">
+									<h3 className="text-xl md:text-2xl font-bold leading-[1.3]">
 										<TextAnimation text="Create lyric ads within seconds" />
 									</h3>
 									<p className="text-sm text-muted mt-2 mb-4">
@@ -83,13 +82,8 @@ const Features = () => {
 								</div>
 								<Swiper
 									spaceBetween={20}
-									autoplay={{
-										delay: 3000,
-										disableOnInteraction: false,
-									}}
-									modules={[Autoplay]}
 									grabCursor={true}
-									className="!pb-10" // Padding to prevent clipping of hover effects
+									className="pb-10!"
 									slidesPerView={"auto"}
 								>
 									{[
