@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
+
+const GRAPH = 'https://graph.facebook.com/v25.0';
 
 export function toSlug(str: string): string {
   return str
@@ -69,5 +72,65 @@ export class LandingPagesService {
       where: { id, userId },
       select: { id: true, title: true, views: true, clicks: true, createdAt: true },
     });
+  }
+
+  async getMetaAnalytics(userId: string, pageId: string) {
+    const page = await this.prisma.landingPage.findFirst({
+      where: { id: pageId, userId },
+      select: { id: true, title: true, artistSlug: true, songSlug: true },
+    });
+    if (!page) return null;
+
+    const rows = await this.prisma.$queryRaw<
+      { metaAccessToken: string | null; metaAdAccountId: string | null }[]
+    >`SELECT "metaAccessToken", "metaAdAccountId" FROM "User" WHERE id = ${userId} LIMIT 1`;
+
+    const { metaAccessToken } = rows[0] ?? {};
+    if (!metaAccessToken) return { error: 'Meta not connected', title: page.title };
+
+    // Find all campaigns that use this landing page
+    const campaigns = await this.prisma.campaign.findMany({
+      where: { userId, landingPageUrl: { contains: `${page.artistSlug}/${page.songSlug}` } },
+      select: { name: true, metaCampaignId: true },
+    });
+
+    const metaCampaigns = campaigns.filter((c) => c.metaCampaignId);
+    if (metaCampaigns.length === 0) {
+      return { title: page.title, campaigns: 0, impressions: 0, linkClicks: 0, landingPageViews: 0, reach: 0, spend: 0 };
+    }
+
+    let impressions = 0, linkClicks = 0, landingPageViews = 0, reach = 0, spend = 0;
+
+    for (const campaign of metaCampaigns) {
+      try {
+        const { data: res } = await axios.get(`${GRAPH}/${campaign.metaCampaignId}/insights`, {
+          params: {
+            fields: 'impressions,clicks,spend,reach,actions',
+            date_preset: 'lifetime',
+            access_token: metaAccessToken,
+          },
+        });
+        const d = (res.data as { impressions?: string; clicks?: string; spend?: string; reach?: string; actions?: { action_type: string; value: string }[] }[])?.[0];
+        if (!d) continue;
+        impressions += parseInt(d.impressions ?? '0');
+        linkClicks += parseInt(d.clicks ?? '0');
+        spend += parseFloat(d.spend ?? '0');
+        reach += parseInt(d.reach ?? '0');
+        const lpv = d.actions?.find((a) => a.action_type === 'landing_page_view');
+        landingPageViews += parseInt(lpv?.value ?? '0');
+      } catch {
+        // skip failed campaign
+      }
+    }
+
+    return {
+      title: page.title,
+      campaigns: metaCampaigns.length,
+      impressions,
+      linkClicks,
+      landingPageViews,
+      reach,
+      spend: Math.round(spend * 100) / 100,
+    };
   }
 }

@@ -105,6 +105,17 @@ export const landingPagesApi = {
   myPages: () => api.get("/landing-pages/my").then((r) => r.data),
   analytics: (id: string) =>
     api.get(`/landing-pages/analytics/${id}`).then((r) => r.data as { views: number; clicks: number; title: string }),
+  metaAnalytics: (id: string) =>
+    api.get(`/landing-pages/meta-analytics/${id}`).then((r) => r.data as {
+      title: string;
+      campaigns: number;
+      impressions: number;
+      linkClicks: number;
+      landingPageViews: number;
+      reach: number;
+      spend: number;
+      error?: string;
+    }),
 };
 
 export type Zone = { id: string; name: string; countries: string[]; createdAt: string };

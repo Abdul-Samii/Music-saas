@@ -122,11 +122,18 @@ export class LandingPagesController {
     }));
   }
 
-  // GET /landing-pages/analytics/:id  — views + clicks for a page (owner only)
+  // GET /landing-pages/analytics/:id  — views + clicks (our own counters)
   @Get('analytics/:id')
   @UseGuards(JwtAuthGuard)
   analytics(@Param('id') id: string, @CurrentUser() user: JwtUser) {
     return this.service.getAnalytics(user.id, id);
+  }
+
+  // GET /landing-pages/meta-analytics/:id  — real data from Meta Insights API
+  @Get('meta-analytics/:id')
+  @UseGuards(JwtAuthGuard)
+  metaAnalytics(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.service.getMetaAnalytics(user.id, id);
   }
 
   // POST /landing-pages/:id/view  — public, called from landing page on load

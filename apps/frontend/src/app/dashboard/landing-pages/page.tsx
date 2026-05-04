@@ -50,9 +50,9 @@ export default function LandingPagesPage() {
   const [created, setCreated] = useState<{ url: string } | null>(null);
 
   // Analytics modal
-  type Analytics = { views: number; clicks: number; title: string };
+  type MetaAnalytics = { title: string; campaigns: number; impressions: number; linkClicks: number; landingPageViews: number; reach: number; spend: number; error?: string };
   const [analyticsPage, setAnalyticsPage] = useState<LandingPage | null>(null);
-  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [analytics, setAnalytics] = useState<MetaAnalytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   async function openAnalytics(page: LandingPage) {
@@ -60,7 +60,7 @@ export default function LandingPagesPage() {
     setAnalytics(null);
     setAnalyticsLoading(true);
     try {
-      const data = await landingPagesApi.analytics(page.id);
+      const data = await landingPagesApi.metaAnalytics(page.id);
       setAnalytics(data);
     } finally {
       setAnalyticsLoading(false);
@@ -153,37 +153,33 @@ export default function LandingPagesPage() {
 
             {analyticsLoading ? (
               <div style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading…</div>
+            ) : analytics?.error ? (
+              <div style={{ padding: "1rem", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, fontSize: "0.8rem", color: "#92400E" }}>
+                {analytics.error === "Meta not connected" ? "Connect your Meta account in Settings to see ad analytics." : analytics.error}
+              </div>
             ) : analytics ? (
-              <div style={{ display: "flex", gap: "1rem" }}>
-                {[
-                  { label: "Page Views", value: analytics.views, icon: (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                    </svg>
-                  )},
-                  { label: "Spotify Clicks", value: analytics.clicks, icon: (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1DB954" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-                    </svg>
-                  )},
-                ].map((stat) => (
-                  <div key={stat.label} style={{ flex: 1, background: "#F8F9FC", borderRadius: 14, padding: "1.25rem", border: "1px solid #E2E6F0", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                    {stat.icon}
-                    <div>
-                      <p style={{ fontSize: "1.875rem", fontWeight: 800, color: NAVY, letterSpacing: "-0.03em" }}>{stat.value.toLocaleString()}</p>
-                      <p style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 500, marginTop: "0.2rem" }}>{stat.label}</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                  {[
+                    { label: "Impressions", value: analytics.impressions.toLocaleString(), color: BLUE },
+                    { label: "Link Clicks", value: analytics.linkClicks.toLocaleString(), color: BLUE },
+                    { label: "Landing Page Views", value: analytics.landingPageViews.toLocaleString(), color: BLUE },
+                    { label: "Reach", value: analytics.reach.toLocaleString(), color: BLUE },
+                  ].map((stat) => (
+                    <div key={stat.label} style={{ background: "#F8F9FC", borderRadius: 12, padding: "1rem", border: "1px solid #E2E6F0" }}>
+                      <p style={{ fontSize: "1.5rem", fontWeight: 800, color: NAVY, letterSpacing: "-0.03em" }}>{stat.value}</p>
+                      <p style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600, marginTop: "0.2rem" }}>{stat.label}</p>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.875rem 1rem", background: "#F0F4FF", borderRadius: 10 }}>
+                  <span style={{ fontSize: "0.8rem", color: BLUE, fontWeight: 600 }}>Total Spend</span>
+                  <span style={{ fontSize: "1rem", fontWeight: 800, color: NAVY }}>${analytics.spend.toFixed(2)}</span>
+                </div>
+                <p style={{ fontSize: "0.72rem", color: "#94a3b8", textAlign: "center" }}>{analytics.campaigns} campaign{analytics.campaigns !== 1 ? "s" : ""} · lifetime data from Meta</p>
               </div>
             ) : (
               <p style={{ color: "#94a3b8", fontSize: "0.875rem", textAlign: "center" }}>Could not load analytics.</p>
-            )}
-
-            {analytics && analytics.views > 0 && (
-              <div style={{ marginTop: "1.25rem", padding: "0.875rem 1rem", background: "#F0F4FF", borderRadius: 10, fontSize: "0.8rem", color: BLUE }}>
-                Click-through rate: <strong>{analytics.views > 0 ? ((analytics.clicks / analytics.views) * 100).toFixed(1) : "0"}%</strong>
-              </div>
             )}
           </div>
         </div>
