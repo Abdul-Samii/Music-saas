@@ -7,7 +7,7 @@ const OurStoryAndResults = () => {
 						Our Storie and Results
 					</h2>
 				</div>
-				<div className="flex flex-col gap-10 stories-description">
+				<div className="flex flex-col gap-16 stories-description">
 					{data.map((item, index) => (
 						<div key={index}>
 							<h3 className="text-2xl font-semibold mb-3 border-l-2 border-primary pl-4">
@@ -33,7 +33,7 @@ const data = [
 					We’ve driven growth for artists across{" "}
 					<b>more than 10 music genres,</b> including:
 				</p>
-				<ul className="grid grid-cols-2 list-disc gap-2 mb-6 pl-4 max-w-[500px]">
+				<ul className="grid grid-cols-2 list-disc gap-2 mb-10 pl-4 max-w-[500px]">
 					<li>Dark ambient</li>
 					<li>Sleeping</li>
 					<li>Hard techno</li>
@@ -65,7 +65,7 @@ const data = [
 	{
 		title: "Challenges",
 		description: (
-			<ul className="grid grid-cols-1 list-disc gap-2 mb-6 pl-4">
+			<ul className="grid grid-cols-1 list-disc gap-2 mb-10 pl-4">
 				<li>
 					<b>Reducing Costs:</b> we had to reduce an average cost per
 					result (CPR) of $0.22 from the previous agency, which was not
@@ -92,10 +92,10 @@ const data = [
 		description: (
 			<div>
 				<p>
-					At ZEM Marketing we developed a very specific marketing strategy
-					to increase new fans on spotify while reducing costs.
+					At Escalium we developed a very specific marketing strategy to
+					increase new fans on spotify while reducing costs.
 				</p>
-				<ul className="grid grid-cols-1 list-disc gap-2 mb-6 pl-4">
+				<ul className="grid grid-cols-1 list-disc gap-2 mb-10 pl-4">
 					<li>
 						<b>Identify the core problems:</b>&nbsp;We had to identify the
 						challenges that was costing the artists high costs and not
@@ -125,10 +125,10 @@ const data = [
 		description: (
 			<div>
 				<p>
-					ZEM marketing efforts helped Different Artists grow
+					Escalium efforts helped Different Artists grow
 					significantly&nbsp;&nbsp;its audience and streams:
 				</p>
-				<ul className="grid grid-cols-1 list-disc gap-2 mb-6 pl-4">
+				<ul className="grid grid-cols-1 list-disc gap-2 mb-10 pl-4">
 					<li>
 						<b>Costs:</b>&nbsp;We decreased costs by over 50%&nbsp;
 					</li>
@@ -154,7 +154,7 @@ const data = [
 				<h4 className="text-lg font-semibold mb-3">
 					<strong>Key Metrics</strong>
 				</h4>
-				<ul className="grid grid-cols-1 list-disc gap-2 mb-6 pl-4">
+				<ul className="grid grid-cols-1 list-disc gap-2 mb-10 pl-4">
 					<li>
 						<span>100M+ Streams Generated</span>
 					</li>

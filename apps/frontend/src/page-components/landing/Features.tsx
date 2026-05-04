@@ -96,15 +96,13 @@ const Features = () => {
 									].map((id, index) => (
 										<SwiperSlide
 											key={index}
-											className="w-full max-w-81.25 min-h-[700px]"
+											className="w-[200px]! md:w-[325px]!"
 										>
 											<blockquote
-												className="tiktok-embed"
+												className="tiktok-embed aspect-325/700 w-full max-w-[325px]"
 												cite={`https://www.tiktok.com/@tiktok/video/${id}`}
 												data-video-id={id}
 												style={{
-													maxWidth: "325px",
-													minWidth: "325px",
 													margin: 0,
 												}}
 											>
