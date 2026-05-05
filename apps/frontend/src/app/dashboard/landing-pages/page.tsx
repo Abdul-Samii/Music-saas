@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { landingPagesApi, usersApi } from "@/lib/api";
 
 const BLUE = "#3A60E7";
@@ -31,6 +32,7 @@ type LandingPage = {
 export default function LandingPagesPage() {
   const { data: session } = useSession();
   const token = (session as unknown as { accessToken?: string })?.accessToken;
+  const router = useRouter();
 
   const [pages, setPages] = useState<LandingPage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,24 +50,6 @@ export default function LandingPagesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [created, setCreated] = useState<{ url: string } | null>(null);
-
-  // Analytics modal
-  type MetaAnalytics = { title: string; campaigns: number; impressions: number; linkClicks: number; landingPageViews: number; reach: number; spend: number; error?: string };
-  const [analyticsPage, setAnalyticsPage] = useState<LandingPage | null>(null);
-  const [analytics, setAnalytics] = useState<MetaAnalytics | null>(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
-
-  async function openAnalytics(page: LandingPage) {
-    setAnalyticsPage(page);
-    setAnalytics(null);
-    setAnalyticsLoading(true);
-    try {
-      const data = await landingPagesApi.metaAnalytics(page.id);
-      setAnalytics(data);
-    } finally {
-      setAnalyticsLoading(false);
-    }
-  }
 
   const songSlugPreview = toSlug(name);
   const landingUrlPreview = artistSlug && songSlugPreview
@@ -137,54 +121,6 @@ export default function LandingPagesPage() {
 
   return (
     <div className="animate-fade-in" style={{ maxWidth: 720, margin: "0 auto", display: "flex", flexDirection: "column", gap: "2rem" }}>
-
-      {/* Analytics modal */}
-      {analyticsPage && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
-          <div onClick={() => setAnalyticsPage(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)" }} />
-          <div style={{ position: "relative", background: "#fff", borderRadius: 20, padding: "2rem", width: "100%", maxWidth: 420, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
-              <div>
-                <p style={{ fontSize: "0.72rem", color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>Analytics</p>
-                <h3 style={{ fontWeight: 800, fontSize: "1.1rem", color: NAVY }}>{analyticsPage.title}</h3>
-              </div>
-              <button onClick={() => setAnalyticsPage(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: "1.4rem", lineHeight: 1, padding: 0 }}>×</button>
-            </div>
-
-            {analyticsLoading ? (
-              <div style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading…</div>
-            ) : analytics?.error ? (
-              <div style={{ padding: "1rem", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, fontSize: "0.8rem", color: "#92400E" }}>
-                {analytics.error === "Meta not connected" ? "Connect your Meta account in Settings to see ad analytics." : analytics.error}
-              </div>
-            ) : analytics ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-                  {[
-                    { label: "Impressions", value: analytics.impressions.toLocaleString(), color: BLUE },
-                    { label: "Link Clicks", value: analytics.linkClicks.toLocaleString(), color: BLUE },
-                    { label: "Landing Page Views", value: analytics.landingPageViews.toLocaleString(), color: BLUE },
-                    { label: "Reach", value: analytics.reach.toLocaleString(), color: BLUE },
-                  ].map((stat) => (
-                    <div key={stat.label} style={{ background: "#F8F9FC", borderRadius: 12, padding: "1rem", border: "1px solid #E2E6F0" }}>
-                      <p style={{ fontSize: "1.5rem", fontWeight: 800, color: NAVY, letterSpacing: "-0.03em" }}>{stat.value}</p>
-                      <p style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600, marginTop: "0.2rem" }}>{stat.label}</p>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.875rem 1rem", background: "#F0F4FF", borderRadius: 10 }}>
-                  <span style={{ fontSize: "0.8rem", color: BLUE, fontWeight: 600 }}>Total Spend</span>
-                  <span style={{ fontSize: "1rem", fontWeight: 800, color: NAVY }}>${analytics.spend.toFixed(2)}</span>
-                </div>
-                <p style={{ fontSize: "0.72rem", color: "#94a3b8", textAlign: "center" }}>{analytics.campaigns} campaign{analytics.campaigns !== 1 ? "s" : ""} · lifetime data from Meta</p>
-              </div>
-            ) : (
-              <p style={{ color: "#94a3b8", fontSize: "0.875rem", textAlign: "center" }}>Could not load analytics.</p>
-            )}
-          </div>
-        </div>
-      )}
-
 
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -353,7 +289,7 @@ export default function LandingPagesPage() {
                   </div>
                   <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
                     <button
-                      onClick={() => void openAnalytics(page)}
+                      onClick={() => router.push(`/dashboard/landing-pages/${page.id}`)}
                       style={{ display: "flex", alignItems: "center", gap: "0.375rem", padding: "0.4rem 0.75rem", borderRadius: 8, border: "1px solid #E2E6F0", background: "#F8F9FC", cursor: "pointer", fontSize: "0.75rem", fontWeight: 600, color: "#64748b" }}
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
