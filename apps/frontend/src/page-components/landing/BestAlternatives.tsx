@@ -4,66 +4,57 @@ import { cn } from "@/lib/utils";
 const ROWS = [
   {
     label: "Pricing",
-    marketingAgencies: "$500+/mo",
-    adsManager: "Pay per ads + learning cost",
-    escalium: "From 0$ + adspend",
+    marketingAgencies: "$$$",
+    adsManager: "$$+",
+    escalium: "$",
   },
   {
     label: "Ease of use",
-    marketingAgencies: "Hard to communicate",
-    adsManager: "Complex dashboards",
-    escalium: "Built for artists",
+    marketingAgencies: false,
+    adsManager: false,
+    escalium: true,
   },
   {
     label: "Setup time",
-    marketingAgencies: "Days / weeks onboarding",
-    adsManager: "Days / weeks  to learn",
-    escalium: "minutes",
+    marketingAgencies: "Slow",
+    adsManager: "Slow",
+    escalium: "Fast",
   },
   {
-    label: "All-in-one dashboard",
-    marketingAgencies:
-      '<div class="flex gap-1 items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="18" height="18" class="text-red-500"> <path fill-rule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" /> </svg> No unified dashboard</div>',
-    adsManager:
-      '<div class="flex gap-1 items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="18" height="18" class="text-red-500"> <path fill-rule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" /> </svg> Multiple platforms</div>',
-    escalium:
-      '<div class="flex gap-1 items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="18" height="18" class="text-green-500"> <path fill-rule="evenodd" d="M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd" /></svg> Everything in one place</div>',
+    label: "All-in-one",
+    marketingAgencies: false,
+    adsManager: false,
+    escalium: true,
   },
   {
     label: "Ad creation",
-    marketingAgencies: "Days or weeks + changes + low volume",
-    adsManager: "Manual creation",
-    escalium: "Seconds away + Lyrics generator",
-  },
-  {
-    label: "Campaign management",
-    marketingAgencies: "Managed externally",
-    adsManager: "Fragmented per platform",
-    escalium: "Simple & centralized",
+    marketingAgencies: "Slow",
+    adsManager: "Manual",
+    escalium: "Instant",
   },
   {
     label: "Automation",
-    marketingAgencies: "Depends on agency",
-    adsManager: "Manual",
-    escalium: "100% automated",
+    marketingAgencies: null,
+    adsManager: false,
+    escalium: true,
   },
   {
     label: "Analytics",
-    marketingAgencies: "Limited transparency",
-    adsManager: "Overwhelming data",
-    escalium: "Clear insights about streams growth and real cost per stream",
+    marketingAgencies: "Limited",
+    adsManager: "Complex",
+    escalium: "Clear",
   },
   {
-    label: "Music-specific tools",
-    marketingAgencies: "Not specialized",
-    adsManager: "Generic tools",
-    escalium: "Built for artists",
+    label: "Music-specific",
+    marketingAgencies: false,
+    adsManager: false,
+    escalium: true,
   },
   {
     label: "Fan growth",
     marketingAgencies: "Varies",
-    adsManager: "No music focus",
-    escalium: "Designed for real fans",
+    adsManager: "Weak",
+    escalium: "Strong",
   },
 ];
 const BestAlternatives = () => {
@@ -90,23 +81,22 @@ const BestAlternatives = () => {
               </colgroup>
               <thead>
                 <tr style={{ background: "#F8F9FC" }}>
-                  <th className="py-4 px-5 text-start text-[0.75rem] font-bold uppercase tracking-[0.06em] border-b border-border text-muted"></th>
+                  <th className="py-6 px-5 text-start text-[0.75rem] font-bold uppercase tracking-[0.06em] border-b border-border text-muted"></th>
                   {[
-                    { name: "Marketing Agencies" },
+                    { name: "Agency" },
                     {
-                      name: "Ads manager yourself <br /> <span class='font-normal text-xs'>(meta ads, tiktok ads)</span> ",
+                      name: "DIY Ads",
                     },
-                    { name: "Escalium.io" },
+                    { name: "Escalium" },
                   ].map((col) => (
                     <th
                       key={col.name}
                       className={cn(
                         "py-2 px-5 text-center text-sm font-bold border border-border min-w-[120px]",
                       )}
-                      dangerouslySetInnerHTML={{
-                        __html: col.name,
-                      }}
-                    ></th>
+                    >
+                      {col.name}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -118,30 +108,30 @@ const BestAlternatives = () => {
                       "border-b border-border": i < ROWS.length - 1,
                     })}
                   >
-                    <td
-                      className="text-secondary font-medium text-sm py-3.5 px-5 border-l border-border"
-                      dangerouslySetInnerHTML={{
-                        __html: row.label,
-                      }}
-                    ></td>
-                    <td
-                      className="text-secondary font-medium text-sm py-3.5 px-5 text-center border-l border-border"
-                      dangerouslySetInnerHTML={{
-                        __html: row.marketingAgencies,
-                      }}
-                    ></td>
-                    <td
-                      className="text-center text-sm py-3.5 px-5 border-l border-border"
-                      dangerouslySetInnerHTML={{
-                        __html: row.adsManager,
-                      }}
-                    ></td>
-                    <td
-                      className="bg-bg-card text-center text-sm py-3.5 px-5 border-l border-border"
-                      dangerouslySetInnerHTML={{
-                        __html: row.escalium,
-                      }}
-                    ></td>
+                    <td className="text-secondary font-medium text-sm py-3.5 px-5 border-l border-border">
+                      {row.label}
+                    </td>
+                    <td className="text-secondary font-medium text-sm py-3.5 px-5 text-center border-l border-border">
+                      <div className="flex justify-center">
+                        {typeof row?.marketingAgencies === "string"
+                          ? row.marketingAgencies
+                          : checkIcon(row?.marketingAgencies)}
+                      </div>
+                    </td>
+                    <td className="text-center text-sm py-3.5 px-5 border-l border-border">
+                      <div className="flex justify-center">
+                        {typeof row?.adsManager === "string"
+                          ? row.adsManager
+                          : checkIcon(row?.adsManager)}
+                      </div>
+                    </td>
+                    <td className="bg-bg-card text-center text-sm py-3.5 px-5 border-l border-border">
+                      <div className="flex justify-center">
+                        {typeof row?.escalium === "string"
+                          ? row.escalium
+                          : checkIcon(row?.escalium)}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -152,5 +142,51 @@ const BestAlternatives = () => {
     </section>
   );
 };
-
+const checkIcon = (status: boolean | null) => {
+  if (status === false) {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        className="size-6 text-danger"
+      >
+        <path
+          fillRule="evenodd"
+          d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z"
+          clipRule="evenodd"
+        />
+      </svg>
+    );
+  }
+  if (status === true) {
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24">
+        <rect width="24" height="24" rx="4" fill="#22c55e" />
+        <path
+          fillRule="evenodd"
+          d="M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 0 1 1.04-.207Z"
+          clipRule="evenodd"
+          className="scale-[0.75] translate-y-[2px] translate-x-[2px] fill-white"
+        />
+      </svg>
+    );
+  }
+  if (status === null) {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        className="size-5 text-warning"
+      >
+        <path
+          fillRule="evenodd"
+          d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z"
+          clipRule="evenodd"
+        />
+      </svg>
+    );
+  }
+};
 export default BestAlternatives;

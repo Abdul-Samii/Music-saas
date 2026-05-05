@@ -52,7 +52,7 @@ const WhatWeCanGenerate = () => {
         <Marquee pauseOnHover>
           {VIDEOS.map((s) => (
             <SlideDown key={s.id}>
-              <div className="relative rounded-[10px] overflow-hidden mr-6">
+              <div className="relative rounded-[12px] overflow-hidden mr-6 border border-primary">
                 <video
                   src={s.url}
                   controls={false}
