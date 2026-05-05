@@ -8,26 +8,31 @@ export const VIDEOS = [
     id: "01",
     url: "/img/what-we-can-create/1.mp4",
     name: "hardstyle",
+    views: "1M+",
   },
   {
     id: "02",
     url: "/img/what-we-can-create/2.mp4",
     name: "HyperTechno",
+    views: "300K+",
   },
   {
     id: "03",
     url: "/img/what-we-can-create/3.mp4",
     name: "K-pop",
+    views: "650K+",
   },
   {
     id: "04",
     url: "/img/what-we-can-create/4.mp4",
     name: "Afrohouse",
+    views: "4.5M+",
   },
   {
     id: "05",
     url: "/img/what-we-can-create/5.mp4",
     name: "Techno",
+    views: "200K+",
   },
 ];
 
@@ -55,7 +60,12 @@ const WhatWeCanGenerate = () => {
                 playsInline
                 className="rounded-[10px] w-[300px] h-[533.33px] object-cover mr-6"
               />
-              <h3 className="mt-3 font-bold text-xl text-center">{s.name}</h3>
+              <h3 className="mt-3 font-bold text-xl text-center text-primary">
+                {s.name}
+              </h3>
+              <span className="text-center text-xs text-muted block">
+                this video has generated over {s.views} views
+              </span>
             </SlideDown>
           ))}
         </Marquee>

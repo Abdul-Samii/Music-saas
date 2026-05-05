@@ -1,10 +1,9 @@
 import FadeIn from "@/components/animations/FadeIn";
 import FadeInUp from "@/components/animations/FadeInUp";
 import TextAnimation from "@/components/animations/TextAnimation";
-import Script from "next/script";
+
 import { Parallax } from "react-scroll-parallax";
-import "swiper/css";
-import { Swiper, SwiperSlide } from "swiper/react";
+
 import { VIDEOS } from "../features/video-generator/WhatWeCanGenerate";
 import Marquee from "react-fast-marquee";
 const Features = () => {
@@ -91,9 +90,12 @@ const Features = () => {
                         playsInline
                         className="rounded-[10px] w-[300px] h-[533.33px] object-cover mr-6"
                       />
-                      <h3 className="mt-3 font-bold text-xl text-center">
+                      <h3 className="mt-3 font-bold text-xl text-center text-primary">
                         {s.name}
                       </h3>
+                      <span className="text-center text-xs text-muted block">
+                        this video has generated over {s.views} views
+                      </span>
                     </div>
                   ))}
                 </Marquee>
