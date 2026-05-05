@@ -127,7 +127,8 @@ export class LandingPagesService {
         const lpv = d.actions?.find((a) => a.action_type === 'landing_page_view');
         landingPageViews += parseInt(lpv?.value ?? '0');
       } catch (err) {
-        console.error('[MetaAnalytics] error fetching campaign:', campaign.name, (err as { message?: string })?.message);
+        const e = err as { message?: string; response?: { data?: unknown } };
+        console.error('[MetaAnalytics] error fetching campaign:', campaign.name, e?.message, JSON.stringify(e?.response?.data));
       }
     }
 
