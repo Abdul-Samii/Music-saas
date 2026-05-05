@@ -41,8 +41,8 @@ const Hero = () => {
                   </button>
                 )}
                 <h1 className="text-4xl lg:text-6xl lg:leading-[1.3] tracking-wide">
-                  <TextAnimation text="You make the music, " />
-                  <span className="text-primary">
+                  <TextAnimation text="You make the music" />
+                  <span className="text-primary block">
                     <TextAnimation text="Escalium Scales it." delay={0.8} />
                   </span>
                 </h1>

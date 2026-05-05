@@ -1,8 +1,9 @@
 import FadeInUp from "@/components/animations/FadeInUp";
 import SlideDown from "@/components/animations/SlideDown";
 import TextAnimation from "@/components/animations/TextAnimation";
+import Marquee from "react-fast-marquee";
 
-const VIDEOS = [
+export const VIDEOS = [
   {
     id: "01",
     url: "/img/what-we-can-create/1.mp4",
@@ -43,7 +44,7 @@ const WhatWeCanGenerate = () => {
           </div>
         </FadeInUp>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-5 mx-auto max-sm:max-w-[300px]">
+        <Marquee pauseOnHover>
           {VIDEOS.map((s) => (
             <SlideDown key={s.id}>
               <video
@@ -52,12 +53,12 @@ const WhatWeCanGenerate = () => {
                 controlsList="nodownload nofullscreen noremoteplayback"
                 disablePictureInPicture
                 playsInline
-                className="w-full h-auto rounded-[10px] max-sm:h-[533.33px] object-cover"
+                className="rounded-[10px] w-[300px] h-[533.33px] object-cover mr-6"
               />
               <h3 className="mt-3 font-bold text-xl text-center">{s.name}</h3>
             </SlideDown>
           ))}
-        </div>
+        </Marquee>
       </div>
     </section>
   );

@@ -19,8 +19,7 @@ const VideoGeneratorHero = () => {
         <FadeInUp>
           <div className="pt-32 pb-28 px-2 text-center relative">
             <h1 className="text-4xl lg:text-6xl lg:leading-[1.3] tracking-wide mb-4">
-              <TextAnimation text="" />
-              <span className="text-primary">
+              <span className="text-primary block">
                 <TextAnimation text="AI Lyric" />{" "}
               </span>
               <TextAnimation text="Video Generator" delay={0.4} />
