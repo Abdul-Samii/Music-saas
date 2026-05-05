@@ -114,6 +114,7 @@ export const landingPagesApi = {
       landingPageViews: number;
       reach: number;
       spend: number;
+      spotifyClicks: number;
       error?: string;
     }),
 };
