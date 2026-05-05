@@ -29,7 +29,10 @@ function buildHtml(page: LandingPage, apiBase: string): string {
   var api='${apiBase}';
   fetch(api+'/landing-pages/${escHtml(page.id)}/view',{method:'POST',keepalive:true}).catch(function(){});
   var btn=document.querySelector('.btn-spotify');
-  if(btn){btn.addEventListener('click',function(){fetch(api+'/landing-pages/${escHtml(page.id)}/click',{method:'POST',keepalive:true}).catch(function(){});});}
+  if(btn){btn.addEventListener('click',function(){
+    fetch(api+'/landing-pages/${escHtml(page.id)}/click',{method:'POST',keepalive:true}).catch(function(){});
+    if(typeof fbq==='function'){fbq('trackCustom','SpotifyClick');}
+  });}
 })();
 </script>`;
 

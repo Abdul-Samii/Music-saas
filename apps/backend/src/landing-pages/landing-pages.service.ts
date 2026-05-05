@@ -105,7 +105,7 @@ export class LandingPagesService {
       return { title: page.title, campaigns: 0, impressions: 0, linkClicks: 0, landingPageViews: 0, reach: 0, spend: 0 };
     }
 
-    let impressions = 0, linkClicks = 0, landingPageViews = 0, reach = 0, spend = 0;
+    let impressions = 0, linkClicks = 0, landingPageViews = 0, reach = 0, spend = 0, spotifyClicks = 0;
 
     for (const campaign of metaCampaigns) {
       try {
@@ -126,6 +126,8 @@ export class LandingPagesService {
         reach += parseInt(d.reach ?? '0');
         const lpv = d.actions?.find((a) => a.action_type === 'landing_page_view');
         landingPageViews += parseInt(lpv?.value ?? '0');
+        const sc = d.actions?.find((a) => a.action_type === 'offsite_conversion.custom.SpotifyClick');
+        spotifyClicks += parseInt(sc?.value ?? '0');
       } catch (err) {
         const e = err as { message?: string; response?: { data?: unknown } };
         console.error('[MetaAnalytics] error fetching campaign:', campaign.name, e?.message, JSON.stringify(e?.response?.data));
@@ -140,6 +142,7 @@ export class LandingPagesService {
       landingPageViews,
       reach,
       spend: Math.round(spend * 100) / 100,
+      spotifyClicks,
     };
   }
 }
