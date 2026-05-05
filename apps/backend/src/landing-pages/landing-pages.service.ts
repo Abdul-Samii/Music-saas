@@ -113,7 +113,7 @@ export class LandingPagesService {
         const { data: res } = await axios.get(`${GRAPH}/${campaign.metaCampaignId}/insights`, {
           params: {
             fields: 'impressions,clicks,spend,reach,actions',
-            date_preset: 'lifetime',
+            date_preset: 'maximum',
             access_token: metaAccessToken,
           },
         });
