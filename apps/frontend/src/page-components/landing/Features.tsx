@@ -6,6 +6,7 @@ import { Parallax } from "react-scroll-parallax";
 
 import { VIDEOS } from "../features/video-generator/WhatWeCanGenerate";
 import Marquee from "react-fast-marquee";
+import SlideDown from "@/components/animations/SlideDown";
 const Features = () => {
   return (
     <section className="py-20 lg:py-[120px] overflow-hidden bg-bg-card">
@@ -81,22 +82,26 @@ const Features = () => {
 
                 <Marquee pauseOnHover>
                   {VIDEOS.map((s) => (
-                    <div key={s.id}>
-                      <video
-                        src={s.url}
-                        controls
-                        controlsList="nodownload nofullscreen noremoteplayback"
-                        disablePictureInPicture
-                        playsInline
-                        className="rounded-[10px] w-[300px] h-[533.33px] object-cover mr-6"
-                      />
-                      <h3 className="mt-3 font-bold text-xl text-center text-primary">
-                        {s.name}
-                      </h3>
-                      <span className="text-center text-xs text-muted block">
-                        this video has generated over {s.views} views
-                      </span>
-                    </div>
+                    <SlideDown key={s.id}>
+                      <div className="relative rounded-[10px] overflow-hidden mr-6">
+                        <video
+                          src={s.url}
+                          controls={false}
+                          disablePictureInPicture
+                          className="rounded-[10px] w-[300px] h-[533.33px] object-cover"
+                          autoPlay
+                          muted
+                        />
+                        <div className="absolute w-full left-0 bottom-0 p-3 py-5 bg-linear-to-t from-primary to-transparent">
+                          <h3 className="mt-3 font-bold text-xl text-center text-white mb-2">
+                            {s.name}
+                          </h3>
+                          <span className="text-center text-xs text-muted block">
+                            this video has generated over {s.views} views
+                          </span>
+                        </div>
+                      </div>
+                    </SlideDown>
                   ))}
                 </Marquee>
               </div>

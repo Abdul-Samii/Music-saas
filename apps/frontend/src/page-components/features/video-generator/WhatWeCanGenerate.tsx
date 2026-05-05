@@ -8,31 +8,31 @@ export const VIDEOS = [
     id: "01",
     url: "/img/what-we-can-create/1.mp4",
     name: "hardstyle",
-    views: "1M+",
+    views: "1M",
   },
   {
     id: "02",
     url: "/img/what-we-can-create/2.mp4",
     name: "HyperTechno",
-    views: "300K+",
+    views: "300K",
   },
   {
     id: "03",
     url: "/img/what-we-can-create/3.mp4",
     name: "K-pop",
-    views: "650K+",
+    views: "650K",
   },
   {
     id: "04",
     url: "/img/what-we-can-create/4.mp4",
     name: "Afrohouse",
-    views: "4.5M+",
+    views: "4.5M",
   },
   {
     id: "05",
     url: "/img/what-we-can-create/5.mp4",
     name: "Techno",
-    views: "200K+",
+    views: "200K",
   },
 ];
 
@@ -52,20 +52,24 @@ const WhatWeCanGenerate = () => {
         <Marquee pauseOnHover>
           {VIDEOS.map((s) => (
             <SlideDown key={s.id}>
-              <video
-                src={s.url}
-                controls
-                controlsList="nodownload nofullscreen noremoteplayback"
-                disablePictureInPicture
-                playsInline
-                className="rounded-[10px] w-[300px] h-[533.33px] object-cover mr-6"
-              />
-              <h3 className="mt-3 font-bold text-xl text-center text-primary">
-                {s.name}
-              </h3>
-              <span className="text-center text-xs text-muted block">
-                this video has generated over {s.views} views
-              </span>
+              <div className="relative rounded-[10px] overflow-hidden mr-6">
+                <video
+                  src={s.url}
+                  controls={false}
+                  disablePictureInPicture
+                  className="rounded-[10px] w-[300px] h-[533.33px] object-cover"
+                  autoPlay
+                  muted
+                />
+                <div className="absolute w-full left-0 bottom-0 p-3 py-5 bg-linear-to-t from-primary to-transparent">
+                  <h3 className="mt-3 font-bold text-xl text-center text-white mb-2">
+                    {s.name}
+                  </h3>
+                  <span className="text-center text-xs text-muted block">
+                    this video has generated over {s.views} views
+                  </span>
+                </div>
+              </div>
             </SlideDown>
           ))}
         </Marquee>
