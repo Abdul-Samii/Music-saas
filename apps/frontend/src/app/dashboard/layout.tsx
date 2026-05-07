@@ -47,7 +47,7 @@ const NAV = [
   },
   {
     label: "Creative Studio",
-    href: "/dashboard/creative",
+    href: "/dashboard/studio",
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
