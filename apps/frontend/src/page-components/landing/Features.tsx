@@ -342,7 +342,7 @@ const Features = () => {
                   </p>
                 </div>
 
-                <Marquee pauseOnHover>
+                <Marquee>
                   {VIDEOS.map((s) => (
                     <SlideDown key={s.id}>
                       <div className="relative rounded-[12px] overflow-hidden mr-6 border border-primary">
