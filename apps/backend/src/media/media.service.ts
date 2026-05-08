@@ -2,74 +2,28 @@ import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import FormData from 'form-data';
 import * as fs from 'fs';
+import { S3Client, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { PrismaService } from '../prisma/prisma.service';
 
-export const VIDEO_LIBRARY = [
-  {
-    id: 'v1',
-    title: 'Neon City Pulse',
-    style: 'Abstract',
-    duration: 11,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&q=80',
+const s3 = new S3Client({
+  region: process.env.AWS_REGION ?? 'eu-north-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? '',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? '',
   },
-  {
-    id: 'v2',
-    title: 'Motion Escape',
-    style: 'Abstract',
-    duration: 15,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1549490349-8643362247b5?w=400&q=80',
-  },
-  {
-    id: 'v3',
-    title: 'Dynamic Ride',
-    style: 'Cinematic',
-    duration: 15,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=400&q=80',
-  },
-  {
-    id: 'v4',
-    title: 'Deep Emotion',
-    style: 'Cinematic',
-    duration: 15,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=400&q=80',
-  },
-  {
-    id: 'v5',
-    title: 'Epic Journey',
-    style: 'Nature',
-    duration: 60,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1458966480358-a0ac42de0a7a?w=400&q=80',
-  },
-  {
-    id: 'v6',
-    title: 'Street Night',
-    style: 'Urban',
-    duration: 30,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=400&q=80',
-  },
-  {
-    id: 'v7',
-    title: 'Retro Vibes',
-    style: 'Retro',
-    duration: 60,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/VolkswagenGTIReview.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=400&q=80',
-  },
-  {
-    id: 'v8',
-    title: 'Road to Glory',
-    style: 'Action',
-    duration: 60,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&q=80',
-  },
-];
+});
+
+const BUCKET = process.env.S3_BUCKET_NAME ?? 'escaliumio';
+const CLIPS_PREFIX = process.env.S3_CLIPS_PREFIX ?? 'Creative Studio - Clips/';
+
+type VideoClip = {
+  id: string;
+  title: string;
+  style: string;
+  duration: number;
+  url: string;
+  thumbnail: string;
+};
 
 type TranscriptionResult = {
   text: string;
@@ -80,8 +34,57 @@ type TranscriptionResult = {
 export class MediaService {
   constructor(private readonly prisma: PrismaService) {}
 
-  getVideoLibrary() {
-    return { clips: VIDEO_LIBRARY };
+  async getVideoLibrary(): Promise<{ clips: VideoClip[] }> {
+    // Try manifest.json first (fastest, allows custom metadata)
+    try {
+      const obj = await s3.send(new GetObjectCommand({
+        Bucket: BUCKET,
+        Key: `${CLIPS_PREFIX}manifest.json`,
+      }));
+      const body = await obj.Body?.transformToString();
+      if (body) {
+        const clips = JSON.parse(body) as VideoClip[];
+        return { clips };
+      }
+    } catch {
+      // manifest not found — fall through to auto-discovery
+    }
+
+    // Auto-discover: list .mp4 files and build clip objects from S3 keys
+    try {
+      const list = await s3.send(new ListObjectsV2Command({
+        Bucket: BUCKET,
+        Prefix: CLIPS_PREFIX,
+      }));
+
+      const baseUrl = `https://${BUCKET}.s3.${process.env.AWS_REGION ?? 'eu-north-1'}.amazonaws.com`;
+
+      const clips: VideoClip[] = (list.Contents ?? [])
+        .filter((obj) => obj.Key?.toLowerCase().endsWith('.mp4'))
+        .map((obj, i) => {
+          const key = obj.Key!;
+          const filename = key.split('/').pop()!;
+          const name = filename.replace(/\.mp4$/i, '');
+          // Derive style from sub-folder name if present, else 'General'
+          const parts = key.replace(CLIPS_PREFIX, '').split('/');
+          const style = parts.length > 1 ? parts[0] : 'General';
+          // Look for matching thumbnail: same name with .jpg/.png
+          const thumbKey = key.replace(/\.mp4$/i, '.jpg');
+          return {
+            id: `s3-${i}`,
+            title: name.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+            style,
+            duration: 0, // duration not available without ffprobe; set in manifest.json for accuracy
+            url: `${baseUrl}/${encodeURIComponent(key).replace(/%2F/g, '/')}`,
+            thumbnail: `${baseUrl}/${encodeURIComponent(thumbKey).replace(/%2F/g, '/')}`,
+          };
+        });
+
+      return { clips };
+    } catch (err) {
+      console.error('[VideoLibrary] S3 error:', err);
+      return { clips: [] };
+    }
   }
 
   async transcribeAudio(
