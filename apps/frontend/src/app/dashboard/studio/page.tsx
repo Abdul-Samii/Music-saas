@@ -1,10 +1,28 @@
 "use client";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { creativeApi } from "@/lib/api";
 
 const BLUE = "#3A60E7";
 const NAVY = "#0B1120";
 const MAX_TRIM = 60;
 const STEP_LABELS = ["Audio", "Lyrics", "Sync", "Style", "Render"] as const;
+
+const TEXT_COLORS = [
+  { label: "White",  hex: "#FFFFFF" },
+  { label: "Yellow", hex: "#FACC15" },
+  { label: "Cyan",   hex: "#22D3EE" },
+  { label: "Pink",   hex: "#F472B6" },
+  { label: "Green",  hex: "#4ADE80" },
+];
+
+interface VideoClip {
+  id: string;
+  title: string;
+  style: string;
+  duration: number;
+  url: string;
+  thumbnail: string;
+}
 
 function fmt(s: number) {
   const m = Math.floor(s / 60);
@@ -169,6 +187,64 @@ function WaveformCanvas({
   );
 }
 
+// ── Video card with hover preview ────────────────────────────────────────────
+function VideoCard({ clip, selected, onSelect }: { clip: VideoClip; selected: boolean; onSelect: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [hovered, setHovered] = useState(false);
+  const [srcReady, setSrcReady] = useState(false);
+
+  function onEnter() {
+    setHovered(true);
+    setSrcReady(true);
+    setTimeout(() => videoRef.current?.play().catch(() => {}), 80);
+  }
+  function onLeave() {
+    setHovered(false);
+    if (videoRef.current) { videoRef.current.pause(); videoRef.current.currentTime = 0; }
+  }
+
+  return (
+    <div onClick={onSelect} onMouseEnter={onEnter} onMouseLeave={onLeave}
+      style={{ borderRadius: 14, overflow: "hidden", cursor: "pointer", background: "#fff",
+        border: `2px solid ${selected ? BLUE : "#E2E6F0"}`,
+        boxShadow: selected ? `0 0 0 3px rgba(58,96,231,0.15)` : "0 1px 4px rgba(0,0,0,0.05)",
+        transition: "border-color 0.15s, box-shadow 0.15s" }}>
+
+      {/* Thumbnail / video */}
+      <div style={{ position: "relative", aspectRatio: "16/9", overflow: "hidden", background: "#0B1120" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={clip.thumbnail} alt={clip.title}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
+            opacity: hovered ? 0 : 1, transition: "opacity 0.25s" }} />
+        {srcReady && (
+          <video ref={videoRef} src={clip.url} muted playsInline loop preload="none"
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
+              opacity: hovered ? 1 : 0, transition: "opacity 0.25s" }} />
+        )}
+        {selected && (
+          <div style={{ position: "absolute", inset: 0, background: "rgba(58,96,231,0.18)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 30, height: 30, borderRadius: "50%", background: BLUE, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(58,96,231,0.5)" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+        )}
+        <div style={{ position: "absolute", bottom: 6, right: 7, background: "rgba(0,0,0,0.65)", borderRadius: 5, padding: "0.15rem 0.45rem", fontSize: "0.67rem", fontWeight: 700, color: "#fff", fontFamily: "monospace" }}>
+          {fmtShort(clip.duration)}
+        </div>
+        {hovered && !selected && (
+          <div style={{ position: "absolute", bottom: 6, left: 7, background: "rgba(58,96,231,0.85)", borderRadius: 5, padding: "0.15rem 0.5rem", fontSize: "0.65rem", fontWeight: 700, color: "#fff" }}>Preview</div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div style={{ padding: "0.625rem 0.75rem 0.75rem" }}>
+        <p style={{ fontWeight: 700, fontSize: "0.825rem", color: NAVY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clip.title}</p>
+        <span style={{ fontSize: "0.67rem", fontWeight: 700, color: BLUE, background: "#EEF2FF", padding: "0.15rem 0.5rem", borderRadius: 4, marginTop: "0.3rem", display: "inline-block" }}>{clip.style}</span>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 export default function StudioPage() {
   // ── Step ──
@@ -183,6 +259,7 @@ export default function StudioPage() {
   const [dragOver, setDragOver] = useState(false);
   const [fileError, setFileError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const audioFileRef = useRef<File | null>(null);
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
   const [fadeIn, setFadeIn] = useState(false);
@@ -218,6 +295,25 @@ export default function StudioPage() {
   const [syncActive, setSyncActive] = useState(false);
   const syncLineRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  // ── Phase 4: Style ──
+  const [clips, setClips] = useState<VideoClip[]>([]);
+  const [clipsLoaded, setClipsLoaded] = useState(false);
+  const [clipsLoading, setClipsLoading] = useState(false);
+  const [styleFilter, setStyleFilter] = useState("All");
+  const [selectedClip, setSelectedClip] = useState<VideoClip | null>(null);
+  const [creativeName, setCreativeName] = useState("");
+  const [textColor, setTextColor] = useState("#FFFFFF");
+  const [textPosition, setTextPosition] = useState<"top" | "center" | "bottom">("bottom");
+  const [fontSize, setFontSize] = useState<"sm" | "md" | "lg">("md");
+  const [overlayOpacity, setOverlayOpacity] = useState(0.4);
+
+  // ── Phase 5: Render ──
+  const [rendering, setRendering] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [renderStage, setRenderStage] = useState<"uploading" | "saving" | "done">("uploading");
+  const [renderError, setRenderError] = useState("");
+  const [renderResult, setRenderResult] = useState<{ id: string; name: string } | null>(null);
+
   // ── Audio helpers ──
   function getCtx() {
     if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
@@ -235,11 +331,14 @@ export default function StudioPage() {
     setFileError("");
     setDecoding(true);
     stopPlayback(true);
+    audioFileRef.current = file;
 
     if (audioUrl) URL.revokeObjectURL(audioUrl);
     const url = URL.createObjectURL(file);
     setAudioUrl(url);
-    setFilename(file.name.replace(/\.[^.]+$/, ""));
+    const name = file.name.replace(/\.[^.]+$/, "");
+    setFilename(name);
+    setCreativeName(name);
 
     try {
       const ctx = getCtx();
@@ -424,6 +523,53 @@ export default function StudioPage() {
     }
   }, [syncIndex, step]);
 
+  // ── Fetch video library when entering Style step ──
+  useEffect(() => {
+    if (step !== 3 || clipsLoaded) return;
+    setClipsLoading(true);
+    (creativeApi.videoLibrary() as Promise<{ clips: VideoClip[] }>)
+      .then((data) => { setClips(data.clips ?? []); setClipsLoaded(true); })
+      .catch(() => {})
+      .finally(() => setClipsLoading(false));
+  }, [step, clipsLoaded]);
+
+  // ── Render handler ──
+  async function handleRender() {
+    if (!selectedClip || !audioFileRef.current) return;
+    setRendering(true);
+    setRenderError("");
+    setUploadProgress(0);
+    setRenderStage("uploading");
+    try {
+      const uploaded = await creativeApi.uploadAudio(audioFileRef.current, (p) => setUploadProgress(p)) as { audioUrl: string };
+      setRenderStage("saving");
+      const lyricsJson = lines.map((text, i) => ({ text, time: timestamps[i] ?? 0 }));
+      const result = await creativeApi.render({
+        name: creativeName || filename || "Untitled",
+        audioUrl: uploaded.audioUrl,
+        videoClipUrl: selectedClip.url,
+        lyricsJson,
+        clipId: selectedClip.id,
+        clipTitle: selectedClip.title,
+        style: { textColor, textPosition, fontSize, overlayOpacity },
+      }) as { jobId: string; creative: { id: string; name: string } };
+      setRenderResult({ id: result.jobId, name: result.creative?.name ?? creativeName });
+      setRenderStage("done");
+      setStep(4);
+    } catch (err: unknown) {
+      setRenderError((err as { message?: string })?.message ?? "Upload failed. Please try again.");
+    } finally {
+      setRendering(false);
+    }
+  }
+
+  // ── Style step derived ──
+  const styleOptions = useMemo(
+    () => ["All", ...Array.from(new Set(clips.map((c) => c.style))).sort()],
+    [clips]
+  );
+  const filteredClips = styleFilter === "All" ? clips : clips.filter((c) => c.style === styleFilter);
+
   // ── Derived ──
   const trimDuration = trimEnd - trimStart;
   const overLimit = trimDuration > MAX_TRIM;
@@ -475,6 +621,8 @@ export default function StudioPage() {
             {step === 0 && "Upload your track, trim it, and set effects"}
             {step === 1 && "Enter your song lyrics — one line per lyric line"}
             {step === 2 && "Sync each lyric line to the audio with SPACE"}
+            {step === 3 && "Choose a background video and customise the look"}
+            {step === 4 && "Your creative is saved"}
           </p>
         </div>
         <StepIndicator />
@@ -534,7 +682,7 @@ export default function StudioPage() {
                   <p style={{ fontSize: "0.75rem", color: "#64748b" }}>Total: {fmtShort(duration)}</p>
                 </div>
                 <button
-                  onClick={() => { stopPlayback(true); setAudioBuffer(null); setAudioUrl(""); setFilename(""); }}
+                  onClick={() => { stopPlayback(true); setAudioBuffer(null); setAudioUrl(""); setFilename(""); audioFileRef.current = null; }}
                   style={{ background: "none", border: "1px solid #E2E6F0", borderRadius: 8, padding: "0.35rem 0.75rem", cursor: "pointer", fontSize: "0.75rem", fontWeight: 600, color: "#64748b" }}
                 >
                   Change file
@@ -1009,6 +1157,262 @@ export default function StudioPage() {
             </button>
           </div>
         </>
+      )}
+
+      {/* ════════════════════════════════════════════════════
+          STEP 3 — STYLE PICKER
+      ════════════════════════════════════════════════════ */}
+      {step === 3 && (
+        <>
+          {/* Loading */}
+          {clipsLoading && (
+            <div style={{ background: "#fff", borderRadius: 20, border: "1px solid #E2E6F0", padding: "4rem", textAlign: "center" }}>
+              <div style={{ width: 36, height: 36, border: `3px solid ${BLUE}`, borderTop: "3px solid transparent", borderRadius: "50%", margin: "0 auto 1rem", animation: "spin 0.8s linear infinite" }} />
+              <p style={{ fontWeight: 600, color: NAVY }}>Loading video library…</p>
+            </div>
+          )}
+
+          {!clipsLoading && (
+            <>
+              {/* Style filter tabs */}
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                {styleOptions.map((style) => (
+                  <button key={style} onClick={() => setStyleFilter(style)} style={{
+                    padding: "0.4rem 1rem", borderRadius: 99, cursor: "pointer",
+                    border: `1.5px solid ${styleFilter === style ? BLUE : "#E2E6F0"}`,
+                    background: styleFilter === style ? BLUE : "#fff",
+                    fontSize: "0.8rem", fontWeight: 700,
+                    color: styleFilter === style ? "#fff" : "#64748b",
+                    transition: "all 0.15s",
+                  }}>
+                    {style}
+                    {style !== "All" && (
+                      <span style={{ marginLeft: "0.375rem", fontSize: "0.68rem", opacity: 0.75 }}>
+                        ({clips.filter((c) => c.style === style).length})
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Video grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
+                {filteredClips.map((clip) => (
+                  <VideoCard key={clip.id} clip={clip} selected={selectedClip?.id === clip.id} onSelect={() => setSelectedClip(clip)} />
+                ))}
+                {filteredClips.length === 0 && (
+                  <div style={{ gridColumn: "1 / -1", padding: "3rem", textAlign: "center", color: "#94a3b8", fontSize: "0.875rem" }}>
+                    No clips found for this style
+                  </div>
+                )}
+              </div>
+
+              {/* Customisation panel — slides in when clip selected */}
+              {selectedClip && (
+                <div style={{ background: "#fff", borderRadius: 20, border: `1.5px solid ${BLUE}`, padding: "1.5rem", boxShadow: "0 4px 16px rgba(58,96,231,0.10)", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+
+                  {/* Selected clip header */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={selectedClip.thumbnail} alt={selectedClip.title} style={{ width: 60, height: 38, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontWeight: 800, fontSize: "0.9rem", color: NAVY }}>{selectedClip.title}</p>
+                      <span style={{ fontSize: "0.7rem", fontWeight: 700, color: BLUE, background: "#EEF2FF", padding: "0.1rem 0.45rem", borderRadius: 4 }}>{selectedClip.style}</span>
+                    </div>
+                    <span style={{ fontFamily: "monospace", fontSize: "0.75rem", fontWeight: 700, color: "#64748b", background: "#F1F5F9", padding: "0.3rem 0.75rem", borderRadius: 8 }}>{fmtShort(selectedClip.duration)}</span>
+                  </div>
+
+                  <div style={{ height: 1, background: "#F1F5F9" }} />
+
+                  {/* Creative name */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Creative Name</label>
+                    <input value={creativeName} onChange={(e) => setCreativeName(e.target.value)} placeholder="Name your creative…"
+                      style={{ border: "1.5px solid #E2E6F0", borderRadius: 10, padding: "0.625rem 0.875rem", fontSize: "0.875rem", color: NAVY, outline: "none", fontFamily: "inherit", transition: "border-color 0.15s" }}
+                      onFocus={(e) => { e.target.style.borderColor = BLUE; }} onBlur={(e) => { e.target.style.borderColor = "#E2E6F0"; }} />
+                  </div>
+
+                  {/* Two-col row: Text Color + Text Position */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+                      <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Lyric Color</label>
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        {TEXT_COLORS.map((c) => (
+                          <button key={c.hex} onClick={() => setTextColor(c.hex)} title={c.label}
+                            style={{ width: 28, height: 28, borderRadius: "50%", border: `2.5px solid ${textColor === c.hex ? BLUE : "#E2E6F0"}`, background: c.hex, cursor: "pointer", flexShrink: 0, boxShadow: textColor === c.hex ? `0 0 0 2px rgba(58,96,231,0.2)` : "none", transition: "all 0.15s" }} />
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+                      <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Text Position</label>
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        {(["top", "center", "bottom"] as const).map((pos) => (
+                          <button key={pos} onClick={() => setTextPosition(pos)} style={{
+                            flex: 1, padding: "0.4rem 0.25rem", borderRadius: 8,
+                            border: `1.5px solid ${textPosition === pos ? BLUE : "#E2E6F0"}`,
+                            background: textPosition === pos ? "#EEF2FF" : "#F8F9FC", cursor: "pointer",
+                            fontSize: "0.72rem", fontWeight: 700, color: textPosition === pos ? BLUE : "#64748b",
+                            transition: "all 0.15s", textTransform: "capitalize",
+                          }}>{pos === "top" ? "↑ Top" : pos === "center" ? "↕ Mid" : "↓ Bot"}</button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Two-col row: Font Size + Overlay */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+                      <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Font Size</label>
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        {([["sm", "S"], ["md", "M"], ["lg", "L"]] as const).map(([val, label]) => (
+                          <button key={val} onClick={() => setFontSize(val)} style={{
+                            flex: 1, padding: "0.4rem", borderRadius: 8,
+                            border: `1.5px solid ${fontSize === val ? BLUE : "#E2E6F0"}`,
+                            background: fontSize === val ? "#EEF2FF" : "#F8F9FC", cursor: "pointer",
+                            fontSize: "0.8rem", fontWeight: 800, color: fontSize === val ? BLUE : "#64748b",
+                            transition: "all 0.15s",
+                          }}>{label}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Overlay</label>
+                        <span style={{ fontSize: "0.72rem", fontWeight: 700, color: NAVY }}>{Math.round(overlayOpacity * 100)}%</span>
+                      </div>
+                      <input type="range" min={0} max={0.8} step={0.05} value={overlayOpacity}
+                        onChange={(e) => setOverlayOpacity(parseFloat(e.target.value))}
+                        style={{ accentColor: BLUE, width: "100%", marginTop: "0.25rem" }} />
+                    </div>
+                  </div>
+
+                  {/* Live preview strip */}
+                  <div>
+                    <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem" }}>Preview</label>
+                    <div style={{ borderRadius: 12, overflow: "hidden", position: "relative", aspectRatio: "16/5", background: "#000" }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={selectedClip.thumbnail} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 - overlayOpacity }} />
+                      <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${overlayOpacity})` }} />
+                      <div style={{ position: "absolute", inset: 0, display: "flex", padding: "0.75rem 1.25rem",
+                        alignItems: textPosition === "top" ? "flex-start" : textPosition === "center" ? "center" : "flex-end",
+                        justifyContent: "center" }}>
+                        <p style={{ color: textColor, fontWeight: 800, textAlign: "center", lineHeight: 1.3,
+                          fontSize: fontSize === "sm" ? "0.72rem" : fontSize === "md" ? "0.9rem" : "1.1rem",
+                          textShadow: "0 1px 6px rgba(0,0,0,0.7)", letterSpacing: "0.01em" }}>
+                          {lines[0] ?? "Your lyric line appears here"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Render error */}
+              {renderError && (
+                <div style={{ background: "#FFF1F2", border: "1.5px solid #FECDD3", borderRadius: 12, padding: "1rem 1.25rem", fontSize: "0.825rem", fontWeight: 600, color: "#BE123C" }}>
+                  {renderError}
+                </div>
+              )}
+
+              {/* Navigation */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <button style={btnBack} onClick={() => setStep(2)}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+                  </svg>
+                  Back to Sync
+                </button>
+                <button
+                  disabled={!selectedClip || rendering}
+                  onClick={handleRender}
+                  style={{ ...btnNext(!selectedClip || rendering), minWidth: 180, justifyContent: "center" }}
+                >
+                  {rendering ? (
+                    <>
+                      <div style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,0.4)", borderTop: "2px solid #fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                      {renderStage === "uploading" ? `Uploading ${uploadProgress}%…` : "Saving…"}
+                    </>
+                  ) : (
+                    <>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                      </svg>
+                      {selectedClip ? "Render Creative" : "Select a video first"}
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* ════════════════════════════════════════════════════
+          STEP 4 — RENDER COMPLETE
+      ════════════════════════════════════════════════════ */}
+      {step === 4 && renderResult && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", alignItems: "center", paddingTop: "0.5rem" }}>
+          <div style={{ background: "#fff", borderRadius: 24, border: "1.5px solid #86EFAC", padding: "2.5rem 2rem", textAlign: "center", maxWidth: 480, width: "100%", boxShadow: "0 4px 24px rgba(34,197,94,0.10)" }}>
+            <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg,#22C55E,#16A34A)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem", boxShadow: "0 8px 24px rgba(34,197,94,0.3)" }}>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: NAVY, letterSpacing: "-0.02em", marginBottom: "0.5rem" }}>Creative Saved!</h2>
+            <p style={{ fontSize: "0.875rem", color: "#64748b", marginBottom: "1.5rem" }}>
+              <strong style={{ color: NAVY }}>{renderResult.name}</strong> has been saved to your library.
+            </p>
+
+            {/* Summary pills */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", justifyContent: "center", marginBottom: "1.75rem" }}>
+              {[
+                { icon: "🎵", label: `${fmtShort(trimEnd - trimStart)} audio` },
+                { icon: "📝", label: `${lines.length} lyric lines` },
+                { icon: "🎬", label: selectedClip?.title ?? "" },
+                { icon: "🎨", label: selectedClip?.style ?? "" },
+              ].map((item) => item.label ? (
+                <div key={item.label} style={{ padding: "0.3rem 0.75rem", borderRadius: 99, background: "#F1F5F9", border: "1px solid #E2E6F0", fontSize: "0.78rem", fontWeight: 600, color: "#475569" }}>
+                  {item.icon} {item.label}
+                </div>
+              ) : null)}
+            </div>
+
+            {/* Preview thumbnail with lyric overlay */}
+            {selectedClip && (
+              <div style={{ borderRadius: 14, overflow: "hidden", position: "relative", aspectRatio: "16/9", marginBottom: "1.75rem" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={selectedClip.thumbnail} alt={selectedClip.title} style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 1 - overlayOpacity }} />
+                <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${overlayOpacity})` }} />
+                <div style={{ position: "absolute", inset: 0, display: "flex", padding: "1rem 1.5rem",
+                  alignItems: textPosition === "top" ? "flex-start" : textPosition === "center" ? "center" : "flex-end",
+                  justifyContent: "center" }}>
+                  <p style={{ color: textColor, fontWeight: 800, textAlign: "center", lineHeight: 1.4,
+                    fontSize: fontSize === "sm" ? "0.875rem" : fontSize === "md" ? "1.0625rem" : "1.25rem",
+                    textShadow: "0 1px 4px rgba(0,0,0,0.6)" }}>
+                    {lines[0] ?? ""}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
+              <button
+                onClick={() => {
+                  setStep(0);
+                  setAudioBuffer(null); setAudioUrl(""); setFilename(""); audioFileRef.current = null;
+                  setLyricsText(""); setTimestamps([]); setSyncIndex(0); setSyncActive(false);
+                  setSelectedClip(null); setCreativeName(""); setRenderResult(null); setRenderError("");
+                  setClipsLoaded(false);
+                }}
+                style={{ padding: "0.75rem 1.5rem", borderRadius: 12, border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${BLUE}, #4C1AEA)`, color: "#fff", fontWeight: 700, fontSize: "0.875rem" }}
+              >
+                Create Another
+              </button>
+              <button onClick={() => setStep(3)}
+                style={{ padding: "0.75rem 1.5rem", borderRadius: 12, border: "1px solid #E2E6F0", cursor: "pointer", background: "#fff", color: "#64748b", fontWeight: 600, fontSize: "0.875rem" }}>
+                Edit Style
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <style jsx global>{`

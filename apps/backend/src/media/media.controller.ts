@@ -64,7 +64,7 @@ export class MediaController {
 
   // GET /media/video-library
   @Get('video-library')
-  getVideoLibrary() {
+  async getVideoLibrary() {
     return this.media.getVideoLibrary();
   }
 
