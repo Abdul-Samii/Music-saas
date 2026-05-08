@@ -4,7 +4,7 @@ import TextAnimation from "@/components/animations/TextAnimation";
 
 import { Parallax } from "react-scroll-parallax";
 
-import { VIDEOS } from "../features/video-generator/WhatWeCanGenerate";
+import { VIDEOS } from "../features/ai-lyrics-video-generator/WhatWeCanGenerate";
 import Marquee from "react-fast-marquee";
 import SlideDown from "@/components/animations/SlideDown";
 import {
