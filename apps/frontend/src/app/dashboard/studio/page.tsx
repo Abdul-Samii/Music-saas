@@ -279,6 +279,68 @@ function VideoThumb({ src, style }: { src: string; style?: React.CSSProperties }
   );
 }
 
+// ── Interactive preview video with play/pause overlay ────────────────────────
+function VideoPreview({ src, overlayOpacity, textColor, textPosition, fontSize, lyricLine }: {
+  src: string; overlayOpacity: number; textColor: string;
+  textPosition: "top" | "center" | "bottom"; fontSize: "sm" | "md" | "lg"; lyricLine: string;
+}) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    v.play().then(() => setPlaying(true)).catch(() => {});
+    return () => { v.pause(); };
+  }, [src]);
+
+  function toggle() {
+    if (!ref.current) return;
+    if (playing) { ref.current.pause(); setPlaying(false); }
+    else { ref.current.play().catch(() => {}); setPlaying(true); }
+  }
+
+  return (
+    <div onClick={toggle} style={{ borderRadius: 14, overflow: "hidden", position: "relative", aspectRatio: "9/16", background: "#000", maxWidth: 300, margin: "0 auto", cursor: "pointer" }}>
+      <video ref={ref} src={src} muted playsInline loop preload="metadata"
+        onLoadedMetadata={() => { if (ref.current) ref.current.currentTime = 0.5; }}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 - overlayOpacity }} />
+      <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${overlayOpacity})` }} />
+      <div style={{ position: "absolute", inset: 0, display: "flex", padding: "1rem 1.25rem",
+        alignItems: textPosition === "top" ? "flex-start" : textPosition === "center" ? "center" : "flex-end",
+        justifyContent: "center" }}>
+        <p style={{ color: textColor, fontWeight: 800, textAlign: "center", lineHeight: 1.35,
+          fontSize: fontSize === "sm" ? "0.8rem" : fontSize === "md" ? "1rem" : "1.2rem",
+          textShadow: "0 1px 8px rgba(0,0,0,0.8)", letterSpacing: "0.01em" }}>
+          {lyricLine}
+        </p>
+      </div>
+      {!playing && (
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)", border: "2px solid rgba(255,255,255,0.5)", display: "flex", alignItems: "center", justifyContent: "center", transition: "transform 0.15s" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Smart pagination page numbers ─────────────────────────────────────────────
+function getPageNums(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i);
+  const show = new Set<number>();
+  [0, 1, total - 2, total - 1].forEach((p) => show.add(p));
+  [current - 1, current, current + 1].filter((p) => p >= 0 && p < total).forEach((p) => show.add(p));
+  const sorted = Array.from(show).sort((a, b) => a - b);
+  const result: (number | "…")[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i] - sorted[i - 1] > 1) result.push("…");
+    result.push(sorted[i]);
+  }
+  return result;
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 export default function StudioPage() {
   // ── Step ──
@@ -1257,15 +1319,19 @@ export default function StudioPage() {
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                   </button>
 
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setClipPage(i)}
-                      style={{ width: 34, height: 34, borderRadius: 8, border: `1.5px solid ${clipPage === i ? BLUE : "#E2E6F0"}`, background: clipPage === i ? BLUE : "#fff", cursor: "pointer", fontSize: "0.8rem", fontWeight: 700, color: clipPage === i ? "#fff" : "#64748b", transition: "all 0.15s" }}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
+                  {getPageNums(clipPage, totalPages).map((p, i) =>
+                    p === "…" ? (
+                      <span key={`ellipsis-${i}`} style={{ width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.85rem", color: "#94a3b8", letterSpacing: "0.05em" }}>…</span>
+                    ) : (
+                      <button
+                        key={p}
+                        onClick={() => setClipPage(p)}
+                        style={{ width: 34, height: 34, borderRadius: 8, border: `1.5px solid ${clipPage === p ? BLUE : "#E2E6F0"}`, background: clipPage === p ? BLUE : "#fff", cursor: "pointer", fontSize: "0.8rem", fontWeight: 700, color: clipPage === p ? "#fff" : "#64748b", transition: "all 0.15s", flexShrink: 0 }}
+                      >
+                        {p + 1}
+                      </button>
+                    )
+                  )}
 
                   <button
                     onClick={() => setClipPage((p) => Math.min(totalPages - 1, p + 1))}
@@ -1361,20 +1427,15 @@ export default function StudioPage() {
 
                   {/* Live preview strip */}
                   <div>
-                    <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem" }}>Preview</label>
-                    <div style={{ borderRadius: 12, overflow: "hidden", position: "relative", aspectRatio: "9/16", background: "#000", maxWidth: 200, margin: "0 auto" }}>
-                      <VideoThumb src={selectedClip.url} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 1 - overlayOpacity }} />
-                      <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${overlayOpacity})` }} />
-                      <div style={{ position: "absolute", inset: 0, display: "flex", padding: "0.75rem 1.25rem",
-                        alignItems: textPosition === "top" ? "flex-start" : textPosition === "center" ? "center" : "flex-end",
-                        justifyContent: "center" }}>
-                        <p style={{ color: textColor, fontWeight: 800, textAlign: "center", lineHeight: 1.3,
-                          fontSize: fontSize === "sm" ? "0.72rem" : fontSize === "md" ? "0.9rem" : "1.1rem",
-                          textShadow: "0 1px 6px rgba(0,0,0,0.7)", letterSpacing: "0.01em" }}>
-                          {lines[0] ?? "Your lyric line appears here"}
-                        </p>
-                      </div>
-                    </div>
+                    <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem" }}>Preview — click to play</label>
+                    <VideoPreview
+                      src={selectedClip.url}
+                      overlayOpacity={overlayOpacity}
+                      textColor={textColor}
+                      textPosition={textPosition}
+                      fontSize={fontSize}
+                      lyricLine={lines[0] ?? "Your lyric line appears here"}
+                    />
                   </div>
                 </div>
               )}
