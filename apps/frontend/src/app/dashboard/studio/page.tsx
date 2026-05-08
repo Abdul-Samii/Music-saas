@@ -191,16 +191,18 @@ function WaveformCanvas({
 function VideoCard({ clip, selected, onSelect }: { clip: VideoClip; selected: boolean; onSelect: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hovered, setHovered] = useState(false);
-  const [srcReady, setSrcReady] = useState(false);
+  const [thumbReady, setThumbReady] = useState(false);
 
   function onEnter() {
     setHovered(true);
-    setSrcReady(true);
-    setTimeout(() => videoRef.current?.play().catch(() => {}), 80);
+    videoRef.current?.play().catch(() => {});
   }
   function onLeave() {
     setHovered(false);
-    if (videoRef.current) { videoRef.current.pause(); videoRef.current.currentTime = 0; }
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0.5;
+    }
   }
 
   return (
@@ -210,29 +212,47 @@ function VideoCard({ clip, selected, onSelect }: { clip: VideoClip; selected: bo
         boxShadow: selected ? `0 0 0 3px rgba(58,96,231,0.15)` : "0 1px 4px rgba(0,0,0,0.05)",
         transition: "border-color 0.15s, box-shadow 0.15s" }}>
 
-      {/* Thumbnail / video */}
-      <div style={{ position: "relative", aspectRatio: "16/9", overflow: "hidden", background: "#0B1120" }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={clip.thumbnail} alt={clip.title}
+      {/* Video acts as both thumbnail (paused at 0.5s) and preview (plays on hover) */}
+      <div style={{ position: "relative", aspectRatio: "16/9", overflow: "hidden", background: "#111827" }}>
+        {/* Gradient placeholder while video loads */}
+        {!thumbReady && (
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #1e1b4b 0%, #111827 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+            </svg>
+          </div>
+        )}
+        <video
+          ref={videoRef}
+          src={clip.url}
+          muted playsInline loop preload="metadata"
+          onLoadedMetadata={() => {
+            if (videoRef.current) {
+              videoRef.current.currentTime = 0.5;
+            }
+          }}
+          onSeeked={() => setThumbReady(true)}
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
-            opacity: hovered ? 0 : 1, transition: "opacity 0.25s" }} />
-        {srcReady && (
-          <video ref={videoRef} src={clip.url} muted playsInline loop preload="none"
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
-              opacity: hovered ? 1 : 0, transition: "opacity 0.25s" }} />
+            opacity: thumbReady ? 1 : 0, transition: "opacity 0.3s" }}
+        />
+        {/* Dark gradient at bottom when not playing */}
+        {!hovered && thumbReady && (
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%)" }} />
         )}
         {selected && (
-          <div style={{ position: "absolute", inset: 0, background: "rgba(58,96,231,0.18)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(58,96,231,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ width: 30, height: 30, borderRadius: "50%", background: BLUE, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(58,96,231,0.5)" }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
           </div>
         )}
-        <div style={{ position: "absolute", bottom: 6, right: 7, background: "rgba(0,0,0,0.65)", borderRadius: 5, padding: "0.15rem 0.45rem", fontSize: "0.67rem", fontWeight: 700, color: "#fff", fontFamily: "monospace" }}>
-          {fmtShort(clip.duration)}
-        </div>
+        {clip.duration > 0 && (
+          <div style={{ position: "absolute", bottom: 6, right: 7, background: "rgba(0,0,0,0.65)", borderRadius: 5, padding: "0.15rem 0.45rem", fontSize: "0.67rem", fontWeight: 700, color: "#fff", fontFamily: "monospace" }}>
+            {fmtShort(clip.duration)}
+          </div>
+        )}
         {hovered && !selected && (
-          <div style={{ position: "absolute", bottom: 6, left: 7, background: "rgba(58,96,231,0.85)", borderRadius: 5, padding: "0.15rem 0.5rem", fontSize: "0.65rem", fontWeight: 700, color: "#fff" }}>Preview</div>
+          <div style={{ position: "absolute", bottom: 6, left: 7, background: "rgba(58,96,231,0.85)", borderRadius: 5, padding: "0.15rem 0.5rem", fontSize: "0.65rem", fontWeight: 700, color: "#fff" }}>▶ Playing</div>
         )}
       </div>
 
@@ -242,6 +262,20 @@ function VideoCard({ clip, selected, onSelect }: { clip: VideoClip; selected: bo
         <span style={{ fontSize: "0.67rem", fontWeight: 700, color: BLUE, background: "#EEF2FF", padding: "0.15rem 0.5rem", borderRadius: 4, marginTop: "0.3rem", display: "inline-block" }}>{clip.style}</span>
       </div>
     </div>
+  );
+}
+
+// ── Static video thumbnail (seeks to 0.5s on load) ───────────────────────────
+function VideoThumb({ src, style }: { src: string; style?: React.CSSProperties }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  return (
+    <video
+      ref={ref}
+      src={src}
+      muted playsInline preload="metadata"
+      onLoadedMetadata={() => { if (ref.current) ref.current.currentTime = 0.5; }}
+      style={{ objectFit: "cover", ...style }}
+    />
   );
 }
 
@@ -1213,8 +1247,7 @@ export default function StudioPage() {
 
                   {/* Selected clip header */}
                   <div style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={selectedClip.thumbnail} alt={selectedClip.title} style={{ width: 60, height: 38, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+                    <VideoThumb src={selectedClip.url} style={{ width: 60, height: 38, borderRadius: 8, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontWeight: 800, fontSize: "0.9rem", color: NAVY }}>{selectedClip.title}</p>
                       <span style={{ fontSize: "0.7rem", fontWeight: 700, color: BLUE, background: "#EEF2FF", padding: "0.1rem 0.45rem", borderRadius: 4 }}>{selectedClip.style}</span>
@@ -1290,8 +1323,7 @@ export default function StudioPage() {
                   <div>
                     <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem" }}>Preview</label>
                     <div style={{ borderRadius: 12, overflow: "hidden", position: "relative", aspectRatio: "16/5", background: "#000" }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={selectedClip.thumbnail} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 - overlayOpacity }} />
+                      <VideoThumb src={selectedClip.url} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 1 - overlayOpacity }} />
                       <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${overlayOpacity})` }} />
                       <div style={{ position: "absolute", inset: 0, display: "flex", padding: "0.75rem 1.25rem",
                         alignItems: textPosition === "top" ? "flex-start" : textPosition === "center" ? "center" : "flex-end",
@@ -1378,8 +1410,7 @@ export default function StudioPage() {
             {/* Preview thumbnail with lyric overlay */}
             {selectedClip && (
               <div style={{ borderRadius: 14, overflow: "hidden", position: "relative", aspectRatio: "16/9", marginBottom: "1.75rem" }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={selectedClip.thumbnail} alt={selectedClip.title} style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 1 - overlayOpacity }} />
+                <VideoThumb src={selectedClip.url} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 1 - overlayOpacity }} />
                 <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${overlayOpacity})` }} />
                 <div style={{ position: "absolute", inset: 0, display: "flex", padding: "1rem 1.5rem",
                   alignItems: textPosition === "top" ? "flex-start" : textPosition === "center" ? "center" : "flex-end",
