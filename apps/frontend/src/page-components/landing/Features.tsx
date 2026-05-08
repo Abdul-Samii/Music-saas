@@ -350,12 +350,13 @@ const Features = () => {
             <Marquee>
               {VIDEOS.map((s) => (
                 <SlideDown key={s.id}>
-                  <div className="relative rounded-[12px] overflow-hidden mr-6 border border-primary">
+                  <div className="relative rounded-[12px] overflow-hidden mr-4 md:mr-6 border border-primary">
                     <video
                       src={s.url}
                       controls={false}
                       disablePictureInPicture
-                      className="rounded-[10px] w-[300px] h-[533.33px] object-cover"
+                      // className="rounded-[10px] w-[300px] h-[533.33px] object-cover"
+                      className="rounded-[10px] w-[180px] md:w-[300px] aspect-[300/533.33] object-cover"
                       autoPlay
                       muted
                     />
