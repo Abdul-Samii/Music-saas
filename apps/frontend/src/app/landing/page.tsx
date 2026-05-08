@@ -1,48 +1,57 @@
-"use client";
-import Hero from "@/page-components/landing/Hero";
-import Navbar from "@/page-components/landing/Navbar";
+import { Metadata } from "next";
+import LandingPageClient from "@/page-components/landing";
 
-import BestAlternatives from "@/page-components/landing/BestAlternatives";
-import CTA from "@/page-components/landing/CTA";
-import DesignedForYou from "@/page-components/landing/DesignedForYou";
-import Faqs from "@/page-components/landing/Faqs";
-import Features from "@/page-components/landing/Features";
-import HowItWorks from "@/page-components/landing/HowItWorks";
-import LandingFooter from "@/page-components/landing/LandingFooter";
-import OurStoryAndResults from "@/page-components/landing/OurStoryAndResults";
-import PricingPlan from "@/page-components/landing/PricingPlan";
-import { useEffect } from "react";
+export const metadata: Metadata = {
+  metadataBase: new URL("https://escalium.io"),
+
+  title: "All in One Music Marketing Platform - Escalium",
+
+  description:
+    "Escalium has everything a singer, producer, manager or a label needs. Review analytics, create ad campaigns, landing pages or generate lyric videos for social media",
+
+  alternates: {
+    canonical: "/landing",
+  },
+
+  openGraph: {
+    title: "All in One Music Marketing Platform - Escalium",
+    description:
+      "Escalium has everything a singer, producer, manager or a label needs. Review analytics, create ad campaigns, landing pages or generate lyric videos for social media",
+    url: "/landing",
+    siteName: "Escalium",
+    images: [
+      {
+        url: "/logo.webp",
+        width: 1200,
+        height: 630,
+        alt: "Escalium Platform Preview",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "All in One Music Marketing Platform - Escalium",
+    description:
+      "Escalium has everything a singer, producer, manager or a label needs. Review analytics, create ad campaigns, landing pages or generate lyric videos for social media",
+    images: ["/logo.webp"],
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+  },
+
+  category: "technology",
+
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
+};
 
 export default function LandingPage() {
-	useEffect(() => {
-		if (
-			typeof window !== "undefined" &&
-			(window as Window & { fbq?: (...args: unknown[]) => void }).fbq
-		) {
-			(window as Window & { fbq?: (...args: unknown[]) => void }).fbq!(
-				"track",
-				"ViewContent",
-				{
-					content_name: "Landing Page",
-					content_category: "Music Marketing",
-				},
-			);
-		}
-	}, []);
-
-	return (
-		<div className="page">
-			<Navbar />
-			<Hero />
-			<HowItWorks />
-			<Features />
-			<DesignedForYou />
-			<OurStoryAndResults />
-			<BestAlternatives />
-			<PricingPlan />
-			<Faqs />
-			<CTA />
-			<LandingFooter />
-		</div>
-	);
+  return <LandingPageClient />;
 }

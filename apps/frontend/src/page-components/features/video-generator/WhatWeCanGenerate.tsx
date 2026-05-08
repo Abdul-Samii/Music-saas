@@ -34,6 +34,36 @@ export const VIDEOS = [
     name: "Techno",
     views: "200K",
   },
+  {
+    id: "06",
+    url: "/img/what-we-can-create/1.mp4",
+    name: "hardstyle",
+    views: "1M",
+  },
+  {
+    id: "07",
+    url: "/img/what-we-can-create/2.mp4",
+    name: "HyperTechno",
+    views: "300K",
+  },
+  {
+    id: "08",
+    url: "/img/what-we-can-create/3.mp4",
+    name: "K-pop",
+    views: "650K",
+  },
+  {
+    id: "09",
+    url: "/img/what-we-can-create/4.mp4",
+    name: "Afrohouse",
+    views: "4.5M",
+  },
+  {
+    id: "10",
+    url: "/img/what-we-can-create/5.mp4",
+    name: "Techno",
+    views: "200K",
+  },
 ];
 
 const WhatWeCanGenerate = () => {

@@ -327,50 +327,53 @@ const Features = () => {
                   />
                 </div>
               </div>
-              <div>
-                <div className="max-w-[720px] mb-10 text-center mx-auto">
-                  <h3 className="text-xl md:text-3xl font-bold leading-[1.3]">
-                    <TextAnimation text="Create lyric ads within seconds" />
-                  </h3>
-                  <p className="text-muted mt-2">
-                    Stop editing videos for hours just to get no results on ads
-                    and 200 views on tiktok. After creating more than 3.000
-                    music ads, we found the best videos and we’ve added them to
-                    our template library so you can use it by just dragging your
-                    song. And yes, you will get this viral tiktok lyrics so you
-                    can go viral as well!
-                  </p>
-                </div>
-
-                <Marquee>
-                  {VIDEOS.map((s) => (
-                    <SlideDown key={s.id}>
-                      <div className="relative rounded-[12px] overflow-hidden mr-6 border border-primary">
-                        <video
-                          src={s.url}
-                          controls={false}
-                          disablePictureInPicture
-                          className="rounded-[10px] w-[300px] h-[533.33px] object-cover"
-                          autoPlay
-                          muted
-                        />
-                        <div className="absolute w-full left-0 bottom-0 p-3 py-5 bg-linear-to-t from-primary to-transparent">
-                          <h3 className="mt-3 font-bold text-xl text-center text-white mb-2">
-                            {s.name}
-                          </h3>
-                          <span className="text-center text-xs text-muted block">
-                            this video has generated over {s.views} views
-                          </span>
-                        </div>
-                      </div>
-                    </SlideDown>
-                  ))}
-                </Marquee>
-              </div>
             </FadeIn>
           </Parallax>
         </FadeInUp>
       </div>
+      <FadeInUp>
+        <Parallax speed={-5}>
+          <div>
+            <div className="max-w-[720px] mb-10 text-center mx-auto">
+              <h3 className="text-xl md:text-3xl font-bold leading-[1.3]">
+                <TextAnimation text="Create lyric ads within seconds" />
+              </h3>
+              <p className="text-muted mt-2">
+                Stop editing videos for hours just to get no results on ads and
+                200 views on tiktok. After creating more than 3.000 music ads,
+                we found the best videos and we’ve added them to our template
+                library so you can use it by just dragging your song. And yes,
+                you will get this viral tiktok lyrics so you can go viral as
+                well!
+              </p>
+            </div>
+            <Marquee>
+              {VIDEOS.map((s) => (
+                <SlideDown key={s.id}>
+                  <div className="relative rounded-[12px] overflow-hidden mr-6 border border-primary">
+                    <video
+                      src={s.url}
+                      controls={false}
+                      disablePictureInPicture
+                      className="rounded-[10px] w-[300px] h-[533.33px] object-cover"
+                      autoPlay
+                      muted
+                    />
+                    <div className="absolute w-full left-0 bottom-0 p-3 py-5 bg-linear-to-t from-primary to-transparent">
+                      <h3 className="mt-3 font-bold text-xl text-center text-white mb-2">
+                        {s.name}
+                      </h3>
+                      <span className="text-center text-xs text-muted block">
+                        this video has generated over {s.views} views
+                      </span>
+                    </div>
+                  </div>
+                </SlideDown>
+              ))}
+            </Marquee>
+          </div>
+        </Parallax>
+      </FadeInUp>
     </section>
   );
 };

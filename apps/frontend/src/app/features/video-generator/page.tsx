@@ -12,21 +12,22 @@ import WhatWeCanGenerate from "@/page-components/features/video-generator/WhatWe
 import WhyWeExists from "@/page-components/features/video-generator/WhyWeExists";
 
 export default function VideoGeneratorPage() {
-	return (
-		<main className="bg-body-2">
-			<Navbar />
-			<VideoGeneratorHero />
-			<VideoGeneratorHowItWorks />
-			<WhatWeCanGenerate />
-			<WhyWeExists />
-			<StartCreating />
-			<LyricVideo />
-			<EscaliumMadePublic />
-			<TryItFree />
-			{/* <VideoGeneratorFeatures /> */}
-			{/* <VideoGeneratorLearnMore /> */}
-			<VideoGeneratorCta />
-			<Footer />
-		</main>
-	);
+  return;
+  return (
+    <main className="bg-body-2">
+      <Navbar />
+      <VideoGeneratorHero />
+      <VideoGeneratorHowItWorks />
+      <WhatWeCanGenerate />
+      <WhyWeExists />
+      <StartCreating />
+      <LyricVideo />
+      <EscaliumMadePublic />
+      <TryItFree />
+      {/* <VideoGeneratorFeatures /> */}
+      {/* <VideoGeneratorLearnMore /> */}
+      <VideoGeneratorCta />
+      <Footer />
+    </main>
+  );
 }
