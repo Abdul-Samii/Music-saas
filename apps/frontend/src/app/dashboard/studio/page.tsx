@@ -192,6 +192,7 @@ function VideoCard({ clip, selected, onSelect }: { clip: VideoClip; selected: bo
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hovered, setHovered] = useState(false);
   const [thumbReady, setThumbReady] = useState(false);
+  const [videoDuration, setVideoDuration] = useState(clip.duration);
 
   function onEnter() {
     setHovered(true);
@@ -212,9 +213,7 @@ function VideoCard({ clip, selected, onSelect }: { clip: VideoClip; selected: bo
         boxShadow: selected ? `0 0 0 3px rgba(58,96,231,0.15)` : "0 1px 4px rgba(0,0,0,0.05)",
         transition: "border-color 0.15s, box-shadow 0.15s" }}>
 
-      {/* Video acts as both thumbnail (paused at 0.5s) and preview (plays on hover) */}
-      <div style={{ position: "relative", aspectRatio: "16/9", overflow: "hidden", background: "#111827" }}>
-        {/* Gradient placeholder while video loads */}
+      <div style={{ position: "relative", aspectRatio: "9/16", overflow: "hidden", background: "#111827" }}>
         {!thumbReady && (
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #1e1b4b 0%, #111827 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -229,15 +228,16 @@ function VideoCard({ clip, selected, onSelect }: { clip: VideoClip; selected: bo
           onLoadedMetadata={() => {
             if (videoRef.current) {
               videoRef.current.currentTime = 0.5;
+              const d = videoRef.current.duration;
+              if (d && isFinite(d)) setVideoDuration(d);
             }
           }}
           onSeeked={() => setThumbReady(true)}
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
             opacity: thumbReady ? 1 : 0, transition: "opacity 0.3s" }}
         />
-        {/* Dark gradient at bottom when not playing */}
         {!hovered && thumbReady && (
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%)" }} />
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 40%)" }} />
         )}
         {selected && (
           <div style={{ position: "absolute", inset: 0, background: "rgba(58,96,231,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -246,9 +246,9 @@ function VideoCard({ clip, selected, onSelect }: { clip: VideoClip; selected: bo
             </div>
           </div>
         )}
-        {clip.duration > 0 && (
+        {videoDuration > 0 && (
           <div style={{ position: "absolute", bottom: 6, right: 7, background: "rgba(0,0,0,0.65)", borderRadius: 5, padding: "0.15rem 0.45rem", fontSize: "0.67rem", fontWeight: 700, color: "#fff", fontFamily: "monospace" }}>
-            {fmtShort(clip.duration)}
+            {fmtShort(videoDuration)}
           </div>
         )}
         {hovered && !selected && (
@@ -334,6 +334,7 @@ export default function StudioPage() {
   const [clipsLoaded, setClipsLoaded] = useState(false);
   const [clipsLoading, setClipsLoading] = useState(false);
   const [styleFilter, setStyleFilter] = useState("All");
+  const [clipPage, setClipPage] = useState(0);
   const [selectedClip, setSelectedClip] = useState<VideoClip | null>(null);
   const [creativeName, setCreativeName] = useState("");
   const [textColor, setTextColor] = useState("#FFFFFF");
@@ -598,11 +599,15 @@ export default function StudioPage() {
   }
 
   // ── Style step derived ──
+  const CLIPS_PER_PAGE = 10;
+
   const styleOptions = useMemo(
     () => ["All", ...Array.from(new Set(clips.map((c) => c.style))).sort()],
     [clips]
   );
   const filteredClips = styleFilter === "All" ? clips : clips.filter((c) => c.style === styleFilter);
+  const totalPages = Math.ceil(filteredClips.length / CLIPS_PER_PAGE);
+  const pagedClips = filteredClips.slice(clipPage * CLIPS_PER_PAGE, (clipPage + 1) * CLIPS_PER_PAGE);
 
   // ── Derived ──
   const trimDuration = trimEnd - trimStart;
@@ -1211,7 +1216,7 @@ export default function StudioPage() {
               {/* Style filter tabs */}
               <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                 {styleOptions.map((style) => (
-                  <button key={style} onClick={() => setStyleFilter(style)} style={{
+                  <button key={style} onClick={() => { setStyleFilter(style); setClipPage(0); }} style={{
                     padding: "0.4rem 1rem", borderRadius: 99, cursor: "pointer",
                     border: `1.5px solid ${styleFilter === style ? BLUE : "#E2E6F0"}`,
                     background: styleFilter === style ? BLUE : "#fff",
@@ -1230,8 +1235,8 @@ export default function StudioPage() {
               </div>
 
               {/* Video grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
-                {filteredClips.map((clip) => (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.75rem" }}>
+                {pagedClips.map((clip) => (
                   <VideoCard key={clip.id} clip={clip} selected={selectedClip?.id === clip.id} onSelect={() => setSelectedClip(clip)} />
                 ))}
                 {filteredClips.length === 0 && (
@@ -1241,13 +1246,48 @@ export default function StudioPage() {
                 )}
               </div>
 
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+                  <button
+                    onClick={() => setClipPage((p) => Math.max(0, p - 1))}
+                    disabled={clipPage === 0}
+                    style={{ width: 34, height: 34, borderRadius: 8, border: "1.5px solid #E2E6F0", background: clipPage === 0 ? "#F8F9FC" : "#fff", cursor: clipPage === 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: clipPage === 0 ? "#CBD5E1" : "#64748b" }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setClipPage(i)}
+                      style={{ width: 34, height: 34, borderRadius: 8, border: `1.5px solid ${clipPage === i ? BLUE : "#E2E6F0"}`, background: clipPage === i ? BLUE : "#fff", cursor: "pointer", fontSize: "0.8rem", fontWeight: 700, color: clipPage === i ? "#fff" : "#64748b", transition: "all 0.15s" }}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+
+                  <button
+                    onClick={() => setClipPage((p) => Math.min(totalPages - 1, p + 1))}
+                    disabled={clipPage === totalPages - 1}
+                    style={{ width: 34, height: 34, borderRadius: 8, border: "1.5px solid #E2E6F0", background: clipPage === totalPages - 1 ? "#F8F9FC" : "#fff", cursor: clipPage === totalPages - 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: clipPage === totalPages - 1 ? "#CBD5E1" : "#64748b" }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+
+                  <span style={{ fontSize: "0.78rem", color: "#94a3b8", marginLeft: "0.25rem" }}>
+                    {clipPage * CLIPS_PER_PAGE + 1}–{Math.min((clipPage + 1) * CLIPS_PER_PAGE, filteredClips.length)} of {filteredClips.length}
+                  </span>
+                </div>
+              )}
+
               {/* Customisation panel — slides in when clip selected */}
               {selectedClip && (
                 <div style={{ background: "#fff", borderRadius: 20, border: `1.5px solid ${BLUE}`, padding: "1.5rem", boxShadow: "0 4px 16px rgba(58,96,231,0.10)", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
                   {/* Selected clip header */}
                   <div style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
-                    <VideoThumb src={selectedClip.url} style={{ width: 60, height: 38, borderRadius: 8, flexShrink: 0 }} />
+                    <VideoThumb src={selectedClip.url} style={{ width: 36, height: 64, borderRadius: 8, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontWeight: 800, fontSize: "0.9rem", color: NAVY }}>{selectedClip.title}</p>
                       <span style={{ fontSize: "0.7rem", fontWeight: 700, color: BLUE, background: "#EEF2FF", padding: "0.1rem 0.45rem", borderRadius: 4 }}>{selectedClip.style}</span>
@@ -1322,7 +1362,7 @@ export default function StudioPage() {
                   {/* Live preview strip */}
                   <div>
                     <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem" }}>Preview</label>
-                    <div style={{ borderRadius: 12, overflow: "hidden", position: "relative", aspectRatio: "16/5", background: "#000" }}>
+                    <div style={{ borderRadius: 12, overflow: "hidden", position: "relative", aspectRatio: "9/16", background: "#000", maxWidth: 200, margin: "0 auto" }}>
                       <VideoThumb src={selectedClip.url} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 1 - overlayOpacity }} />
                       <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${overlayOpacity})` }} />
                       <div style={{ position: "absolute", inset: 0, display: "flex", padding: "0.75rem 1.25rem",
@@ -1409,7 +1449,7 @@ export default function StudioPage() {
 
             {/* Preview thumbnail with lyric overlay */}
             {selectedClip && (
-              <div style={{ borderRadius: 14, overflow: "hidden", position: "relative", aspectRatio: "16/9", marginBottom: "1.75rem" }}>
+              <div style={{ borderRadius: 14, overflow: "hidden", position: "relative", aspectRatio: "9/16", marginBottom: "1.75rem", maxWidth: 220, margin: "0 auto 1.75rem" }}>
                 <VideoThumb src={selectedClip.url} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 1 - overlayOpacity }} />
                 <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${overlayOpacity})` }} />
                 <div style={{ position: "absolute", inset: 0, display: "flex", padding: "1rem 1.5rem",
