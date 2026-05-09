@@ -92,7 +92,7 @@ const BestAlternatives = () => {
                     <th
                       key={col.name}
                       className={cn(
-                        "py-5 px-5 text-center text-xl font-bold first:text-start first:xl:px-10",
+                        "py-5 px-5 text-center font-bold first:text-start first:xl:px-10",
                         {
                           "text-primary bg-[#EEF2FF]": col.name === "Escalium",
                         },
@@ -124,24 +124,24 @@ const BestAlternatives = () => {
                       "border-b border-border/60": i < ROWS.length - 1,
                     })}
                   >
-                    <td className="text-secondary font-medium text-xl py-5 px-5 xl:px-10">
+                    <td className="text-secondary font-medium py-5 px-5 xl:px-10">
                       {row.label}
                     </td>
-                    <td className="text-center text-xl py-3.5 px-5 bg-[#3a60e708]">
+                    <td className="text-center py-3.5 px-5 bg-[#3a60e708]">
                       <div className="flex justify-center">
                         {typeof row?.escalium === "string"
                           ? row.escalium
                           : checkIcon(row?.escalium)}
                       </div>
                     </td>
-                    <td className="text-secondary font-medium text-xl py-3.5 px-5 text-center">
+                    <td className="text-secondary font-medium py-3.5 px-5 text-center">
                       <div className="flex justify-center">
                         {typeof row?.marketingAgencies === "string"
                           ? row.marketingAgencies
                           : checkIcon(row?.marketingAgencies)}
                       </div>
                     </td>
-                    <td className="text-center text-xl py-3.5 px-5">
+                    <td className="text-center py-3.5 px-5">
                       <div className="flex justify-center">
                         {typeof row?.adsManager === "string"
                           ? row.adsManager
@@ -164,17 +164,17 @@ const checkIcon = (status: boolean | null) => {
     return (
       <img
         src="/img/cross-outlined.svg"
-        width={20}
+        width={14}
         className="opacity-50"
         alt=""
       />
     );
   }
   if (status === true) {
-    return <img src="/img/check-icon.svg" width={36} alt="" />;
+    return <img src="/img/check-icon.svg" width={24} alt="" />;
   }
   if (status === null) {
-    return <img src="/img/warning-icon.svg" width={36} alt="" />;
+    return <img src="/img/warning-icon.svg" width={24} alt="" />;
   }
 };
 export default BestAlternatives;
