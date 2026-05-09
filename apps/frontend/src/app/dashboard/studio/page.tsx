@@ -24,32 +24,53 @@ interface VideoClip {
   thumbnail: string;
 }
 
-type LyricStyle = "fade" | "rise" | "pop" | "drop" | "glow";
+type LyricStyle = "word-by-word" | "spotlight" | "echo" | "pop" | "glow";
 
 interface ClipConfig {
   creativeName: string;
   textColor: string;
+  highlightColor: string;
   textPosition: "top" | "center" | "bottom";
   fontSize: "sm" | "md" | "lg";
   overlayOpacity: number;
   lyricStyle: LyricStyle;
+  fontFamily: string;
 }
 
 const DEFAULT_CONFIG: ClipConfig = {
   creativeName: "",
   textColor: "#FFFFFF",
+  highlightColor: "#FACC15",
   textPosition: "bottom",
   fontSize: "md",
   overlayOpacity: 0.4,
-  lyricStyle: "rise",
+  lyricStyle: "word-by-word",
+  fontFamily: "'Bebas Neue', sans-serif",
 };
 
-const LYRIC_STYLES: { id: LyricStyle; label: string; desc: string }[] = [
-  { id: "fade",  label: "Fade",      desc: "Smooth opacity fade in" },
-  { id: "rise",  label: "Rise",      desc: "Slides up from below" },
-  { id: "pop",   label: "Pop",       desc: "Elastic scale pop" },
-  { id: "drop",  label: "Drop",      desc: "Falls from above" },
-  { id: "glow",  label: "Glow",      desc: "Blurs in with glow" },
+const LYRIC_STYLES: { id: LyricStyle; label: string; desc: string; icon: string }[] = [
+  { id: "word-by-word", label: "Word by Word", desc: "Sentence builds word by word",     icon: "✍️" },
+  { id: "spotlight",    label: "Spotlight",    desc: "One big word at a time, highlighted", icon: "🔦" },
+  { id: "echo",         label: "Echo",         desc: "Double-line ghost effect",          icon: "〰️" },
+  { id: "pop",          label: "Pop",          desc: "Elastic scale pop",                  icon: "💥" },
+  { id: "glow",         label: "Glow",         desc: "Blurs in with glow",                icon: "🌟" },
+];
+
+const FONTS: { label: string; value: string; preview: string }[] = [
+  { label: "Bebas Neue",     value: "'Bebas Neue', sans-serif",    preview: "BEBAS" },
+  { label: "Montserrat",     value: "'Montserrat', sans-serif",    preview: "Montserrat" },
+  { label: "Pacifico",       value: "'Pacifico', cursive",         preview: "Pacifico" },
+  { label: "Orbitron",       value: "'Orbitron', sans-serif",      preview: "ORBIT" },
+  { label: "Dancing Script", value: "'Dancing Script', cursive",   preview: "Dancing" },
+  { label: "Space Grotesk",  value: "'Space Grotesk', sans-serif", preview: "Grotesk" },
+];
+
+const HIGHLIGHT_COLORS = [
+  { label: "Yellow",  hex: "#FACC15" },
+  { label: "Cyan",    hex: "#22D3EE" },
+  { label: "Pink",    hex: "#F472B6" },
+  { label: "Orange",  hex: "#FB923C" },
+  { label: "Lime",    hex: "#A3E635" },
 ];
 
 function fmt(s: number) {
@@ -308,14 +329,15 @@ function VideoThumb({ src, style }: { src: string; style?: React.CSSProperties }
 }
 
 // ── Interactive preview video with animated lyrics ────────────────────────────
-function VideoPreview({ src, overlayOpacity, textColor, textPosition, fontSize, lyricStyle, lines }: {
-  src: string; overlayOpacity: number; textColor: string;
+function VideoPreview({ src, overlayOpacity, textColor, highlightColor, textPosition, fontSize, lyricStyle, fontFamily, lines }: {
+  src: string; overlayOpacity: number; textColor: string; highlightColor: string;
   textPosition: "top" | "center" | "bottom"; fontSize: "sm" | "md" | "lg";
-  lyricStyle: string; lines: string[];
+  lyricStyle: LyricStyle; fontFamily: string; lines: string[];
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [lineIndex, setLineIndex] = useState(0);
+  const [wordIndex, setWordIndex] = useState(0);
   const [animKey, setAnimKey] = useState(0);
 
   useEffect(() => {
@@ -325,14 +347,39 @@ function VideoPreview({ src, overlayOpacity, textColor, textPosition, fontSize, 
     return () => { v.pause(); };
   }, [src]);
 
+  const safeLines = useMemo(() => lines.length > 0 ? lines : ["Your lyric appears here"], [lines]);
+
+  // word-by-word: reveal one word at a time per line, then advance line
   useEffect(() => {
-    if (lines.length <= 1) return;
-    const t = setInterval(() => {
-      setLineIndex((i) => (i + 1) % lines.length);
-      setAnimKey((k) => k + 1);
-    }, 2500);
+    if (lyricStyle !== "word-by-word") return;
+    const currentWords = (safeLines[lineIndex] || "").split(" ").filter(Boolean);
+    if (wordIndex < currentWords.length - 1) {
+      const t = setTimeout(() => { setWordIndex((w) => w + 1); setAnimKey((k) => k + 1); }, 340);
+      return () => clearTimeout(t);
+    } else {
+      const t = setTimeout(() => {
+        setLineIndex((l) => (l + 1) % safeLines.length);
+        setWordIndex(0);
+        setAnimKey((k) => k + 1);
+      }, 1600);
+      return () => clearTimeout(t);
+    }
+  }, [lyricStyle, lineIndex, wordIndex, safeLines]);
+
+  // spotlight: one big word at a time from all words
+  const allWords = useMemo(() => safeLines.flatMap((l) => l.split(" ").filter(Boolean)), [safeLines]);
+  useEffect(() => {
+    if (lyricStyle !== "spotlight") return;
+    const t = setInterval(() => { setWordIndex((w) => (w + 1) % allWords.length); setAnimKey((k) => k + 1); }, 650);
     return () => clearInterval(t);
-  }, [lines.length]);
+  }, [lyricStyle, allWords.length]);
+
+  // echo / pop / glow: cycle through lines
+  useEffect(() => {
+    if (lyricStyle === "word-by-word" || lyricStyle === "spotlight") return;
+    const t = setInterval(() => { setLineIndex((i) => (i + 1) % safeLines.length); setAnimKey((k) => k + 1); }, 2400);
+    return () => clearInterval(t);
+  }, [lyricStyle, safeLines.length]);
 
   function toggle() {
     if (!ref.current) return;
@@ -340,9 +387,63 @@ function VideoPreview({ src, overlayOpacity, textColor, textPosition, fontSize, 
     else { ref.current.play().catch(() => {}); setPlaying(true); }
   }
 
-  const displayLine = lines.length > 0 ? lines[lineIndex] : "Your lyric line appears here";
-  const animName = `lyric-${lyricStyle}`;
-  const fSize = fontSize === "sm" ? "0.85rem" : fontSize === "md" ? "1.05rem" : "1.25rem";
+  const fSize = fontSize === "sm" ? "0.9rem" : fontSize === "md" ? "1.15rem" : "1.4rem";
+  const textStyle: React.CSSProperties = {
+    color: textColor, fontWeight: 800, textAlign: "center", lineHeight: 1.35,
+    fontSize: fSize, textShadow: "0 2px 14px rgba(0,0,0,0.95)", margin: 0,
+    fontFamily, letterSpacing: "0.02em",
+  };
+
+  function renderLyric() {
+    if (lyricStyle === "word-by-word") {
+      const words = (safeLines[lineIndex] || "").split(" ").filter(Boolean);
+      const revealed = words.slice(0, wordIndex + 1);
+      return (
+        <p style={textStyle}>
+          {revealed.slice(0, -1).join(" ")}
+          {revealed.length > 1 ? " " : ""}
+          <span key={animKey} style={{ display: "inline", animation: "lyr-word 0.28s ease forwards" }}>
+            {revealed[revealed.length - 1]}
+          </span>
+        </p>
+      );
+    }
+    if (lyricStyle === "spotlight") {
+      const word = allWords[wordIndex % allWords.length] || "";
+      const isHighlighted = wordIndex % 3 === 0 || wordIndex % 7 === 4;
+      return (
+        <p key={animKey} style={{ ...textStyle, fontSize: fontSize === "sm" ? "1.5rem" : fontSize === "md" ? "2rem" : "2.6rem",
+          color: isHighlighted ? highlightColor : textColor,
+          animation: "lyr-spotlight 0.3s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
+          textShadow: isHighlighted ? `0 0 24px ${highlightColor}88, 0 2px 14px rgba(0,0,0,0.95)` : textStyle.textShadow,
+        }}>
+          {word}
+        </p>
+      );
+    }
+    if (lyricStyle === "echo") {
+      const line = safeLines[lineIndex] || "";
+      return (
+        <div key={animKey} style={{ display: "flex", flexDirection: "column", alignItems: "center", animation: "lyr-echo-in 0.5s ease forwards" }}>
+          <p style={{ ...textStyle, margin: 0 }}>{line}</p>
+          <p style={{ ...textStyle, margin: "-0.35em 0 0 0", opacity: 0.28, filter: "blur(2.5px)", transform: "scaleY(-1) scaleX(0.97)", fontSize: `calc(${fSize} * 0.85)` }}>{line}</p>
+        </div>
+      );
+    }
+    if (lyricStyle === "glow") {
+      return (
+        <p key={animKey} style={{ ...textStyle, animation: "lyr-glow 0.6s ease forwards" }}>
+          <span style={{ filter: "drop-shadow(0 0 10px currentColor)" }}>{safeLines[lineIndex]}</span>
+        </p>
+      );
+    }
+    // pop
+    return (
+      <p key={animKey} style={{ ...textStyle, animation: "lyr-pop 0.5s cubic-bezier(0.175,0.885,0.32,1.275) forwards" }}>
+        {safeLines[lineIndex]}
+      </p>
+    );
+  }
 
   return (
     <div onClick={toggle} style={{ borderRadius: 14, overflow: "hidden", position: "relative", aspectRatio: "9/16", background: "#000", maxWidth: 300, margin: "0 auto", cursor: "pointer" }}>
@@ -353,13 +454,7 @@ function VideoPreview({ src, overlayOpacity, textColor, textPosition, fontSize, 
       <div style={{ position: "absolute", inset: 0, display: "flex", padding: "1rem 1.25rem",
         alignItems: textPosition === "top" ? "flex-start" : textPosition === "center" ? "center" : "flex-end",
         justifyContent: "center", pointerEvents: "none" }}>
-        <p key={animKey} style={{ color: textColor, fontWeight: 800, textAlign: "center", lineHeight: 1.4,
-          fontSize: fSize, textShadow: "0 2px 12px rgba(0,0,0,0.9)", letterSpacing: "0.01em",
-          animation: `${animName} 0.55s ease forwards`, margin: 0 }}>
-          {lyricStyle === "glow" ? (
-            <span style={{ filter: "drop-shadow(0 0 8px currentColor)" }}>{displayLine}</span>
-          ) : displayLine}
-        </p>
+        {renderLyric()}
       </div>
       {!playing && (
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1580,7 +1675,7 @@ export default function StudioPage() {
                         </div>
                       </div>
 
-                      {/* Lyric Style */}
+                      {/* Lyric Animation Style */}
                       <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
                         <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Lyric Animation</label>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.5rem" }}>
@@ -1588,14 +1683,39 @@ export default function StudioPage() {
                             <button key={s.id} onClick={() => updateActiveConfig({ lyricStyle: s.id })}
                               title={s.desc}
                               style={{ padding: "0.5rem 0.25rem", borderRadius: 10, border: `1.5px solid ${activeConfig.lyricStyle === s.id ? BLUE : "#E2E6F0"}`, background: activeConfig.lyricStyle === s.id ? "#EEF2FF" : "#F8F9FC", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.3rem", transition: "all 0.15s" }}>
-                              <span style={{ fontSize: "1.1rem" }}>
-                                {s.id === "fade" ? "✨" : s.id === "rise" ? "⬆️" : s.id === "pop" ? "💥" : s.id === "drop" ? "⬇️" : "🌟"}
-                              </span>
-                              <span style={{ fontSize: "0.65rem", fontWeight: 700, color: activeConfig.lyricStyle === s.id ? BLUE : "#64748b" }}>{s.label}</span>
+                              <span style={{ fontSize: "1.1rem" }}>{s.icon}</span>
+                              <span style={{ fontSize: "0.6rem", fontWeight: 700, color: activeConfig.lyricStyle === s.id ? BLUE : "#64748b", textAlign: "center", lineHeight: 1.2 }}>{s.label}</span>
                             </button>
                           ))}
                         </div>
                       </div>
+
+                      {/* Font Family */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+                        <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Font Style</label>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.5rem" }}>
+                          {FONTS.map((f) => (
+                            <button key={f.value} onClick={() => updateActiveConfig({ fontFamily: f.value })}
+                              style={{ padding: "0.5rem 0.25rem", borderRadius: 10, border: `1.5px solid ${activeConfig.fontFamily === f.value ? BLUE : "#E2E6F0"}`, background: activeConfig.fontFamily === f.value ? "#EEF2FF" : "#F8F9FC", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.2rem", transition: "all 0.15s" }}>
+                              <span style={{ fontFamily: f.value, fontSize: "0.85rem", fontWeight: 700, color: activeConfig.fontFamily === f.value ? BLUE : NAVY, lineHeight: 1 }}>{f.preview}</span>
+                              <span style={{ fontSize: "0.58rem", fontWeight: 600, color: "#94a3b8" }}>{f.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Highlight Color (for Spotlight style) */}
+                      {activeConfig.lyricStyle === "spotlight" && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+                          <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Accent Color</label>
+                          <div style={{ display: "flex", gap: "0.5rem" }}>
+                            {HIGHLIGHT_COLORS.map((c) => (
+                              <button key={c.hex} onClick={() => updateActiveConfig({ highlightColor: c.hex })} title={c.label}
+                                style={{ width: 28, height: 28, borderRadius: "50%", border: `2.5px solid ${activeConfig.highlightColor === c.hex ? BLUE : "#E2E6F0"}`, background: c.hex, cursor: "pointer", flexShrink: 0, boxShadow: activeConfig.highlightColor === c.hex ? `0 0 0 2px rgba(58,96,231,0.2)` : "none", transition: "all 0.15s" }} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Preview */}
                       <div>
@@ -1604,9 +1724,11 @@ export default function StudioPage() {
                           src={activeClip.url}
                           overlayOpacity={activeConfig.overlayOpacity}
                           textColor={activeConfig.textColor}
+                          highlightColor={activeConfig.highlightColor}
                           textPosition={activeConfig.textPosition}
                           fontSize={activeConfig.fontSize}
                           lyricStyle={activeConfig.lyricStyle}
+                          fontFamily={activeConfig.fontFamily}
                           lines={lines.length > 0 ? lines : ["Your lyric line appears here"]}
                         />
                       </div>
@@ -1733,27 +1855,28 @@ export default function StudioPage() {
       )}
 
       <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@700;800;900&family=Pacifico&family=Orbitron:wght@700;800&family=Dancing+Script:wght@700&family=Space+Grotesk:wght@700;800&display=swap');
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes lyric-fade {
-          0%   { opacity: 0; }
-          100% { opacity: 1; }
+        @keyframes lyr-word {
+          0%   { opacity: 0; transform: translateY(10px) scale(0.9); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
         }
-        @keyframes lyric-rise {
-          0%   { opacity: 0; transform: translateY(22px); }
+        @keyframes lyr-spotlight {
+          0%   { opacity: 0; transform: scale(0.6); }
+          60%  { transform: scale(1.1); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes lyr-echo-in {
+          0%   { opacity: 0; transform: translateY(14px); }
           100% { opacity: 1; transform: translateY(0); }
         }
-        @keyframes lyric-pop {
+        @keyframes lyr-pop {
           0%   { opacity: 0; transform: scale(0.55); }
           65%  { transform: scale(1.08); }
           100% { opacity: 1; transform: scale(1); }
         }
-        @keyframes lyric-drop {
-          0%   { opacity: 0; transform: translateY(-22px); }
-          60%  { transform: translateY(4px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes lyric-glow {
-          0%   { opacity: 0; filter: blur(10px) brightness(2); transform: scale(0.92); }
+        @keyframes lyr-glow {
+          0%   { opacity: 0; filter: blur(12px) brightness(2.5); transform: scale(0.9); }
           100% { opacity: 1; filter: blur(0px) brightness(1); transform: scale(1); }
         }
       `}</style>
