@@ -397,7 +397,7 @@ export default function StudioPage() {
   const [clipsLoading, setClipsLoading] = useState(false);
   const [styleFilter, setStyleFilter] = useState("All");
   const [clipPage, setClipPage] = useState(0);
-  const [selectedClip, setSelectedClip] = useState<VideoClip | null>(null);
+  const [selectedClips, setSelectedClips] = useState<VideoClip[]>([]);
   const [creativeName, setCreativeName] = useState("");
   const [textColor, setTextColor] = useState("#FFFFFF");
   const [textPosition, setTextPosition] = useState<"top" | "center" | "bottom">("bottom");
@@ -409,7 +409,7 @@ export default function StudioPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [renderStage, setRenderStage] = useState<"uploading" | "saving" | "done">("uploading");
   const [renderError, setRenderError] = useState("");
-  const [renderResult, setRenderResult] = useState<{ id: string; name: string } | null>(null);
+  const [renderResults, setRenderResults] = useState<{ id: string; name: string; clipTitle: string; clipStyle: string }[]>([]);
 
   // ── Audio helpers ──
   function getCtx() {
@@ -630,9 +630,16 @@ export default function StudioPage() {
       .finally(() => setClipsLoading(false));
   }, [step, clipsLoaded]);
 
-  // ── Render handler ──
+  // ── Toggle clip selection ──
+  function toggleClip(clip: VideoClip) {
+    setSelectedClips((prev) =>
+      prev.find((c) => c.id === clip.id) ? prev.filter((c) => c.id !== clip.id) : [...prev, clip]
+    );
+  }
+
+  // ── Batch render handler ──
   async function handleRender() {
-    if (!selectedClip || !audioFileRef.current) return;
+    if (selectedClips.length === 0 || !audioFileRef.current) return;
     setRendering(true);
     setRenderError("");
     setUploadProgress(0);
@@ -641,16 +648,22 @@ export default function StudioPage() {
       const uploaded = await creativeApi.uploadAudio(audioFileRef.current, (p) => setUploadProgress(p)) as { audioUrl: string };
       setRenderStage("saving");
       const lyricsJson = lines.map((text, i) => ({ text, time: timestamps[i] ?? 0 }));
-      const result = await creativeApi.render({
-        name: creativeName || filename || "Untitled",
-        audioUrl: uploaded.audioUrl,
-        videoClipUrl: selectedClip.url,
-        lyricsJson,
-        clipId: selectedClip.id,
-        clipTitle: selectedClip.title,
-        style: { textColor, textPosition, fontSize, overlayOpacity },
-      }) as { jobId: string; creative: { id: string; name: string } };
-      setRenderResult({ id: result.jobId, name: result.creative?.name ?? creativeName });
+      const baseName = creativeName || filename || "Untitled";
+      const results: { id: string; name: string; clipTitle: string; clipStyle: string }[] = [];
+      for (const clip of selectedClips) {
+        const name = selectedClips.length > 1 ? `${baseName} — ${clip.title}` : baseName;
+        const result = await creativeApi.render({
+          name,
+          audioUrl: uploaded.audioUrl,
+          videoClipUrl: clip.url,
+          lyricsJson,
+          clipId: clip.id,
+          clipTitle: clip.title,
+          style: { textColor, textPosition, fontSize, overlayOpacity },
+        }) as { jobId: string; creative: { id: string; name: string } };
+        results.push({ id: result.jobId, name: result.creative?.name ?? name, clipTitle: clip.title, clipStyle: clip.style });
+      }
+      setRenderResults(results);
       setRenderStage("done");
       setStep(4);
     } catch (err: unknown) {
@@ -1299,7 +1312,7 @@ export default function StudioPage() {
               {/* Video grid */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.75rem" }}>
                 {pagedClips.map((clip) => (
-                  <VideoCard key={clip.id} clip={clip} selected={selectedClip?.id === clip.id} onSelect={() => setSelectedClip(clip)} />
+                  <VideoCard key={clip.id} clip={clip} selected={selectedClips.some((c) => c.id === clip.id)} onSelect={() => toggleClip(clip)} />
                 ))}
                 {filteredClips.length === 0 && (
                   <div style={{ gridColumn: "1 / -1", padding: "3rem", textAlign: "center", color: "#94a3b8", fontSize: "0.875rem" }}>
@@ -1347,18 +1360,27 @@ export default function StudioPage() {
                 </div>
               )}
 
-              {/* Customisation panel — slides in when clip selected */}
-              {selectedClip && (
+              {/* Customisation panel — slides in when clips selected */}
+              {selectedClips.length > 0 && (
                 <div style={{ background: "#fff", borderRadius: 20, border: `1.5px solid ${BLUE}`, padding: "1.5rem", boxShadow: "0 4px 16px rgba(58,96,231,0.10)", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
-                  {/* Selected clip header */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.875rem" }}>
-                    <VideoThumb src={selectedClip.url} style={{ width: 36, height: 64, borderRadius: 8, flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontWeight: 800, fontSize: "0.9rem", color: NAVY }}>{selectedClip.title}</p>
-                      <span style={{ fontSize: "0.7rem", fontWeight: 700, color: BLUE, background: "#EEF2FF", padding: "0.1rem 0.45rem", borderRadius: 4 }}>{selectedClip.style}</span>
+                  {/* Selected clips header */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", flex: 1 }}>
+                      {selectedClips.map((clip) => (
+                        <div key={clip.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "#F1F5F9", borderRadius: 10, padding: "0.35rem 0.625rem 0.35rem 0.375rem", border: "1px solid #E2E6F0" }}>
+                          <VideoThumb src={clip.url} style={{ width: 24, height: 42, borderRadius: 6, flexShrink: 0 }} />
+                          <div style={{ minWidth: 0 }}>
+                            <p style={{ fontWeight: 700, fontSize: "0.75rem", color: NAVY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 100 }}>{clip.title}</p>
+                            <span style={{ fontSize: "0.62rem", fontWeight: 700, color: BLUE }}>{clip.style}</span>
+                          </div>
+                          <button onClick={() => toggleClip(clip)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.125rem", color: "#94a3b8", lineHeight: 1, fontSize: "0.9rem" }}>×</button>
+                        </div>
+                      ))}
                     </div>
-                    <span style={{ fontFamily: "monospace", fontSize: "0.75rem", fontWeight: 700, color: "#64748b", background: "#F1F5F9", padding: "0.3rem 0.75rem", borderRadius: 8 }}>{fmtShort(selectedClip.duration)}</span>
+                    <div style={{ background: BLUE, color: "#fff", borderRadius: 99, padding: "0.3rem 0.75rem", fontSize: "0.75rem", fontWeight: 800, flexShrink: 0 }}>
+                      {selectedClips.length} video{selectedClips.length > 1 ? "s" : ""}
+                    </div>
                   </div>
 
                   <div style={{ height: 1, background: "#F1F5F9" }} />
@@ -1429,7 +1451,7 @@ export default function StudioPage() {
                   <div>
                     <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem" }}>Preview — click to play</label>
                     <VideoPreview
-                      src={selectedClip.url}
+                      src={selectedClips[0].url}
                       overlayOpacity={overlayOpacity}
                       textColor={textColor}
                       textPosition={textPosition}
@@ -1456,21 +1478,21 @@ export default function StudioPage() {
                   Back to Sync
                 </button>
                 <button
-                  disabled={!selectedClip || rendering}
+                  disabled={selectedClips.length === 0 || rendering}
                   onClick={handleRender}
-                  style={{ ...btnNext(!selectedClip || rendering), minWidth: 180, justifyContent: "center" }}
+                  style={{ ...btnNext(selectedClips.length === 0 || rendering), minWidth: 180, justifyContent: "center" }}
                 >
                   {rendering ? (
                     <>
                       <div style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,0.4)", borderTop: "2px solid #fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
-                      {renderStage === "uploading" ? `Uploading ${uploadProgress}%…` : "Saving…"}
+                      {renderStage === "uploading" ? `Uploading ${uploadProgress}%…` : `Saving ${renderResults.length + 1}/${selectedClips.length}…`}
                     </>
                   ) : (
                     <>
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
                       </svg>
-                      {selectedClip ? "Render Creative" : "Select a video first"}
+                      {selectedClips.length === 0 ? "Select a video first" : selectedClips.length === 1 ? "Render Creative" : `Render ${selectedClips.length} Creatives`}
                     </>
                   )}
                 </button>
@@ -1483,47 +1505,56 @@ export default function StudioPage() {
       {/* ════════════════════════════════════════════════════
           STEP 4 — RENDER COMPLETE
       ════════════════════════════════════════════════════ */}
-      {step === 4 && renderResult && (
+      {step === 4 && renderResults.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", alignItems: "center", paddingTop: "0.5rem" }}>
-          <div style={{ background: "#fff", borderRadius: 24, border: "1.5px solid #86EFAC", padding: "2.5rem 2rem", textAlign: "center", maxWidth: 480, width: "100%", boxShadow: "0 4px 24px rgba(34,197,94,0.10)" }}>
+          <div style={{ background: "#fff", borderRadius: 24, border: "1.5px solid #86EFAC", padding: "2.5rem 2rem", textAlign: "center", maxWidth: 560, width: "100%", boxShadow: "0 4px 24px rgba(34,197,94,0.10)" }}>
             <div style={{ width: 68, height: 68, borderRadius: "50%", background: "linear-gradient(135deg,#22C55E,#16A34A)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem", boxShadow: "0 8px 24px rgba(34,197,94,0.3)" }}>
               <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
-            <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: NAVY, letterSpacing: "-0.02em", marginBottom: "0.5rem" }}>Creative Saved!</h2>
+            <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: NAVY, letterSpacing: "-0.02em", marginBottom: "0.5rem" }}>
+              {renderResults.length === 1 ? "Creative Saved!" : `${renderResults.length} Creatives Saved!`}
+            </h2>
             <p style={{ fontSize: "0.875rem", color: "#64748b", marginBottom: "1.5rem" }}>
-              <strong style={{ color: NAVY }}>{renderResult.name}</strong> has been saved to your library.
+              {renderResults.length === 1
+                ? <><strong style={{ color: NAVY }}>{renderResults[0].name}</strong> has been saved to your library.</>
+                : <>{renderResults.length} ads with the same audio &amp; lyrics, different video backgrounds.</>}
             </p>
 
             {/* Summary pills */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", justifyContent: "center", marginBottom: "1.75rem" }}>
               {[
-                { icon: "🎵", label: `${fmtShort(trimEnd - trimStart)} audio` },
-                { icon: "📝", label: `${lines.length} lyric lines` },
-                { icon: "🎬", label: selectedClip?.title ?? "" },
-                { icon: "🎨", label: selectedClip?.style ?? "" },
-              ].map((item) => item.label ? (
+                { label: `${fmtShort(trimEnd - trimStart)} audio` },
+                { label: `${lines.length} lyric lines` },
+                { label: `${renderResults.length} creative${renderResults.length > 1 ? "s" : ""}` },
+              ].map((item) => (
                 <div key={item.label} style={{ padding: "0.3rem 0.75rem", borderRadius: 99, background: "#F1F5F9", border: "1px solid #E2E6F0", fontSize: "0.78rem", fontWeight: 600, color: "#475569" }}>
-                  {item.icon} {item.label}
+                  {item.label}
                 </div>
-              ) : null)}
+              ))}
             </div>
 
-            {/* Preview thumbnail with lyric overlay */}
-            {selectedClip && (
-              <div style={{ borderRadius: 14, overflow: "hidden", position: "relative", aspectRatio: "9/16", marginBottom: "1.75rem", maxWidth: 220, margin: "0 auto 1.75rem" }}>
-                <VideoThumb src={selectedClip.url} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 1 - overlayOpacity }} />
-                <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${overlayOpacity})` }} />
-                <div style={{ position: "absolute", inset: 0, display: "flex", padding: "1rem 1.5rem",
-                  alignItems: textPosition === "top" ? "flex-start" : textPosition === "center" ? "center" : "flex-end",
-                  justifyContent: "center" }}>
-                  <p style={{ color: textColor, fontWeight: 800, textAlign: "center", lineHeight: 1.4,
-                    fontSize: fontSize === "sm" ? "0.875rem" : fontSize === "md" ? "1.0625rem" : "1.25rem",
-                    textShadow: "0 1px 4px rgba(0,0,0,0.6)" }}>
-                    {lines[0] ?? ""}
-                  </p>
+            {/* Per-creative cards */}
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(renderResults.length, 3)}, 1fr)`, gap: "0.75rem", marginBottom: "1.75rem" }}>
+              {renderResults.map((r, i) => (
+                <div key={r.id} style={{ borderRadius: 12, overflow: "hidden", position: "relative", aspectRatio: "9/16", background: "#111827" }}>
+                  <VideoThumb src={selectedClips[i]?.url ?? selectedClips[0].url} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 1 - overlayOpacity }} />
+                  <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${overlayOpacity})` }} />
+                  <div style={{ position: "absolute", inset: 0, display: "flex", padding: "0.75rem",
+                    alignItems: textPosition === "top" ? "flex-start" : textPosition === "center" ? "center" : "flex-end",
+                    justifyContent: "center" }}>
+                    <p style={{ color: textColor, fontWeight: 800, textAlign: "center", lineHeight: 1.3,
+                      fontSize: fontSize === "sm" ? "0.65rem" : fontSize === "md" ? "0.78rem" : "0.9rem",
+                      textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
+                      {lines[0] ?? ""}
+                    </p>
+                  </div>
+                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0.5rem 0.625rem", background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)" }}>
+                    <p style={{ fontSize: "0.62rem", fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.clipTitle}</p>
+                    <span style={{ fontSize: "0.55rem", fontWeight: 700, color: "rgba(255,255,255,0.6)" }}>{r.clipStyle}</span>
+                  </div>
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
 
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
               <button
@@ -1531,7 +1562,7 @@ export default function StudioPage() {
                   setStep(0);
                   setAudioBuffer(null); setAudioUrl(""); setFilename(""); audioFileRef.current = null;
                   setLyricsText(""); setTimestamps([]); setSyncIndex(0); setSyncActive(false);
-                  setSelectedClip(null); setCreativeName(""); setRenderResult(null); setRenderError("");
+                  setSelectedClips([]); setCreativeName(""); setRenderResults([]); setRenderError("");
                   setClipsLoaded(false);
                 }}
                 style={{ padding: "0.75rem 1.5rem", borderRadius: 12, border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${BLUE}, #4C1AEA)`, color: "#fff", fontWeight: 700, fontSize: "0.875rem" }}
