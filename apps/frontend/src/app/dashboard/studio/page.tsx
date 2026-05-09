@@ -24,6 +24,22 @@ interface VideoClip {
   thumbnail: string;
 }
 
+interface ClipConfig {
+  creativeName: string;
+  textColor: string;
+  textPosition: "top" | "center" | "bottom";
+  fontSize: "sm" | "md" | "lg";
+  overlayOpacity: number;
+}
+
+const DEFAULT_CONFIG: ClipConfig = {
+  creativeName: "",
+  textColor: "#FFFFFF",
+  textPosition: "bottom",
+  fontSize: "md",
+  overlayOpacity: 0.4,
+};
+
 function fmt(s: number) {
   const m = Math.floor(s / 60);
   return `${m}:${String(Math.floor(s % 60)).padStart(2, "0")}.${String(Math.floor((s % 1) * 10))}`;
@@ -398,18 +414,16 @@ export default function StudioPage() {
   const [styleFilter, setStyleFilter] = useState("All");
   const [clipPage, setClipPage] = useState(0);
   const [selectedClips, setSelectedClips] = useState<VideoClip[]>([]);
-  const [creativeName, setCreativeName] = useState("");
-  const [textColor, setTextColor] = useState("#FFFFFF");
-  const [textPosition, setTextPosition] = useState<"top" | "center" | "bottom">("bottom");
-  const [fontSize, setFontSize] = useState<"sm" | "md" | "lg">("md");
-  const [overlayOpacity, setOverlayOpacity] = useState(0.4);
+  const [clipConfigs, setClipConfigs] = useState<Record<string, ClipConfig>>({});
+  const [activeClipId, setActiveClipId] = useState<string | null>(null);
+  const [baseCreativeName, setBaseCreativeName] = useState("");
 
   // ── Phase 5: Render ──
   const [rendering, setRendering] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [renderStage, setRenderStage] = useState<"uploading" | "saving" | "done">("uploading");
   const [renderError, setRenderError] = useState("");
-  const [renderResults, setRenderResults] = useState<{ id: string; name: string; clipTitle: string; clipStyle: string }[]>([]);
+  const [renderResults, setRenderResults] = useState<{ id: string; name: string; clipTitle: string; clipStyle: string; config: ClipConfig }[]>([]);
 
   // ── Audio helpers ──
   function getCtx() {
@@ -435,7 +449,7 @@ export default function StudioPage() {
     setAudioUrl(url);
     const name = file.name.replace(/\.[^.]+$/, "");
     setFilename(name);
-    setCreativeName(name);
+    setBaseCreativeName(name);
 
     try {
       const ctx = getCtx();
@@ -632,9 +646,30 @@ export default function StudioPage() {
 
   // ── Toggle clip selection ──
   function toggleClip(clip: VideoClip) {
-    setSelectedClips((prev) =>
-      prev.find((c) => c.id === clip.id) ? prev.filter((c) => c.id !== clip.id) : [...prev, clip]
-    );
+    setSelectedClips((prev) => {
+      const exists = prev.find((c) => c.id === clip.id);
+      if (exists) {
+        const next = prev.filter((c) => c.id !== clip.id);
+        setClipConfigs((cfg) => { const c = { ...cfg }; delete c[clip.id]; return c; });
+        setActiveClipId((id) => (id === clip.id ? (next[0]?.id ?? null) : id));
+        return next;
+      } else {
+        setClipConfigs((cfg) => ({
+          ...cfg,
+          [clip.id]: { ...DEFAULT_CONFIG, creativeName: baseCreativeName || clip.title },
+        }));
+        setActiveClipId(clip.id);
+        return [...prev, clip];
+      }
+    });
+  }
+
+  // ── Active clip helpers ──
+  const activeClip = selectedClips.find((c) => c.id === activeClipId) ?? selectedClips[0] ?? null;
+  const activeConfig: ClipConfig = (activeClipId && clipConfigs[activeClipId]) ? clipConfigs[activeClipId] : DEFAULT_CONFIG;
+  function updateActiveConfig(patch: Partial<ClipConfig>) {
+    if (!activeClipId) return;
+    setClipConfigs((prev) => ({ ...prev, [activeClipId]: { ...prev[activeClipId], ...patch } }));
   }
 
   // ── Batch render handler ──
@@ -648,10 +683,10 @@ export default function StudioPage() {
       const uploaded = await creativeApi.uploadAudio(audioFileRef.current, (p) => setUploadProgress(p)) as { audioUrl: string };
       setRenderStage("saving");
       const lyricsJson = lines.map((text, i) => ({ text, time: timestamps[i] ?? 0 }));
-      const baseName = creativeName || filename || "Untitled";
-      const results: { id: string; name: string; clipTitle: string; clipStyle: string }[] = [];
+      const results: { id: string; name: string; clipTitle: string; clipStyle: string; config: ClipConfig }[] = [];
       for (const clip of selectedClips) {
-        const name = selectedClips.length > 1 ? `${baseName} — ${clip.title}` : baseName;
+        const cfg = clipConfigs[clip.id] ?? DEFAULT_CONFIG;
+        const name = cfg.creativeName || baseCreativeName || clip.title || "Untitled";
         const result = await creativeApi.render({
           name,
           audioUrl: uploaded.audioUrl,
@@ -659,9 +694,9 @@ export default function StudioPage() {
           lyricsJson,
           clipId: clip.id,
           clipTitle: clip.title,
-          style: { textColor, textPosition, fontSize, overlayOpacity },
+          style: { textColor: cfg.textColor, textPosition: cfg.textPosition, fontSize: cfg.fontSize, overlayOpacity: cfg.overlayOpacity },
         }) as { jobId: string; creative: { id: string; name: string } };
-        results.push({ id: result.jobId, name: result.creative?.name ?? name, clipTitle: clip.title, clipStyle: clip.style });
+        results.push({ id: result.jobId, name: result.creative?.name ?? name, clipTitle: clip.title, clipStyle: clip.style, config: cfg });
       }
       setRenderResults(results);
       setRenderStage("done");
@@ -1364,101 +1399,104 @@ export default function StudioPage() {
               {selectedClips.length > 0 && (
                 <div style={{ background: "#fff", borderRadius: 20, border: `1.5px solid ${BLUE}`, padding: "1.5rem", boxShadow: "0 4px 16px rgba(58,96,231,0.10)", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
-                  {/* Selected clips header */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", flex: 1 }}>
-                      {selectedClips.map((clip) => (
-                        <div key={clip.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "#F1F5F9", borderRadius: 10, padding: "0.35rem 0.625rem 0.35rem 0.375rem", border: "1px solid #E2E6F0" }}>
-                          <VideoThumb src={clip.url} style={{ width: 24, height: 42, borderRadius: 6, flexShrink: 0 }} />
-                          <div style={{ minWidth: 0 }}>
-                            <p style={{ fontWeight: 700, fontSize: "0.75rem", color: NAVY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 100 }}>{clip.title}</p>
-                            <span style={{ fontSize: "0.62rem", fontWeight: 700, color: BLUE }}>{clip.style}</span>
-                          </div>
-                          <button onClick={() => toggleClip(clip)} style={{ background: "none", border: "none", cursor: "pointer", padding: "0 0.125rem", color: "#94a3b8", lineHeight: 1, fontSize: "0.9rem" }}>×</button>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ background: BLUE, color: "#fff", borderRadius: 99, padding: "0.3rem 0.75rem", fontSize: "0.75rem", fontWeight: 800, flexShrink: 0 }}>
-                      {selectedClips.length} video{selectedClips.length > 1 ? "s" : ""}
-                    </div>
+                  {/* ── Tab bar: one tab per selected clip ── */}
+                  <div style={{ display: "flex", gap: "0.5rem", overflowX: "auto", paddingBottom: "0.25rem" }}>
+                    {selectedClips.map((clip) => {
+                      const isActive = clip.id === activeClipId;
+                      return (
+                        <button key={clip.id} onClick={() => setActiveClipId(clip.id)}
+                          style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.4rem 0.75rem 0.4rem 0.4rem", borderRadius: 10, border: `1.5px solid ${isActive ? BLUE : "#E2E6F0"}`, background: isActive ? "#EEF2FF" : "#F8F9FC", cursor: "pointer", flexShrink: 0, transition: "all 0.15s" }}>
+                          <VideoThumb src={clip.url} style={{ width: 20, height: 36, borderRadius: 5, flexShrink: 0 }} />
+                          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: isActive ? BLUE : "#64748b", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{clip.title}</span>
+                          <span onClick={(e) => { e.stopPropagation(); toggleClip(clip); }}
+                            style={{ marginLeft: "0.25rem", color: "#CBD5E1", fontSize: "0.85rem", lineHeight: 1, cursor: "pointer" }}>×</span>
+                        </button>
+                      );
+                    })}
                   </div>
 
                   <div style={{ height: 1, background: "#F1F5F9" }} />
 
-                  {/* Creative name */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                    <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Creative Name</label>
-                    <input value={creativeName} onChange={(e) => setCreativeName(e.target.value)} placeholder="Name your creative…"
-                      style={{ border: "1.5px solid #E2E6F0", borderRadius: 10, padding: "0.625rem 0.875rem", fontSize: "0.875rem", color: NAVY, outline: "none", fontFamily: "inherit", transition: "border-color 0.15s" }}
-                      onFocus={(e) => { e.target.style.borderColor = BLUE; }} onBlur={(e) => { e.target.style.borderColor = "#E2E6F0"; }} />
-                  </div>
+                  {/* ── Per-clip settings (keyed so state resets on tab switch) ── */}
+                  {activeClip && (
+                    <div key={activeClipId} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
-                  {/* Two-col row: Text Color + Text Position */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
-                      <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Lyric Color</label>
-                      <div style={{ display: "flex", gap: "0.5rem" }}>
-                        {TEXT_COLORS.map((c) => (
-                          <button key={c.hex} onClick={() => setTextColor(c.hex)} title={c.label}
-                            style={{ width: 28, height: 28, borderRadius: "50%", border: `2.5px solid ${textColor === c.hex ? BLUE : "#E2E6F0"}`, background: c.hex, cursor: "pointer", flexShrink: 0, boxShadow: textColor === c.hex ? `0 0 0 2px rgba(58,96,231,0.2)` : "none", transition: "all 0.15s" }} />
-                        ))}
+                      {/* Creative name */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                        <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Creative Name</label>
+                        <input value={activeConfig.creativeName} onChange={(e) => updateActiveConfig({ creativeName: e.target.value })} placeholder="Name this creative…"
+                          style={{ border: "1.5px solid #E2E6F0", borderRadius: 10, padding: "0.625rem 0.875rem", fontSize: "0.875rem", color: NAVY, outline: "none", fontFamily: "inherit", transition: "border-color 0.15s" }}
+                          onFocus={(e) => { e.target.style.borderColor = BLUE; }} onBlur={(e) => { e.target.style.borderColor = "#E2E6F0"; }} />
                       </div>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
-                      <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Text Position</label>
-                      <div style={{ display: "flex", gap: "0.5rem" }}>
-                        {(["top", "center", "bottom"] as const).map((pos) => (
-                          <button key={pos} onClick={() => setTextPosition(pos)} style={{
-                            flex: 1, padding: "0.4rem 0.25rem", borderRadius: 8,
-                            border: `1.5px solid ${textPosition === pos ? BLUE : "#E2E6F0"}`,
-                            background: textPosition === pos ? "#EEF2FF" : "#F8F9FC", cursor: "pointer",
-                            fontSize: "0.72rem", fontWeight: 700, color: textPosition === pos ? BLUE : "#64748b",
-                            transition: "all 0.15s", textTransform: "capitalize",
-                          }}>{pos === "top" ? "↑ Top" : pos === "center" ? "↕ Mid" : "↓ Bot"}</button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Two-col row: Font Size + Overlay */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
-                      <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Font Size</label>
-                      <div style={{ display: "flex", gap: "0.5rem" }}>
-                        {([["sm", "S"], ["md", "M"], ["lg", "L"]] as const).map(([val, label]) => (
-                          <button key={val} onClick={() => setFontSize(val)} style={{
-                            flex: 1, padding: "0.4rem", borderRadius: 8,
-                            border: `1.5px solid ${fontSize === val ? BLUE : "#E2E6F0"}`,
-                            background: fontSize === val ? "#EEF2FF" : "#F8F9FC", cursor: "pointer",
-                            fontSize: "0.8rem", fontWeight: 800, color: fontSize === val ? BLUE : "#64748b",
-                            transition: "all 0.15s",
-                          }}>{label}</button>
-                        ))}
+                      {/* Two-col: Lyric Color + Text Position */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+                          <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Lyric Color</label>
+                          <div style={{ display: "flex", gap: "0.5rem" }}>
+                            {TEXT_COLORS.map((c) => (
+                              <button key={c.hex} onClick={() => updateActiveConfig({ textColor: c.hex })} title={c.label}
+                                style={{ width: 28, height: 28, borderRadius: "50%", border: `2.5px solid ${activeConfig.textColor === c.hex ? BLUE : "#E2E6F0"}`, background: c.hex, cursor: "pointer", flexShrink: 0, boxShadow: activeConfig.textColor === c.hex ? `0 0 0 2px rgba(58,96,231,0.2)` : "none", transition: "all 0.15s" }} />
+                            ))}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+                          <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Text Position</label>
+                          <div style={{ display: "flex", gap: "0.5rem" }}>
+                            {(["top", "center", "bottom"] as const).map((pos) => (
+                              <button key={pos} onClick={() => updateActiveConfig({ textPosition: pos })} style={{
+                                flex: 1, padding: "0.4rem 0.25rem", borderRadius: 8,
+                                border: `1.5px solid ${activeConfig.textPosition === pos ? BLUE : "#E2E6F0"}`,
+                                background: activeConfig.textPosition === pos ? "#EEF2FF" : "#F8F9FC", cursor: "pointer",
+                                fontSize: "0.72rem", fontWeight: 700, color: activeConfig.textPosition === pos ? BLUE : "#64748b",
+                                transition: "all 0.15s", textTransform: "capitalize",
+                              }}>{pos === "top" ? "↑ Top" : pos === "center" ? "↕ Mid" : "↓ Bot"}</button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Overlay</label>
-                        <span style={{ fontSize: "0.72rem", fontWeight: 700, color: NAVY }}>{Math.round(overlayOpacity * 100)}%</span>
-                      </div>
-                      <input type="range" min={0} max={0.8} step={0.05} value={overlayOpacity}
-                        onChange={(e) => setOverlayOpacity(parseFloat(e.target.value))}
-                        style={{ accentColor: BLUE, width: "100%", marginTop: "0.25rem" }} />
-                    </div>
-                  </div>
 
-                  {/* Live preview strip */}
-                  <div>
-                    <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem" }}>Preview — click to play</label>
-                    <VideoPreview
-                      src={selectedClips[0].url}
-                      overlayOpacity={overlayOpacity}
-                      textColor={textColor}
-                      textPosition={textPosition}
-                      fontSize={fontSize}
-                      lyricLine={lines[0] ?? "Your lyric line appears here"}
-                    />
-                  </div>
+                      {/* Two-col: Font Size + Overlay */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+                          <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Font Size</label>
+                          <div style={{ display: "flex", gap: "0.5rem" }}>
+                            {([["sm", "S"], ["md", "M"], ["lg", "L"]] as const).map(([val, label]) => (
+                              <button key={val} onClick={() => updateActiveConfig({ fontSize: val })} style={{
+                                flex: 1, padding: "0.4rem", borderRadius: 8,
+                                border: `1.5px solid ${activeConfig.fontSize === val ? BLUE : "#E2E6F0"}`,
+                                background: activeConfig.fontSize === val ? "#EEF2FF" : "#F8F9FC", cursor: "pointer",
+                                fontSize: "0.8rem", fontWeight: 800, color: activeConfig.fontSize === val ? BLUE : "#64748b",
+                                transition: "all 0.15s",
+                              }}>{label}</button>
+                            ))}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Overlay</label>
+                            <span style={{ fontSize: "0.72rem", fontWeight: 700, color: NAVY }}>{Math.round(activeConfig.overlayOpacity * 100)}%</span>
+                          </div>
+                          <input type="range" min={0} max={0.8} step={0.05} value={activeConfig.overlayOpacity}
+                            onChange={(e) => updateActiveConfig({ overlayOpacity: parseFloat(e.target.value) })}
+                            style={{ accentColor: BLUE, width: "100%", marginTop: "0.25rem" }} />
+                        </div>
+                      </div>
+
+                      {/* Preview */}
+                      <div>
+                        <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem" }}>Preview — click to play</label>
+                        <VideoPreview
+                          src={activeClip.url}
+                          overlayOpacity={activeConfig.overlayOpacity}
+                          textColor={activeConfig.textColor}
+                          textPosition={activeConfig.textPosition}
+                          fontSize={activeConfig.fontSize}
+                          lyricLine={lines[0] ?? "Your lyric line appears here"}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1537,13 +1575,13 @@ export default function StudioPage() {
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(renderResults.length, 3)}, 1fr)`, gap: "0.75rem", marginBottom: "1.75rem" }}>
               {renderResults.map((r, i) => (
                 <div key={r.id} style={{ borderRadius: 12, overflow: "hidden", position: "relative", aspectRatio: "9/16", background: "#111827" }}>
-                  <VideoThumb src={selectedClips[i]?.url ?? selectedClips[0].url} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 1 - overlayOpacity }} />
-                  <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${overlayOpacity})` }} />
+                  <VideoThumb src={selectedClips[i]?.url ?? selectedClips[0].url} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 1 - r.config.overlayOpacity }} />
+                  <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${r.config.overlayOpacity})` }} />
                   <div style={{ position: "absolute", inset: 0, display: "flex", padding: "0.75rem",
-                    alignItems: textPosition === "top" ? "flex-start" : textPosition === "center" ? "center" : "flex-end",
+                    alignItems: r.config.textPosition === "top" ? "flex-start" : r.config.textPosition === "center" ? "center" : "flex-end",
                     justifyContent: "center" }}>
-                    <p style={{ color: textColor, fontWeight: 800, textAlign: "center", lineHeight: 1.3,
-                      fontSize: fontSize === "sm" ? "0.65rem" : fontSize === "md" ? "0.78rem" : "0.9rem",
+                    <p style={{ color: r.config.textColor, fontWeight: 800, textAlign: "center", lineHeight: 1.3,
+                      fontSize: r.config.fontSize === "sm" ? "0.65rem" : r.config.fontSize === "md" ? "0.78rem" : "0.9rem",
                       textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
                       {lines[0] ?? ""}
                     </p>
@@ -1562,7 +1600,7 @@ export default function StudioPage() {
                   setStep(0);
                   setAudioBuffer(null); setAudioUrl(""); setFilename(""); audioFileRef.current = null;
                   setLyricsText(""); setTimestamps([]); setSyncIndex(0); setSyncActive(false);
-                  setSelectedClips([]); setCreativeName(""); setRenderResults([]); setRenderError("");
+                  setSelectedClips([]); setClipConfigs({}); setActiveClipId(null); setBaseCreativeName(""); setRenderResults([]); setRenderError("");
                   setClipsLoaded(false);
                 }}
                 style={{ padding: "0.75rem 1.5rem", borderRadius: 12, border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${BLUE}, #4C1AEA)`, color: "#fff", fontWeight: 700, fontSize: "0.875rem" }}
