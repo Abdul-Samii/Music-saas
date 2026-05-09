@@ -24,12 +24,15 @@ interface VideoClip {
   thumbnail: string;
 }
 
+type LyricStyle = "fade" | "rise" | "pop" | "drop" | "glow";
+
 interface ClipConfig {
   creativeName: string;
   textColor: string;
   textPosition: "top" | "center" | "bottom";
   fontSize: "sm" | "md" | "lg";
   overlayOpacity: number;
+  lyricStyle: LyricStyle;
 }
 
 const DEFAULT_CONFIG: ClipConfig = {
@@ -38,7 +41,16 @@ const DEFAULT_CONFIG: ClipConfig = {
   textPosition: "bottom",
   fontSize: "md",
   overlayOpacity: 0.4,
+  lyricStyle: "rise",
 };
+
+const LYRIC_STYLES: { id: LyricStyle; label: string; desc: string }[] = [
+  { id: "fade",  label: "Fade",      desc: "Smooth opacity fade in" },
+  { id: "rise",  label: "Rise",      desc: "Slides up from below" },
+  { id: "pop",   label: "Pop",       desc: "Elastic scale pop" },
+  { id: "drop",  label: "Drop",      desc: "Falls from above" },
+  { id: "glow",  label: "Glow",      desc: "Blurs in with glow" },
+];
 
 function fmt(s: number) {
   const m = Math.floor(s / 60);
@@ -295,13 +307,16 @@ function VideoThumb({ src, style }: { src: string; style?: React.CSSProperties }
   );
 }
 
-// ── Interactive preview video with play/pause overlay ────────────────────────
-function VideoPreview({ src, overlayOpacity, textColor, textPosition, fontSize, lyricLine }: {
+// ── Interactive preview video with animated lyrics ────────────────────────────
+function VideoPreview({ src, overlayOpacity, textColor, textPosition, fontSize, lyricStyle, lines }: {
   src: string; overlayOpacity: number; textColor: string;
-  textPosition: "top" | "center" | "bottom"; fontSize: "sm" | "md" | "lg"; lyricLine: string;
+  textPosition: "top" | "center" | "bottom"; fontSize: "sm" | "md" | "lg";
+  lyricStyle: string; lines: string[];
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
+  const [lineIndex, setLineIndex] = useState(0);
+  const [animKey, setAnimKey] = useState(0);
 
   useEffect(() => {
     const v = ref.current;
@@ -310,11 +325,24 @@ function VideoPreview({ src, overlayOpacity, textColor, textPosition, fontSize, 
     return () => { v.pause(); };
   }, [src]);
 
+  useEffect(() => {
+    if (lines.length <= 1) return;
+    const t = setInterval(() => {
+      setLineIndex((i) => (i + 1) % lines.length);
+      setAnimKey((k) => k + 1);
+    }, 2500);
+    return () => clearInterval(t);
+  }, [lines.length]);
+
   function toggle() {
     if (!ref.current) return;
     if (playing) { ref.current.pause(); setPlaying(false); }
     else { ref.current.play().catch(() => {}); setPlaying(true); }
   }
+
+  const displayLine = lines.length > 0 ? lines[lineIndex] : "Your lyric line appears here";
+  const animName = `lyric-${lyricStyle}`;
+  const fSize = fontSize === "sm" ? "0.85rem" : fontSize === "md" ? "1.05rem" : "1.25rem";
 
   return (
     <div onClick={toggle} style={{ borderRadius: 14, overflow: "hidden", position: "relative", aspectRatio: "9/16", background: "#000", maxWidth: 300, margin: "0 auto", cursor: "pointer" }}>
@@ -324,16 +352,18 @@ function VideoPreview({ src, overlayOpacity, textColor, textPosition, fontSize, 
       <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${overlayOpacity})` }} />
       <div style={{ position: "absolute", inset: 0, display: "flex", padding: "1rem 1.25rem",
         alignItems: textPosition === "top" ? "flex-start" : textPosition === "center" ? "center" : "flex-end",
-        justifyContent: "center" }}>
-        <p style={{ color: textColor, fontWeight: 800, textAlign: "center", lineHeight: 1.35,
-          fontSize: fontSize === "sm" ? "0.8rem" : fontSize === "md" ? "1rem" : "1.2rem",
-          textShadow: "0 1px 8px rgba(0,0,0,0.8)", letterSpacing: "0.01em" }}>
-          {lyricLine}
+        justifyContent: "center", pointerEvents: "none" }}>
+        <p key={animKey} style={{ color: textColor, fontWeight: 800, textAlign: "center", lineHeight: 1.4,
+          fontSize: fSize, textShadow: "0 2px 12px rgba(0,0,0,0.9)", letterSpacing: "0.01em",
+          animation: `${animName} 0.55s ease forwards`, margin: 0 }}>
+          {lyricStyle === "glow" ? (
+            <span style={{ filter: "drop-shadow(0 0 8px currentColor)" }}>{displayLine}</span>
+          ) : displayLine}
         </p>
       </div>
       {!playing && (
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)", border: "2px solid rgba(255,255,255,0.5)", display: "flex", alignItems: "center", justifyContent: "center", transition: "transform 0.15s" }}>
+          <div style={{ width: 48, height: 48, borderRadius: "50%", background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)", border: "2px solid rgba(255,255,255,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           </div>
         </div>
@@ -413,6 +443,11 @@ export default function StudioPage() {
   const [clipsLoading, setClipsLoading] = useState(false);
   const [styleFilter, setStyleFilter] = useState("All");
   const [clipPage, setClipPage] = useState(0);
+  // ── Transcription ──
+  const [transcribing, setTranscribing] = useState(false);
+  const [uploadedAudioUrl, setUploadedAudioUrl] = useState("");
+  const [autoTranscribed, setAutoTranscribed] = useState(false);
+
   const [selectedClips, setSelectedClips] = useState<VideoClip[]>([]);
   const [clipConfigs, setClipConfigs] = useState<Record<string, ClipConfig>>({});
   const [activeClipId, setActiveClipId] = useState<string | null>(null);
@@ -468,6 +503,25 @@ export default function StudioPage() {
     } finally {
       setDecoding(false);
     }
+
+    // Background: upload to server + Whisper transcription
+    setTranscribing(true);
+    setAutoTranscribed(false);
+    setUploadedAudioUrl("");
+    creativeApi.uploadAudio(file, () => {})
+      .then((res: { audioUrl: string; transcription?: { segments?: { text: string; start: number; end: number }[] } }) => {
+        setUploadedAudioUrl(res.audioUrl);
+        const segs = res.transcription?.segments;
+        if (segs && segs.length > 0) {
+          const newLines = segs.map((s) => s.text.trim()).filter(Boolean);
+          setLyricsText(newLines.join("\n"));
+          setTimestamps(segs.map((s) => s.start));
+          setSyncIndex(newLines.length);
+          setAutoTranscribed(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setTranscribing(false));
   }
 
   // Animate playhead
@@ -680,7 +734,13 @@ export default function StudioPage() {
     setUploadProgress(0);
     setRenderStage("uploading");
     try {
-      const uploaded = await creativeApi.uploadAudio(audioFileRef.current, (p) => setUploadProgress(p)) as { audioUrl: string };
+      let finalAudioUrl = uploadedAudioUrl;
+      if (!finalAudioUrl) {
+        const uploaded = await creativeApi.uploadAudio(audioFileRef.current, (p) => setUploadProgress(p)) as { audioUrl: string };
+        finalAudioUrl = uploaded.audioUrl;
+      } else {
+        setUploadProgress(100);
+      }
       setRenderStage("saving");
       const lyricsJson = lines.map((text, i) => ({ text, time: timestamps[i] ?? 0 }));
       const results: { id: string; name: string; clipTitle: string; clipStyle: string; config: ClipConfig }[] = [];
@@ -689,7 +749,7 @@ export default function StudioPage() {
         const name = cfg.creativeName || baseCreativeName || clip.title || "Untitled";
         const result = await creativeApi.render({
           name,
-          audioUrl: uploaded.audioUrl,
+          audioUrl: finalAudioUrl,
           videoClipUrl: clip.url,
           lyricsJson,
           clipId: clip.id,
@@ -831,11 +891,23 @@ export default function StudioPage() {
                   <p style={{ fontSize: "0.75rem", color: "#64748b" }}>Total: {fmtShort(duration)}</p>
                 </div>
                 <button
-                  onClick={() => { stopPlayback(true); setAudioBuffer(null); setAudioUrl(""); setFilename(""); audioFileRef.current = null; }}
+                  onClick={() => { stopPlayback(true); setAudioBuffer(null); setAudioUrl(""); setFilename(""); audioFileRef.current = null; setUploadedAudioUrl(""); setAutoTranscribed(false); setTranscribing(false); }}
                   style={{ background: "none", border: "1px solid #E2E6F0", borderRadius: 8, padding: "0.35rem 0.75rem", cursor: "pointer", fontSize: "0.75rem", fontWeight: 600, color: "#64748b" }}
                 >
                   Change file
                 </button>
+                {transcribing && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.35rem 0.75rem", borderRadius: 8, background: "#EEF2FF", border: "1px solid #BFD0FB" }}>
+                    <div style={{ width: 12, height: 12, border: `2px solid ${BLUE}`, borderTop: "2px solid transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 }} />
+                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: BLUE }}>Transcribing lyrics…</span>
+                  </div>
+                )}
+                {autoTranscribed && !transcribing && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.35rem 0.75rem", borderRadius: 8, background: "#F0FDF4", border: "1px solid #86EFAC" }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#16A34A" }}>Lyrics auto-detected</span>
+                  </div>
+                )}
               </div>
 
               {/* Waveform card */}
@@ -978,11 +1050,25 @@ export default function StudioPage() {
         <>
           {/* Lyrics input card */}
           <div style={{ background: "#fff", borderRadius: 20, border: "1px solid #E2E6F0", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", display: "flex", flexDirection: "column", gap: "1rem" }}>
-            <div>
-              <p style={{ fontWeight: 700, fontSize: "0.875rem", color: NAVY }}>Song Lyrics</p>
-              <p style={{ fontSize: "0.78rem", color: "#64748b", marginTop: "0.25rem" }}>
-                One lyric line per line · blank lines are ignored during sync
-              </p>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: "0.875rem", color: NAVY }}>Song Lyrics</p>
+                <p style={{ fontSize: "0.78rem", color: "#64748b", marginTop: "0.25rem" }}>
+                  {autoTranscribed ? "AI-transcribed · edit freely" : "One lyric line per line · blank lines are ignored during sync"}
+                </p>
+              </div>
+              {transcribing && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.3rem 0.75rem", borderRadius: 99, background: "#EEF2FF", border: "1px solid #BFD0FB", fontSize: "0.72rem", fontWeight: 700, color: BLUE }}>
+                  <div style={{ width: 10, height: 10, border: `2px solid ${BLUE}`, borderTop: "2px solid transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                  Transcribing…
+                </div>
+              )}
+              {autoTranscribed && !transcribing && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.3rem 0.75rem", borderRadius: 99, background: "#F0FDF4", border: "1px solid #86EFAC", fontSize: "0.72rem", fontWeight: 700, color: "#16A34A" }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  AI Transcribed
+                </div>
+              )}
             </div>
 
             <textarea
@@ -1183,6 +1269,17 @@ export default function StudioPage() {
               </button>
             </div>
           </div>
+
+          {/* AI auto-synced notice */}
+          {autoTranscribed && allSynced && (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", padding: "0.875rem 1.25rem", borderRadius: 12, background: "#F0FDF4", border: "1.5px solid #86EFAC" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: "0.825rem", color: "#16A34A" }}>Auto-synced by Whisper AI</p>
+                <p style={{ fontSize: "0.75rem", color: "#4ADE80" }}>All {lines.length} lines have timestamps from transcription · you can still adjust manually</p>
+              </div>
+            </div>
+          )}
 
           {/* Keyboard hint */}
           {syncActive && !allSynced && (
@@ -1483,6 +1580,23 @@ export default function StudioPage() {
                         </div>
                       </div>
 
+                      {/* Lyric Style */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+                        <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em" }}>Lyric Animation</label>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.5rem" }}>
+                          {LYRIC_STYLES.map((s) => (
+                            <button key={s.id} onClick={() => updateActiveConfig({ lyricStyle: s.id })}
+                              title={s.desc}
+                              style={{ padding: "0.5rem 0.25rem", borderRadius: 10, border: `1.5px solid ${activeConfig.lyricStyle === s.id ? BLUE : "#E2E6F0"}`, background: activeConfig.lyricStyle === s.id ? "#EEF2FF" : "#F8F9FC", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.3rem", transition: "all 0.15s" }}>
+                              <span style={{ fontSize: "1.1rem" }}>
+                                {s.id === "fade" ? "✨" : s.id === "rise" ? "⬆️" : s.id === "pop" ? "💥" : s.id === "drop" ? "⬇️" : "🌟"}
+                              </span>
+                              <span style={{ fontSize: "0.65rem", fontWeight: 700, color: activeConfig.lyricStyle === s.id ? BLUE : "#64748b" }}>{s.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       {/* Preview */}
                       <div>
                         <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem" }}>Preview — click to play</label>
@@ -1492,7 +1606,8 @@ export default function StudioPage() {
                           textColor={activeConfig.textColor}
                           textPosition={activeConfig.textPosition}
                           fontSize={activeConfig.fontSize}
-                          lyricLine={lines[0] ?? "Your lyric line appears here"}
+                          lyricStyle={activeConfig.lyricStyle}
+                          lines={lines.length > 0 ? lines : ["Your lyric line appears here"]}
                         />
                       </div>
                     </div>
@@ -1601,6 +1716,7 @@ export default function StudioPage() {
                   setAudioBuffer(null); setAudioUrl(""); setFilename(""); audioFileRef.current = null;
                   setLyricsText(""); setTimestamps([]); setSyncIndex(0); setSyncActive(false);
                   setSelectedClips([]); setClipConfigs({}); setActiveClipId(null); setBaseCreativeName(""); setRenderResults([]); setRenderError("");
+                  setUploadedAudioUrl(""); setAutoTranscribed(false); setTranscribing(false);
                   setClipsLoaded(false);
                 }}
                 style={{ padding: "0.75rem 1.5rem", borderRadius: 12, border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${BLUE}, #4C1AEA)`, color: "#fff", fontWeight: 700, fontSize: "0.875rem" }}
@@ -1618,6 +1734,28 @@ export default function StudioPage() {
 
       <style jsx global>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes lyric-fade {
+          0%   { opacity: 0; }
+          100% { opacity: 1; }
+        }
+        @keyframes lyric-rise {
+          0%   { opacity: 0; transform: translateY(22px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes lyric-pop {
+          0%   { opacity: 0; transform: scale(0.55); }
+          65%  { transform: scale(1.08); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes lyric-drop {
+          0%   { opacity: 0; transform: translateY(-22px); }
+          60%  { transform: translateY(4px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes lyric-glow {
+          0%   { opacity: 0; filter: blur(10px) brightness(2); transform: scale(0.92); }
+          100% { opacity: 1; filter: blur(0px) brightness(1); transform: scale(1); }
+        }
       `}</style>
     </div>
   );
