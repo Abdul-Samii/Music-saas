@@ -329,22 +329,32 @@ function VideoThumb({ src, style }: { src: string; style?: React.CSSProperties }
 }
 
 // ── Interactive preview video with animated lyrics ────────────────────────────
-function VideoPreview({ src, overlayOpacity, textColor, highlightColor, textPosition, fontSize, lyricStyle, fontFamily, lines }: {
-  src: string; overlayOpacity: number; textColor: string; highlightColor: string;
+function VideoPreview({ src, audioSrc, overlayOpacity, textColor, highlightColor, textPosition, fontSize, lyricStyle, fontFamily, lines }: {
+  src: string; audioSrc?: string; overlayOpacity: number; textColor: string; highlightColor: string;
   textPosition: "top" | "center" | "bottom"; fontSize: "sm" | "md" | "lg";
   lyricStyle: LyricStyle; fontFamily: string; lines: string[];
 }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [lineIndex, setLineIndex] = useState(0);
   const [wordIndex, setWordIndex] = useState(0);
   const [animKey, setAnimKey] = useState(0);
 
+  // Create audio element when audioSrc is available
+  useEffect(() => {
+    if (!audioSrc) return;
+    const audio = new Audio(audioSrc);
+    audio.loop = true;
+    audioRef.current = audio;
+    return () => { audio.pause(); audioRef.current = null; };
+  }, [audioSrc]);
+
   useEffect(() => {
     const v = ref.current;
     if (!v) return;
-    v.play().then(() => setPlaying(true)).catch(() => {});
-    return () => { v.pause(); };
+    v.play().then(() => { setPlaying(true); audioRef.current?.play().catch(() => {}); }).catch(() => {});
+    return () => { v.pause(); audioRef.current?.pause(); };
   }, [src]);
 
   const safeLines = useMemo(() => lines.length > 0 ? lines : ["Your lyric appears here"], [lines]);
@@ -383,8 +393,15 @@ function VideoPreview({ src, overlayOpacity, textColor, highlightColor, textPosi
 
   function toggle() {
     if (!ref.current) return;
-    if (playing) { ref.current.pause(); setPlaying(false); }
-    else { ref.current.play().catch(() => {}); setPlaying(true); }
+    if (playing) {
+      ref.current.pause();
+      audioRef.current?.pause();
+      setPlaying(false);
+    } else {
+      ref.current.play().catch(() => {});
+      audioRef.current?.play().catch(() => {});
+      setPlaying(true);
+    }
   }
 
   const fSize = fontSize === "sm" ? "0.9rem" : fontSize === "md" ? "1.15rem" : "1.4rem";
@@ -1722,6 +1739,7 @@ export default function StudioPage() {
                         <label style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "0.5rem" }}>Preview — click to play</label>
                         <VideoPreview
                           src={activeClip.url}
+                          audioSrc={audioUrl || undefined}
                           overlayOpacity={activeConfig.overlayOpacity}
                           textColor={activeConfig.textColor}
                           highlightColor={activeConfig.highlightColor}
