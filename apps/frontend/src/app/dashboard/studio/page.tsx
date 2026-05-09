@@ -361,7 +361,7 @@ function VideoPreview({ src, audioSrc, overlayOpacity, textColor, highlightColor
 
   // word-by-word: reveal one word at a time per line, then advance line
   useEffect(() => {
-    if (lyricStyle !== "word-by-word") return;
+    if (lyricStyle !== "word-by-word" || !playing) return;
     const currentWords = (safeLines[lineIndex] || "").split(" ").filter(Boolean);
     if (wordIndex < currentWords.length - 1) {
       const t = setTimeout(() => { setWordIndex((w) => w + 1); setAnimKey((k) => k + 1); }, 340);
@@ -374,22 +374,22 @@ function VideoPreview({ src, audioSrc, overlayOpacity, textColor, highlightColor
       }, 1600);
       return () => clearTimeout(t);
     }
-  }, [lyricStyle, lineIndex, wordIndex, safeLines]);
+  }, [lyricStyle, lineIndex, wordIndex, safeLines, playing]);
 
   // spotlight: one big word at a time from all words
   const allWords = useMemo(() => safeLines.flatMap((l) => l.split(" ").filter(Boolean)), [safeLines]);
   useEffect(() => {
-    if (lyricStyle !== "spotlight") return;
+    if (lyricStyle !== "spotlight" || !playing) return;
     const t = setInterval(() => { setWordIndex((w) => (w + 1) % allWords.length); setAnimKey((k) => k + 1); }, 650);
     return () => clearInterval(t);
-  }, [lyricStyle, allWords.length]);
+  }, [lyricStyle, allWords.length, playing]);
 
   // echo / pop / glow: cycle through lines
   useEffect(() => {
-    if (lyricStyle === "word-by-word" || lyricStyle === "spotlight") return;
+    if (lyricStyle === "word-by-word" || lyricStyle === "spotlight" || !playing) return;
     const t = setInterval(() => { setLineIndex((i) => (i + 1) % safeLines.length); setAnimKey((k) => k + 1); }, 2400);
     return () => clearInterval(t);
-  }, [lyricStyle, safeLines.length]);
+  }, [lyricStyle, safeLines.length, playing]);
 
   function toggle() {
     if (!ref.current) return;
