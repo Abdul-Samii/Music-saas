@@ -28,7 +28,7 @@ export const pricing = [
     items: [
       "5 campaigns",
       "Basic Automatic Optimisation",
-      "Cost Per Stream",
+      //   "Cost Per Stream",
       "5 Landing Pages",
       "Generate 30 Videos / month",
     ],
@@ -42,10 +42,10 @@ export const pricing = [
     commission: "0% on ad spend",
     items: [
       "10 campaigns",
-      "Basic Automatic Optimisation",
+      "Automatic Optimisation",
       "Cost Per Stream",
-      "15 landing pages",
-      "Generate 80 videos / month (30s)",
+      "20 landing pages",
+      "Generate 80 videos a month (45s)",
     ],
     featured: true,
     buttonText: "Get Started",
@@ -110,7 +110,7 @@ export const PricingCard = ({
   return (
     <div
       className={cn(
-        "group p-8 border border-gray-200 bg-white rounded-2xl relative hover:bg-dark-bg hover:text-white transition-all duration-300 hover:border-dark-bg flex flex-col",
+        "group p-7 border border-gray-200 bg-white rounded-2xl relative hover:bg-dark-bg hover:text-white transition-all duration-300 hover:border-dark-bg flex flex-col",
         {
           "border-primary": plan.featured,
         },
