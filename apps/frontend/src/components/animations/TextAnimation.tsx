@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 
 const TextAnimation = ({
   text,
-  staggerChildren = 0.04,
+  staggerChildren = 0.02,
   delay = 0,
 }: {
   text: string;
@@ -15,7 +15,7 @@ const TextAnimation = ({
       opacity: 1,
       transition: {
         staggerChildren: staggerChildren,
-        delayChildren: delay,
+        delayChildren: delay / 2,
       },
     },
   };

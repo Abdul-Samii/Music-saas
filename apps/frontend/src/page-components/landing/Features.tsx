@@ -70,264 +70,262 @@ const Features = () => {
         </FadeInUp>
         <FadeInUp>
           <Parallax speed={5}>
-            <FadeIn>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-10 gap-y-20 lg:gap-y-[120px] lg:gap-x-20 mb-20 lg:mb-[120px]">
-                <div className="card bg-white! flex flex-col">
-                  <div>
-                    <h3 className="text-xl md:text-3xl font-bold leading-[1.3]">
-                      <TextAnimation text="Dashboard: your REAL cost per stream updated every minute" />
-                    </h3>
-                    <p className="text-sm text-muted mt-2 mb-6">
-                      We show you the most important cost for your artist. Not
-                      CPM, NOT CPC. The CPs (Cost per Stream)
-                    </p>
-                  </div>
-                  {METRICS.map((m) => {
-                    const chartColor = m.change.startsWith("-")
-                      ? "#F43F5E"
-                      : "#3A60E7";
-                    const gradId = `grad-${m.label.replace(/\s+/g, "-")}`;
-                    return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-10 gap-y-20 lg:gap-y-[120px] lg:gap-x-20 mb-20 lg:mb-[120px]">
+              <div className="card bg-white! flex flex-col">
+                <div>
+                  <h3 className="text-xl md:text-3xl font-bold leading-[1.3]">
+                    <TextAnimation text="Dashboard: your REAL cost per stream updated every minute" />
+                  </h3>
+                  <p className="text-sm text-muted mt-2 mb-6">
+                    We show you the most important cost for your artist. Not
+                    CPM, NOT CPC. The CPs (Cost per Stream)
+                  </p>
+                </div>
+                {METRICS.map((m) => {
+                  const chartColor = m.change.startsWith("-")
+                    ? "#F43F5E"
+                    : "#3A60E7";
+                  const gradId = `grad-${m.label.replace(/\s+/g, "-")}`;
+                  return (
+                    <div
+                      key={m.label}
+                      style={{
+                        background: "var(--bg-card)",
+                        borderRadius: 20,
+                        padding: "1.25rem",
+                        border: "1px solid var(--border)",
+                        boxShadow: "0 1px 6px rgba(0,0,0,0.04)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.75rem",
+                      }}
+                    >
+                      {/* Icon + label */}
                       <div
-                        key={m.label}
                         style={{
-                          background: "var(--bg-card)",
-                          borderRadius: 20,
-                          padding: "1.25rem",
-                          border: "1px solid var(--border)",
-                          boxShadow: "0 1px 6px rgba(0,0,0,0.04)",
                           display: "flex",
-                          flexDirection: "column",
-                          gap: "0.75rem",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
                         }}
                       >
-                        {/* Icon + label */}
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "flex-start",
-                          }}
-                        >
-                          <p
-                            style={{
-                              fontSize: "0.8rem",
-                              color: "var(--text-muted)",
-                              fontWeight: 500,
-                            }}
-                          >
-                            {m.label}
-                          </p>
-                          <div
-                            style={{
-                              width: 34,
-                              height: 34,
-                              borderRadius: 10,
-                              background: m.iconBg,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
-                            }}
-                          >
-                            {m.icon}
-                          </div>
-                        </div>
-
-                        {/* Value + change */}
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "baseline",
-                            gap: "0.5rem",
-                          }}
-                        >
-                          <p
-                            style={{
-                              fontSize: "1.75rem",
-                              fontWeight: 700,
-                              color: "var(--text-primary)",
-                              lineHeight: 1,
-                              letterSpacing: "-0.02em",
-                            }}
-                          >
-                            {m.unit}
-                            {m.value}
-                          </p>
-                          <span
-                            style={{
-                              fontSize: "0.7rem",
-                              fontWeight: 700,
-                              padding: "0.15rem 0.45rem",
-                              borderRadius: 99,
-                              background: m.up
-                                ? "rgba(18,183,106,0.12)"
-                                : "rgba(244,63,94,0.12)",
-                              color: m.up ? "#12B76A" : "#F43F5E",
-                            }}
-                          >
-                            {m.change}
-                          </span>
-                        </div>
                         <p
                           style={{
-                            fontSize: "0.72rem",
+                            fontSize: "0.8rem",
                             color: "var(--text-muted)",
+                            fontWeight: 500,
                           }}
                         >
-                          {m.sub}
+                          {m.label}
                         </p>
+                        <div
+                          style={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: 10,
+                            background: m.iconBg,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {m.icon}
+                        </div>
+                      </div>
 
-                        {/* ── Sparkline chart ── */}
-                        <div style={{ marginTop: "auto" }}>
-                          <ResponsiveContainer width="100%" height={64}>
-                            <AreaChart
-                              data={m.sparkData}
-                              margin={{ top: 4, right: 0, left: 0, bottom: 0 }}
-                            >
-                              <defs>
-                                <linearGradient
-                                  id={gradId}
-                                  x1="0"
-                                  y1="0"
-                                  x2="0"
-                                  y2="1"
-                                >
-                                  <stop
-                                    offset="5%"
-                                    stopColor={chartColor}
-                                    stopOpacity={0.22}
-                                  />
-                                  <stop
-                                    offset="95%"
-                                    stopColor={chartColor}
-                                    stopOpacity={0}
-                                  />
-                                </linearGradient>
-                              </defs>
-                              <Tooltip
-                                contentStyle={{
-                                  background: "var(--bg-card)",
-                                  border: "1px solid var(--border)",
-                                  borderRadius: 8,
-                                  fontSize: "0.72rem",
-                                  color: "var(--text-primary)",
-                                }}
-                                itemStyle={{ color: chartColor }}
-                                formatter={(val) => [`${m.unit}${val}`, ""]}
-                                labelFormatter={() => ""}
-                              />
-                              <Area
-                                type="monotone"
-                                dataKey="prev"
-                                stroke={chartColor}
-                                strokeWidth={1}
-                                strokeDasharray="3 3"
-                                fill="none"
-                                dot={false}
-                                strokeOpacity={0.4}
-                              />
-                              <Area
-                                type="monotone"
-                                dataKey="current"
-                                stroke={chartColor}
-                                strokeWidth={2}
-                                fill={`url(#${gradId})`}
-                                dot={false}
-                                activeDot={{
-                                  r: 4,
-                                  fill: chartColor,
-                                  stroke: "var(--bg-card)",
-                                  strokeWidth: 2,
-                                }}
-                              />
-                            </AreaChart>
-                          </ResponsiveContainer>
+                      {/* Value + change */}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "baseline",
+                          gap: "0.5rem",
+                        }}
+                      >
+                        <p
+                          style={{
+                            fontSize: "1.75rem",
+                            fontWeight: 700,
+                            color: "var(--text-primary)",
+                            lineHeight: 1,
+                            letterSpacing: "-0.02em",
+                          }}
+                        >
+                          {m.unit}
+                          {m.value}
+                        </p>
+                        <span
+                          style={{
+                            fontSize: "0.7rem",
+                            fontWeight: 700,
+                            padding: "0.15rem 0.45rem",
+                            borderRadius: 99,
+                            background: m.up
+                              ? "rgba(18,183,106,0.12)"
+                              : "rgba(244,63,94,0.12)",
+                            color: m.up ? "#12B76A" : "#F43F5E",
+                          }}
+                        >
+                          {m.change}
+                        </span>
+                      </div>
+                      <p
+                        style={{
+                          fontSize: "0.72rem",
+                          color: "var(--text-muted)",
+                        }}
+                      >
+                        {m.sub}
+                      </p>
 
-                          {/* Legend */}
+                      {/* ── Sparkline chart ── */}
+                      <div style={{ marginTop: "auto" }}>
+                        <ResponsiveContainer width="100%" height={64}>
+                          <AreaChart
+                            data={m.sparkData}
+                            margin={{ top: 4, right: 0, left: 0, bottom: 0 }}
+                          >
+                            <defs>
+                              <linearGradient
+                                id={gradId}
+                                x1="0"
+                                y1="0"
+                                x2="0"
+                                y2="1"
+                              >
+                                <stop
+                                  offset="5%"
+                                  stopColor={chartColor}
+                                  stopOpacity={0.22}
+                                />
+                                <stop
+                                  offset="95%"
+                                  stopColor={chartColor}
+                                  stopOpacity={0}
+                                />
+                              </linearGradient>
+                            </defs>
+                            <Tooltip
+                              contentStyle={{
+                                background: "var(--bg-card)",
+                                border: "1px solid var(--border)",
+                                borderRadius: 8,
+                                fontSize: "0.72rem",
+                                color: "var(--text-primary)",
+                              }}
+                              itemStyle={{ color: chartColor }}
+                              formatter={(val) => [`${m.unit}${val}`, ""]}
+                              labelFormatter={() => ""}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="prev"
+                              stroke={chartColor}
+                              strokeWidth={1}
+                              strokeDasharray="3 3"
+                              fill="none"
+                              dot={false}
+                              strokeOpacity={0.4}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="current"
+                              stroke={chartColor}
+                              strokeWidth={2}
+                              fill={`url(#${gradId})`}
+                              dot={false}
+                              activeDot={{
+                                r: 4,
+                                fill: chartColor,
+                                stroke: "var(--bg-card)",
+                                strokeWidth: 2,
+                              }}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+
+                        {/* Legend */}
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "1rem",
+                            marginTop: "0.375rem",
+                          }}
+                        >
                           <div
                             style={{
                               display: "flex",
-                              gap: "1rem",
-                              marginTop: "0.375rem",
+                              alignItems: "center",
+                              gap: "0.375rem",
                             }}
                           >
                             <div
                               style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "0.375rem",
+                                width: 14,
+                                height: 2,
+                                background: chartColor,
+                                borderRadius: 1,
+                              }}
+                            />
+                            <span
+                              style={{
+                                fontSize: "0.68rem",
+                                color: "var(--text-muted)",
                               }}
                             >
-                              <div
-                                style={{
-                                  width: 14,
-                                  height: 2,
-                                  background: chartColor,
-                                  borderRadius: 1,
-                                }}
-                              />
-                              <span
-                                style={{
-                                  fontSize: "0.68rem",
-                                  color: "var(--text-muted)",
-                                }}
-                              >
-                                This period
-                              </span>
-                            </div>
+                              This period
+                            </span>
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "0.375rem",
+                            }}
+                          >
                             <div
                               style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "0.375rem",
+                                width: 14,
+                                height: 2,
+                                background: chartColor,
+                                borderRadius: 1,
+                                opacity: 0.4,
+                                backgroundImage: `repeating-linear-gradient(to right, ${chartColor} 0, ${chartColor} 3px, transparent 3px, transparent 6px)`,
+                              }}
+                            />
+                            <span
+                              style={{
+                                fontSize: "0.68rem",
+                                color: "var(--text-muted)",
                               }}
                             >
-                              <div
-                                style={{
-                                  width: 14,
-                                  height: 2,
-                                  background: chartColor,
-                                  borderRadius: 1,
-                                  opacity: 0.4,
-                                  backgroundImage: `repeating-linear-gradient(to right, ${chartColor} 0, ${chartColor} 3px, transparent 3px, transparent 6px)`,
-                                }}
-                              />
-                              <span
-                                style={{
-                                  fontSize: "0.68rem",
-                                  color: "var(--text-muted)",
-                                }}
-                              >
-                                Prev period
-                              </span>
-                            </div>
+                              Prev period
+                            </span>
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-                <div className="flex flex-col">
-                  <div>
-                    <h3 className="text-xl md:text-3xl font-bold leading-[1.3]">
-                      <TextAnimation text="Campaigns: Launch winning campaigns with our secret strategy in just 60 seconds" />
-                    </h3>
-                    <p className="text-sm text-muted mt-2 mb-6">
-                      After investing +200.000$ on ads we found a similarity
-                      across all our campaigns, the structure. Now we give it to
-                      you so you can start making winning campaigns at the best
-                      costs
-                    </p>
-                  </div>
-                  <img
-                    src="/img/music-campaign.jpg"
-                    alt=""
-                    className="border border-border rounded w-full max-w-[370px] mt-auto"
-                  />
-                </div>
+                    </div>
+                  );
+                })}
               </div>
-            </FadeIn>
+              <div className="flex flex-col">
+                <div>
+                  <h3 className="text-xl md:text-3xl font-bold leading-[1.3]">
+                    <TextAnimation text="Campaigns: Launch winning campaigns with our secret strategy in just 60 seconds" />
+                  </h3>
+                  <p className="text-sm text-muted mt-2 mb-6">
+                    After investing +200.000$ on ads we found a similarity
+                    across all our campaigns, the structure. Now we give it to
+                    you so you can start making winning campaigns at the best
+                    costs
+                  </p>
+                </div>
+                <img
+                  src="/img/music-campaign.jpg"
+                  alt=""
+                  className="border border-border rounded w-full max-w-[370px] mt-auto"
+                />
+              </div>
+            </div>
           </Parallax>
         </FadeInUp>
       </div>
