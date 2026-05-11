@@ -11,8 +11,7 @@ import VideoGeneratorHowItWorks from "@/page-components/features/ai-lyrics-video
 import WhatWeCanGenerate from "@/page-components/features/ai-lyrics-video-generator/WhatWeCanGenerate";
 import WhyWeExists from "@/page-components/features/ai-lyrics-video-generator/WhyWeExists";
 
-export default function VideoGeneratorPage() {
-  return <></>;
+export default function AiLyricsVideoGeneratorClient() {
   return (
     <main className="bg-body-2">
       <Navbar />
@@ -24,8 +23,6 @@ export default function VideoGeneratorPage() {
       <LyricVideo />
       <EscaliumMadePublic />
       <TryItFree />
-      {/* <VideoGeneratorFeatures /> */}
-      {/* <VideoGeneratorLearnMore /> */}
       <VideoGeneratorCta />
       <Footer />
     </main>

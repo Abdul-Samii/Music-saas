@@ -1,8 +1,9 @@
+import { Providers } from "@/components/providers";
 import type { Metadata } from "next";
 import { DM_Sans, DM_Serif_Display, Instrument_Serif } from "next/font/google";
-import "./globals.css";
-import { Providers } from "@/components/providers";
 
+import ParallaxWrapper from "@/page-components/ParallaxWrapper";
+import "./globals.css";
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
 const dmSerifDisplay = DM_Serif_Display({
   subsets: ["latin"],
@@ -17,27 +18,77 @@ const instrumentSerif = Instrument_Serif({
   variable: "--font-instrument",
 });
 
-
 // already optimised for SEO and made the template for further pages, you can add more metadata fields if needed, but this should cover the basics for now.
+// export const metadata: Metadata = {
+// 	metadataBase: new URL("https://escalium.io"),
+
+// 	title: {
+// 		default: "Escalium — The All in one Music Marketing Platform",
+// 		template: "%s | Escalium",
+// 	},
+
+// 	description:
+// 		"Simplify your music marketing with Escalium. Create, manage, and optimize lyric video ads and ad campaigns across multiple platforms from one intuitive dashboard.",
+
+// 	alternates: {
+// 		canonical: "/",
+// 	},
+
+// 	openGraph: {
+// 		title: "Escalium — The All in one Music Marketing Platform",
+// 		description:
+// 			"Simplify your music marketing with Escalium. Create, manage, and optimize lyric video ads and ad campaigns across multiple platforms from one intuitive dashboard.",
+// 		url: "/",
+// 		siteName: "Escalium",
+// 		images: [
+// 			{
+// 				url: "/logo.webp",
+// 				width: 1200,
+// 				height: 630,
+// 				alt: "Escalium Platform Preview",
+// 			},
+// 		],
+// 		locale: "en_US",
+// 		type: "website",
+// 	},
+
+// 	twitter: {
+// 		card: "summary_large_image",
+// 		title: "Escalium — The All in one Music Marketing Platform",
+// 		description:
+// 			"Simplify your music marketing with Escalium. Create, manage, and optimize lyric video ads and ad campaigns across multiple platforms from one intuitive dashboard.",
+// 		images: ["/logo.webp"],
+// 	},
+
+// 	robots: {
+// 		index: true,
+// 		follow: true,
+// 	},
+
+// 	category: "technology",
+
+// 	icons: {
+// 		icon: "/logo.png",
+// 		apple: "/logo.png",
+// 	},
+// };
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://escalium.io"),
 
-  title: {
-    default: "Escalium — The All in one Music Marketing Platform",
-    template: "%s | Escalium",
-  },
+  title: "All in One Music Marketing Platform - Escalium",
 
   description:
-    "Simplify your music marketing with Escalium. Create, manage, and optimize lyric video ads and ad campaigns across multiple platforms from one intuitive dashboard.",
+    "Escalium has everything a singer, producer, manager or a label needs. Review analytics, create ad campaigns, landing pages or generate lyric videos for social media",
 
   alternates: {
     canonical: "/",
   },
 
   openGraph: {
-    title: "Escalium — The All in one Music Marketing Platform",
+    title: "All in One Music Marketing Platform - Escalium",
     description:
-      "Simplify your music marketing with Escalium. Create, manage, and optimize lyric video ads and ad campaigns across multiple platforms from one intuitive dashboard.",
+      "Escalium has everything a singer, producer, manager or a label needs. Review analytics, create ad campaigns, landing pages or generate lyric videos for social media",
     url: "/",
     siteName: "Escalium",
     images: [
@@ -54,9 +105,9 @@ export const metadata: Metadata = {
 
   twitter: {
     card: "summary_large_image",
-    title: "Escalium — The All in one Music Marketing Platform",
+    title: "All in One Music Marketing Platform - Escalium",
     description:
-      "Simplify your music marketing with Escalium. Create, manage, and optimize lyric video ads and ad campaigns across multiple platforms from one intuitive dashboard.",
+      "Escalium has everything a singer, producer, manager or a label needs. Review analytics, create ad campaigns, landing pages or generate lyric videos for social media",
     images: ["/logo.webp"],
   },
 
@@ -73,15 +124,25 @@ export const metadata: Metadata = {
   },
 };
 
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en" data-theme="light" suppressHydrationWarning>
       <head>
         {/* Google Analytics */}
-        { }
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YEWG0088W" />
-        <script dangerouslySetInnerHTML={{ __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-5YEWG0088W');` }} />
+        {}
+        <script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-5YEWG0088W"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-5YEWG0088W');`,
+          }}
+        />
         {/* Meta Pixel */}
         <script
           dangerouslySetInnerHTML={{
@@ -109,8 +170,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         </noscript>
       </head>
-      <body className={`${dmSans.variable} ${dmSerifDisplay.variable} ${instrumentSerif.variable}`} suppressHydrationWarning>
-        <Providers>{children}</Providers>
+      <body
+        className={`${dmSans.variable} ${dmSerifDisplay.variable} ${instrumentSerif.variable}`}
+        suppressHydrationWarning
+      >
+        <Providers>
+          <ParallaxWrapper>{children}</ParallaxWrapper>
+        </Providers>
       </body>
     </html>
   );
