@@ -85,17 +85,17 @@ const PricingPlan = () => {
             </p>
           </div>
         </FadeInUp>
-        <Parallax speed={-2}>
-          <FadeInUp>
-            <div className="max-w-[1320px] mx-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {pricing.map((plan, i) => (
-                  <PricingCard key={i} plan={plan} />
-                ))}
-              </div>
+        {/* <Parallax speed={-2}> */}
+        <FadeInUp>
+          <div className="max-w-[1320px] mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {pricing.map((plan, i) => (
+                <PricingCard key={i} plan={plan} />
+              ))}
             </div>
-          </FadeInUp>
-        </Parallax>
+          </div>
+        </FadeInUp>
+        {/* </Parallax> */}
       </div>
     </section>
   );

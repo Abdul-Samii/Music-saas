@@ -96,44 +96,44 @@ const HowItWorks = () => {
 						</p> */}
           </div>
         </FadeInUp>
-        <Parallax speed={-5}>
-          <FadeInUp>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-y-8 md:gap-y-12 text-center mx-auto max-sm:max-w-[320px]">
-              {steps.map((step, i) => (
-                <div className="group relative sm:px-4" key={i}>
-                  <FadeInUp>
-                    <div className="absolute hidden lg:block border-b border-gray-200 top-12 w-full left-1/2 group-first:left-1/2 group-last:hidden"></div>
-                    <div className="mx-auto w-20 bg-white relative">
-                      <div className="mb-4 md:mb-6 h-20 flex-center shadow-sm bg-primary/20 border-[3px] border-white rounded-full text-primary group-hover:text-white group-hover:bg-primary mx-auto">
-                        {step.num}
-                      </div>
+        {/* <Parallax speed={-5}> */}
+        <FadeInUp>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-y-8 md:gap-y-12 text-center mx-auto max-sm:max-w-[320px]">
+            {steps.map((step, i) => (
+              <div className="group relative sm:px-4" key={i}>
+                <FadeInUp>
+                  <div className="absolute hidden lg:block border-b border-gray-200 top-12 w-full left-1/2 group-first:left-1/2 group-last:hidden"></div>
+                  <div className="mx-auto w-20 bg-white relative">
+                    <div className="mb-4 md:mb-6 h-20 flex-center shadow-sm bg-primary/20 border-[3px] border-white rounded-full text-primary group-hover:text-white group-hover:bg-primary mx-auto">
+                      {step.num}
                     </div>
-                    <div>
-                      <h4 className="text-lg md:text-xl font-semibold">
-                        <TextAnimation text={step.title} />
-                      </h4>
-                      <p className="text-sm text-dark/70 mt-3 mb-0">
-                        {step.desc}
-                      </p>
-                    </div>
-                  </FadeInUp>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-center mt-10">
-              <button
-                onClick={() =>
-                  document
-                    .getElementById("early-access")
-                    ?.scrollIntoView({ behavior: "smooth" })
-                }
-                className="btnShiny rounded-md px-5 font-normal! h-12"
-              >
-                <span>Get early access</span> {arrow_right}
-              </button>
-            </div>
-          </FadeInUp>
-        </Parallax>
+                  </div>
+                  <div>
+                    <h4 className="text-lg md:text-xl font-semibold">
+                      <TextAnimation text={step.title} />
+                    </h4>
+                    <p className="text-sm text-dark/70 mt-3 mb-0">
+                      {step.desc}
+                    </p>
+                  </div>
+                </FadeInUp>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-center mt-10">
+            <button
+              onClick={() =>
+                document
+                  .getElementById("early-access")
+                  ?.scrollIntoView({ behavior: "smooth" })
+              }
+              className="btnShiny rounded-md px-5 font-normal! h-12"
+            >
+              <span>Get early access</span> {arrow_right}
+            </button>
+          </div>
+        </FadeInUp>
+        {/* </Parallax> */}
       </div>
     </section>
   );

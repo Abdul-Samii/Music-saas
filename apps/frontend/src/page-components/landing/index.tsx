@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect } from "react";
-import Navbar from "./Navbar";
+// import Navbar from "./Navbar";
 import Hero from "./Hero";
 import HowItWorks from "./HowItWorks";
 import Features from "./Features";
@@ -11,6 +11,7 @@ import PricingPlan from "./PricingPlan";
 import Faqs from "./Faqs";
 import CTA from "./CTA";
 import LandingFooter from "./LandingFooter";
+import Navbar from "@/components/Navbar";
 
 export default function LandingPageClient() {
   useEffect(() => {

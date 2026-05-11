@@ -1,7 +1,10 @@
+"use client";
+
 import FadeInUp from "@/components/animations/FadeInUp";
 import SlideDown from "@/components/animations/SlideDown";
 import TextAnimation from "@/components/animations/TextAnimation";
 import Marquee from "react-fast-marquee";
+import { useEffect, useRef, useState } from "react";
 
 export const VIDEOS = [
   {
@@ -102,35 +105,77 @@ const WhatWeCanGenerate = () => {
             <p className="text-secondary">Real videos made with Escalium</p>
           </div>
         </FadeInUp>
-
-        <Marquee>
-          {VIDEOS.map((s) => (
-            <SlideDown key={s.id}>
-              <div className="relative rounded-[12px] overflow-hidden mr-4 md:mr-6 border border-primary">
-                <video
-                  src={s.url}
-                  controls={false}
-                  disablePictureInPicture
-                  // className="rounded-[10px] w-[300px] h-[533.33px] object-cover"
-                  className="rounded-[10px] w-[200px] md:w-[300px] aspect-[300/533.33] object-cover"
-                  autoPlay
-                  muted
-                />
-                <div className="absolute w-full left-0 bottom-0 p-3 py-5 bg-linear-to-t from-primary to-transparent">
-                  <h3 className="mt-3 font-bold text-xl text-center text-white mb-2">
-                    {s.name}
-                  </h3>
-                  <span className="text-center text-xs text-muted block">
-                    this video has generated over {s.views} views
-                  </span>
-                </div>
-              </div>
-            </SlideDown>
-          ))}
-        </Marquee>
       </div>
+      <Marquee>
+        {VIDEOS.map((s) => (
+          <SlideDown key={s.id}>
+            <LazyVideoCard url={s.url} name={s.name} views={s.views} />
+          </SlideDown>
+        ))}
+      </Marquee>
     </section>
   );
 };
+
+export function LazyVideoCard({
+  url,
+  name,
+  views,
+}: {
+  url: string;
+  name: string;
+  views: string;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [shouldLoad, setShouldLoad] = useState(false);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node || shouldLoad) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      {
+        rootMargin: "200px",
+        threshold: 0.1,
+      },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [shouldLoad]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative rounded-[12px] overflow-hidden mr-4 md:mr-6 border border-primary"
+    >
+      <video
+        src={shouldLoad ? url : undefined}
+        controls={false}
+        disablePictureInPicture
+        className="rounded-[10px] w-[200px] md:w-[300px] aspect-[300/533.33] object-cover"
+        autoPlay={shouldLoad}
+        muted
+        loop
+        playsInline
+        preload="none"
+      />
+      <div className="absolute w-full left-0 bottom-0 p-3 py-5 bg-linear-to-t from-primary to-transparent">
+        <h3 className="mt-3 font-bold text-xl text-center text-white mb-2">
+          {name}
+        </h3>
+        <span className="text-center text-xs text-muted block">
+          this video has generated over {views} views
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export default WhatWeCanGenerate;
