@@ -581,9 +581,9 @@ export default function StudioPage() {
   }
 
   async function handleFile(file: File) {
-    const allowed = /\.(mp3|wav|flac|m4a|ogg|aac)$/i;
+    const allowed = /\.(mp3|mpeg|wav|flac|m4a|ogg|aac|mp4a)$/i;
     if (!allowed.test(file.name)) {
-      setFileError("Please upload an MP3, WAV, FLAC, M4A or OGG file.");
+      setFileError("Please upload an MP3, WAV, FLAC, M4A, OGG or MPEG file.");
       return;
     }
     setFileError("");
@@ -967,7 +967,7 @@ export default function StudioPage() {
                 background: dragOver ? "#EEF2FF" : "#F8F9FC", transition: "all 0.15s",
               }}
             >
-              <input ref={fileRef} type="file" accept=".mp3,.wav,.flac,.m4a,.ogg,.aac,audio/*" style={{ display: "none" }}
+              <input ref={fileRef} type="file" accept=".mp3,.mpeg,.wav,.flac,.m4a,.ogg,.aac,audio/*" style={{ display: "none" }}
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
               <div style={{ width: 64, height: 64, borderRadius: 18, background: "#EEF2FF", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
