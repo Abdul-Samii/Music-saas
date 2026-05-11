@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { Parallax } from "react-scroll-parallax";
 
-export const pricing_basic = [
+export const pricing = [
   {
     plan: "Free Version",
     price: "€0",
@@ -21,7 +21,7 @@ export const pricing_basic = [
     buttonText: "Get Started",
   },
   {
-    plan: "Artist",
+    plan: "Creator",
     price: "€25",
     annual: "€20",
     commission: "0% ad spend fee ",
@@ -30,7 +30,7 @@ export const pricing_basic = [
       "Basic Automatic Optimisation",
       "Cost Per Stream",
       "5 Landing Pages",
-      "Generate 30 Videos / month (30s)",
+      "Generate 30 Videos / month",
     ],
     featured: false,
     buttonText: "Get Started",
@@ -48,23 +48,6 @@ export const pricing_basic = [
       "Generate 80 videos / month (30s)",
     ],
     featured: true,
-    buttonText: "Get Started",
-  },
-];
-export const pricing_manager = [
-  {
-    plan: "Manager",
-    price: "$69",
-    annual: "$55.2",
-    commission: "0% on ad Spend",
-    items: [
-      "25 campaigns",
-      "Automatic Optimisation",
-      "Cost Per Stream",
-      "45 landing pages",
-      "Generate 200 videos / month (45s)",
-    ],
-    featured: false,
     buttonText: "Get Started",
   },
   {
@@ -104,31 +87,10 @@ const PricingPlan = () => {
         </FadeInUp>
         <Parallax speed={-2}>
           <FadeInUp>
-            <div className="">
-              <div className="flex items-center gap-4 mx-auto max-w-[600px] mb-10">
-                <span className="h-px grow bg-current opacity-20"></span>
-                <h3 className="text-center text-xl md:text-3xl font-semibold">
-                  For Independent Artists
-                </h3>
-                <span className="h-px grow bg-current opacity-20"></span>
-              </div>
-              <div className="flex flex-wrap justify-center gap-6 max-w-[1320px] mx-auto">
-                {pricing_basic.map((plan, i) => (
-                  <PricingCard plan={plan} key={i} />
-                ))}
-              </div>
-            </div>
-            <div className="mt-20">
-              <div className="flex items-center gap-4 mx-auto max-w-[600px] mb-10">
-                <span className="h-px grow bg-current opacity-20"></span>
-                <h3 className="text-center text-xl md:text-3xl font-semibold">
-                  For Managers & Labels
-                </h3>
-                <span className="h-px grow bg-current opacity-20"></span>
-              </div>
-              <div className="flex flex-wrap justify-center gap-6 max-w-[1320px] mx-auto">
-                {pricing_manager.map((plan, i) => (
-                  <PricingCard plan={plan} key={i} />
+            <div className="max-w-[1320px] mx-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {pricing.map((plan, i) => (
+                  <PricingCard key={i} plan={plan} />
                 ))}
               </div>
             </div>
@@ -148,7 +110,7 @@ export const PricingCard = ({
   return (
     <div
       className={cn(
-        "group p-8 border border-gray-200 bg-white rounded-2xl relative hover:bg-dark-bg hover:text-white transition-all duration-300 hover:border-dark-bg flex flex-col w-full max-w-[330px]",
+        "group p-8 border border-gray-200 bg-white rounded-2xl relative hover:bg-dark-bg hover:text-white transition-all duration-300 hover:border-dark-bg flex flex-col",
         {
           "border-primary": plan.featured,
         },

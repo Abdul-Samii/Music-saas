@@ -1,10 +1,6 @@
 import SlideDown from "@/components/animations/SlideDown";
 import { Parallax } from "react-scroll-parallax";
-import {
-  pricing_basic,
-  pricing_manager,
-  PricingCard,
-} from "../landing/PricingPlan";
+import { pricing, PricingCard } from "../landing/PricingPlan";
 
 const PricingPlan = ({ annual }: { annual?: boolean }) => {
   return (
@@ -14,33 +10,10 @@ const PricingPlan = ({ annual }: { annual?: boolean }) => {
           <div className="max-w-[1320px] mx-auto">
             <Parallax speed={-2}>
               <SlideDown>
-                <div className="">
-                  <div className="flex items-center gap-4 mx-auto max-w-[600px] mb-10">
-                    <span className="h-px grow bg-current opacity-20"></span>
-                    <h3 className="text-center text-xl md:text-3xl font-semibold">
-                      For Independent Artists
-                    </h3>
-                    <span className="h-px grow bg-current opacity-20"></span>
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-6 max-w-[1320px] mx-auto">
-                    {pricing_basic.map((plan, i) => (
-                      <PricingCard plan={plan} key={i} />
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-20">
-                  <div className="flex items-center gap-4 mx-auto max-w-[600px] mb-10">
-                    <span className="h-px grow bg-current opacity-20"></span>
-                    <h3 className="text-center text-xl md:text-3xl font-semibold">
-                      For Managers & Labels
-                    </h3>
-                    <span className="h-px grow bg-current opacity-20"></span>
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-6 max-w-[1320px] mx-auto">
-                    {pricing_manager.map((plan, i) => (
-                      <PricingCard plan={plan} key={i} />
-                    ))}
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {pricing.map((plan, i) => (
+                    <PricingCard key={i} plan={plan} annual={annual} />
+                  ))}
                 </div>
               </SlideDown>
             </Parallax>
