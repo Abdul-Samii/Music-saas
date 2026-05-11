@@ -7,8 +7,8 @@ import { Parallax } from "react-scroll-parallax";
 export const pricing = [
   {
     plan: "Free Version",
-    price: "€0",
-    annual: "€0",
+    price: "$0",
+    annual: "$0",
     commission: "12% ad spend fee ",
     items: [
       "2 campaigns",
@@ -22,8 +22,8 @@ export const pricing = [
   },
   {
     plan: "Creator",
-    price: "€25",
-    annual: "€20",
+    price: "$25",
+    annual: "$20",
     commission: "0% ad spend fee ",
     items: [
       "5 campaigns",
