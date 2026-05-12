@@ -102,6 +102,8 @@ export class MediaService {
       });
       fd.append('model', 'whisper-1');
       fd.append('response_format', 'verbose_json');
+      fd.append('timestamp_granularities[]', 'segment');
+      fd.append('prompt', 'Song lyrics. Music track. Verse, chorus, bridge.');
 
       const { data } = await axios.post(
         'https://api.openai.com/v1/audio/transcriptions',
