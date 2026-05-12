@@ -596,23 +596,26 @@ export default function StudioPage() {
     return audioCtxRef.current;
   }
 
-  // Encode a mono AudioBuffer to WAV blob
-  function monoBufferToWav(monoData: Float32Array, sampleRate: number): Blob {
-    const length = monoData.length * 2;
+  function audioBufferToWav(buffer: AudioBuffer): Blob {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const length = buffer.length * numChannels * 2;
     const arrayBuf = new ArrayBuffer(44 + length);
     const view = new DataView(arrayBuf);
     const write = (o: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
     const u16 = (o: number, v: number) => view.setUint16(o, v, true);
     const u32 = (o: number, v: number) => view.setUint32(o, v, true);
     write(0, "RIFF"); u32(4, 36 + length); write(8, "WAVE");
-    write(12, "fmt "); u32(16, 16); u16(20, 1); u16(22, 1);
-    u32(24, sampleRate); u32(28, sampleRate * 2); u16(32, 2); u16(34, 16);
+    write(12, "fmt "); u32(16, 16); u16(20, 1); u16(22, numChannels);
+    u32(24, sampleRate); u32(28, sampleRate * numChannels * 2); u16(32, numChannels * 2); u16(34, 16);
     write(36, "data"); u32(40, length);
     let offset = 44;
-    for (let i = 0; i < monoData.length; i++) {
-      const s = Math.max(-1, Math.min(1, monoData[i]));
-      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-      offset += 2;
+    for (let i = 0; i < buffer.length; i++) {
+      for (let ch = 0; ch < numChannels; ch++) {
+        const s = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        offset += 2;
+      }
     }
     return new Blob([arrayBuf], { type: "audio/wav" });
   }
@@ -622,20 +625,13 @@ export default function StudioPage() {
     const startSample = Math.floor(start * sampleRate);
     const endSample = Math.floor(end * sampleRate);
     const frameCount = endSample - startSample;
-
-    // Mix all channels to mono
-    const mono = new Float32Array(frameCount);
+    const trimmed = new OfflineAudioContext(buffer.numberOfChannels, frameCount, sampleRate).createBuffer(
+      buffer.numberOfChannels, frameCount, sampleRate
+    );
     for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-      const src = buffer.getChannelData(ch);
-      for (let i = 0; i < frameCount; i++) mono[i] += src[startSample + i] / buffer.numberOfChannels;
+      trimmed.getChannelData(ch).set(buffer.getChannelData(ch).subarray(startSample, endSample));
     }
-
-    // Normalize amplitude so vocals aren't too quiet for Whisper
-    let peak = 0;
-    for (let i = 0; i < mono.length; i++) peak = Math.max(peak, Math.abs(mono[i]));
-    if (peak > 0 && peak < 0.9) { const scale = 0.9 / peak; for (let i = 0; i < mono.length; i++) mono[i] *= scale; }
-
-    return new File([monoBufferToWav(mono, sampleRate)], "trimmed.wav", { type: "audio/wav" });
+    return new File([audioBufferToWav(trimmed)], "trimmed.wav", { type: "audio/wav" });
   }
 
   async function handleFile(file: File) {
