@@ -329,8 +329,9 @@ function VideoThumb({ src, style }: { src: string; style?: React.CSSProperties }
 }
 
 // ── Interactive preview video with animated lyrics ────────────────────────────
-function VideoPreview({ src, audioSrc, overlayOpacity, textColor, highlightColor, textPosition, fontSize, lyricStyle, fontFamily, lines }: {
-  src: string; audioSrc?: string; overlayOpacity: number; textColor: string; highlightColor: string;
+function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpacity, textColor, highlightColor, textPosition, fontSize, lyricStyle, fontFamily, lines }: {
+  src: string; audioSrc?: string; audioTrimStart?: number; audioTrimEnd?: number;
+  overlayOpacity: number; textColor: string; highlightColor: string;
   textPosition: "top" | "center" | "bottom"; fontSize: "sm" | "md" | "lg";
   lyricStyle: LyricStyle; fontFamily: string; lines: string[];
 }) {
@@ -341,14 +342,29 @@ function VideoPreview({ src, audioSrc, overlayOpacity, textColor, highlightColor
   const [wordIndex, setWordIndex] = useState(0);
   const [animKey, setAnimKey] = useState(0);
 
-  // Create audio element when audioSrc is available
+  // Create audio element, seek to trimStart, loop within trim region
   useEffect(() => {
     if (!audioSrc) return;
     const audio = new Audio(audioSrc);
-    audio.loop = true;
+    audio.loop = false;
+    const start = audioTrimStart ?? 0;
+    const end = audioTrimEnd;
+    audio.currentTime = start;
+
+    function onTimeUpdate() {
+      if (end && audio.currentTime >= end) {
+        audio.currentTime = start;
+        audio.play().catch(() => {});
+      }
+    }
+    audio.addEventListener("timeupdate", onTimeUpdate);
     audioRef.current = audio;
-    return () => { audio.pause(); audioRef.current = null; };
-  }, [audioSrc]);
+    return () => {
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.pause();
+      audioRef.current = null;
+    };
+  }, [audioSrc, audioTrimStart, audioTrimEnd]);
 
   useEffect(() => {
     const v = ref.current;
@@ -580,6 +596,48 @@ export default function StudioPage() {
     return audioCtxRef.current;
   }
 
+  // Encode a mono AudioBuffer to WAV blob
+  function monoBufferToWav(monoData: Float32Array, sampleRate: number): Blob {
+    const length = monoData.length * 2;
+    const arrayBuf = new ArrayBuffer(44 + length);
+    const view = new DataView(arrayBuf);
+    const write = (o: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+    const u16 = (o: number, v: number) => view.setUint16(o, v, true);
+    const u32 = (o: number, v: number) => view.setUint32(o, v, true);
+    write(0, "RIFF"); u32(4, 36 + length); write(8, "WAVE");
+    write(12, "fmt "); u32(16, 16); u16(20, 1); u16(22, 1);
+    u32(24, sampleRate); u32(28, sampleRate * 2); u16(32, 2); u16(34, 16);
+    write(36, "data"); u32(40, length);
+    let offset = 44;
+    for (let i = 0; i < monoData.length; i++) {
+      const s = Math.max(-1, Math.min(1, monoData[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      offset += 2;
+    }
+    return new Blob([arrayBuf], { type: "audio/wav" });
+  }
+
+  function extractTrimmedAudioFile(buffer: AudioBuffer, start: number, end: number): File {
+    const sampleRate = buffer.sampleRate;
+    const startSample = Math.floor(start * sampleRate);
+    const endSample = Math.floor(end * sampleRate);
+    const frameCount = endSample - startSample;
+
+    // Mix all channels to mono
+    const mono = new Float32Array(frameCount);
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+      const src = buffer.getChannelData(ch);
+      for (let i = 0; i < frameCount; i++) mono[i] += src[startSample + i] / buffer.numberOfChannels;
+    }
+
+    // Normalize amplitude so vocals aren't too quiet for Whisper
+    let peak = 0;
+    for (let i = 0; i < mono.length; i++) peak = Math.max(peak, Math.abs(mono[i]));
+    if (peak > 0 && peak < 0.9) { const scale = 0.9 / peak; for (let i = 0; i < mono.length; i++) mono[i] *= scale; }
+
+    return new File([monoBufferToWav(mono, sampleRate)], "trimmed.wav", { type: "audio/wav" });
+  }
+
   async function handleFile(file: File) {
     const allowed = /\.(mp3|mpeg|wav|flac|m4a|ogg|aac|mp4a)$/i;
     if (!allowed.test(file.name)) {
@@ -616,24 +674,7 @@ export default function StudioPage() {
       setDecoding(false);
     }
 
-    // Background: upload to server + Whisper transcription
-    setTranscribing(true);
-    setAutoTranscribed(false);
-    setUploadedAudioUrl("");
-    creativeApi.uploadAudio(file, () => {})
-      .then((res: { audioUrl: string; transcription?: { segments?: { text: string; start: number; end: number }[] } }) => {
-        setUploadedAudioUrl(res.audioUrl);
-        const segs = res.transcription?.segments;
-        if (segs && segs.length > 0) {
-          const newLines = segs.map((s) => s.text.trim()).filter(Boolean);
-          setLyricsText(newLines.join("\n"));
-          setTimestamps(segs.map((s) => s.start));
-          setSyncIndex(newLines.length);
-          setAutoTranscribed(true);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setTranscribing(false));
+    // Transcription happens when user clicks Next (after trim is set)
   }
 
   // Animate playhead
@@ -862,6 +903,8 @@ export default function StudioPage() {
         const result = await creativeApi.render({
           name,
           audioUrl: finalAudioUrl,
+          audioTrimStart: trimStart,
+          audioTrimEnd: trimEnd,
           videoClipUrl: clip.url,
           lyricsJson,
           clipId: clip.id,
@@ -1141,7 +1184,33 @@ export default function StudioPage() {
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <button
                   disabled={overLimit}
-                  onClick={() => { if (!overLimit) { stopPlayback(false); pausedAtRef.current = trimStart; setCurrentTime(trimStart); setStep(1); } }}
+                  onClick={() => {
+                    if (overLimit) return;
+                    stopPlayback(false);
+                    pausedAtRef.current = trimStart;
+                    setCurrentTime(trimStart);
+                    setStep(1);
+                    if (audioBuffer) {
+                      setTranscribing(true);
+                      setAutoTranscribed(false);
+                      setUploadedAudioUrl("");
+                      const trimmedFile = extractTrimmedAudioFile(audioBuffer, trimStart, trimEnd);
+                      creativeApi.uploadAudio(trimmedFile, () => {})
+                        .then((res: { audioUrl: string; transcription?: { segments?: { text: string; start: number; end: number }[] } }) => {
+                          setUploadedAudioUrl(res.audioUrl);
+                          const segs = res.transcription?.segments;
+                          if (segs && segs.length > 0) {
+                            const newLines = segs.map((s) => s.text.trim()).filter(Boolean);
+                            setLyricsText(newLines.join("\n"));
+                            setTimestamps(segs.map((s) => s.start));
+                            setSyncIndex(newLines.length);
+                            setAutoTranscribed(true);
+                          }
+                        })
+                        .catch(() => {})
+                        .finally(() => setTranscribing(false));
+                    }
+                  }}
                   style={btnNext(overLimit)}
                 >
                   Continue to Lyrics
@@ -1740,6 +1809,8 @@ export default function StudioPage() {
                         <VideoPreview
                           src={activeClip.url}
                           audioSrc={audioUrl || undefined}
+                          audioTrimStart={trimStart}
+                          audioTrimEnd={trimEnd}
                           overlayOpacity={activeConfig.overlayOpacity}
                           textColor={activeConfig.textColor}
                           highlightColor={activeConfig.highlightColor}
