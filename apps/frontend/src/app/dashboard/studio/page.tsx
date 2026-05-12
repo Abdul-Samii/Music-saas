@@ -1369,6 +1369,28 @@ export default function StudioPage() {
       ══════════════════════════════════════════════════════════════ */}
       {step === 2 && audioBuffer && (
         <>
+          {/* Whisper auto-sync banner */}
+          {autoTranscribed && (
+            <div style={{ background: "linear-gradient(135deg, #ECFDF5, #D1FAE5)", border: "1.5px solid #6EE7B7", borderRadius: 16, padding: "1.25rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#10B981", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div>
+                  <p style={{ fontWeight: 700, fontSize: "0.9rem", color: "#065F46", margin: 0 }}>Auto-synced by Whisper AI</p>
+                  <p style={{ fontSize: "0.78rem", color: "#047857", margin: 0, marginTop: "0.15rem" }}>All {lines.length} lines have exact timestamps — no manual sync needed</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { stopPlayback(true); setSyncActive(false); setStep(3); }}
+                style={{ padding: "0.625rem 1.25rem", borderRadius: 10, border: "none", cursor: "pointer", background: "#10B981", color: "#fff", fontWeight: 700, fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}
+              >
+                Skip to Style
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </button>
+            </div>
+          )}
+
           {/* Compact playback bar */}
           <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E2E6F0", padding: "1rem 1.25rem", display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
             {/* Restart */}
@@ -1609,9 +1631,9 @@ export default function StudioPage() {
               Back to Lyrics
             </button>
             <button
-              disabled={!allSynced}
-              onClick={() => { if (allSynced) { stopPlayback(false); setStep(3); } }}
-              style={btnNext(!allSynced)}
+              disabled={!allSynced && !autoTranscribed}
+              onClick={() => { if (allSynced || autoTranscribed) { stopPlayback(false); setSyncActive(false); setStep(3); } }}
+              style={btnNext(!allSynced && !autoTranscribed)}
             >
               Continue to Style
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
