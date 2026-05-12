@@ -339,7 +339,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   const ref = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
-  const [activeLineIndex, setActiveLineIndex] = useState(0);
+  const [activeLineIndex, setActiveLineIndex] = useState(-1);
   const [activeWordIdx, setActiveWordIdx] = useState(0);
   const [animKey, setAnimKey] = useState(0);
   const prevLineRef = useRef(-1);
@@ -368,8 +368,25 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     const start = audioTrimStart ?? 0;
     const end = audioTrimEnd;
     audio.currentTime = start;
-    function onEnded() { audio.currentTime = start; audio.play().catch(() => {}); }
-    function onTimeUpdate() { if (end && audio.currentTime >= end) { audio.currentTime = start; audio.play().catch(() => {}); } }
+    function onEnded() {
+      audio.currentTime = start;
+      audio.play().catch(() => {});
+      // Reset lyric state so lyrics wait again for first timestamp on loop
+      setActiveLineIndex(-1);
+      setActiveWordIdx(0);
+      prevLineRef.current = -1;
+      prevWordRef.current = -1;
+    }
+    function onTimeUpdate() {
+      if (end && audio.currentTime >= end) {
+        audio.currentTime = start;
+        audio.play().catch(() => {});
+        setActiveLineIndex(-1);
+        setActiveWordIdx(0);
+        prevLineRef.current = -1;
+        prevWordRef.current = -1;
+      }
+    }
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("timeupdate", onTimeUpdate);
     audioRef.current = audio;
@@ -398,9 +415,9 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
       if (times && times.length > 0 && audio) {
         // Time-driven: find which line we're in
         const elapsed = audio.currentTime; // timestamps are absolute (from full file)
-        let li = 0;
+        let li = -1; // -1 means before the first lyric
         for (let i = 0; i < times.length; i++) { if (elapsed >= times[i]) li = i; else break; }
-        li = Math.min(li, safeLines.length - 1);
+        if (li >= 0) li = Math.min(li, safeLines.length - 1);
 
         if (li !== prevLineRef.current) {
           setActiveLineIndex(li);
@@ -410,8 +427,8 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
           prevWordRef.current = 0;
         }
 
-        // Word index within current line
-        if (lyricStyle === "word-by-word" || lyricStyle === "spotlight") {
+        // Word index within current line (only when a line is active)
+        if (li >= 0 && (lyricStyle === "word-by-word" || lyricStyle === "spotlight")) {
           const lineStart = times[li] ?? 0;
           const lineEnd = times[li + 1] ?? (lineStart + 5);
           const words = safeLines[li].split(" ").filter(Boolean);
@@ -437,6 +454,11 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   // ── Fallback timers — only when no timestamps ──
   useEffect(() => {
     if (lyricStyle !== "word-by-word" || !playing || safeTimes) return;
+    // If before first line, wait then start at 0
+    if (activeLineIndex < 0) {
+      const t = setTimeout(() => { setActiveLineIndex(0); setActiveWordIdx(0); setAnimKey((k) => k + 1); }, 800);
+      return () => clearTimeout(t);
+    }
     const words = (safeLines[activeLineIndex] || "").split(" ").filter(Boolean);
     if (activeWordIdx < words.length - 1) {
       const t = setTimeout(() => { setActiveWordIdx((w) => w + 1); setAnimKey((k) => k + 1); }, 340);
@@ -457,9 +479,13 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
 
   useEffect(() => {
     if (lyricStyle === "word-by-word" || lyricStyle === "spotlight" || !playing || safeTimes) return;
+    if (activeLineIndex < 0) {
+      const t = setTimeout(() => { setActiveLineIndex(0); setAnimKey((k) => k + 1); }, 800);
+      return () => clearTimeout(t);
+    }
     const t = setInterval(() => { setActiveLineIndex((i) => (i + 1) % safeLines.length); setAnimKey((k) => k + 1); }, 2400);
     return () => clearInterval(t);
-  }, [lyricStyle, safeLines.length, playing, safeTimes]);
+  }, [lyricStyle, safeLines.length, playing, safeTimes, activeLineIndex]);
 
   function toggle() {
     if (!ref.current) return;
@@ -475,6 +501,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   };
 
   function renderLyric() {
+    if (activeLineIndex < 0) return null; // before first lyric — show nothing
     const curLine = safeLines[activeLineIndex] || "";
     const curWords = curLine.split(" ").filter(Boolean);
     const revealed = curWords.slice(0, activeWordIdx + 1);
