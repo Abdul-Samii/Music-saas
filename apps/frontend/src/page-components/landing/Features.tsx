@@ -11,6 +11,7 @@ import {
 import Marquee from "react-fast-marquee";
 import SlideDown from "@/components/animations/SlideDown";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
+import Image from "next/image";
 
 const METRICS = [
   {
@@ -314,8 +315,10 @@ const Features = () => {
                     costs
                   </p>
                 </div>
-                <img
-                  src="/img/music-campaign.jpg"
+                <Image
+                  width={700}
+                  height={700}
+                  src="/img/music-campaign.webp"
                   alt=""
                   className="border border-border rounded w-full max-w-[370px] mt-auto"
                 />

@@ -1,5 +1,6 @@
 import TextAnimation from "@/components/animations/TextAnimation";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 const ROWS = [
   {
@@ -162,19 +163,20 @@ const checkIcon = (status: boolean | null) => {
   if (status === false) {
     // return <img src="/img/cross-icon.svg" width={36} alt="" />;
     return (
-      <img
-        src="/img/cross-outlined.svg"
+      <Image
         width={14}
+        height={14}
+        src="/img/cross-outlined.svg"
         className="opacity-50"
         alt=""
       />
     );
   }
   if (status === true) {
-    return <img src="/img/check-icon.svg" width={24} alt="" />;
+    return <Image width={24} height={24} src="/img/check-icon.svg" alt="" />;
   }
   if (status === null) {
-    return <img src="/img/warning-icon.svg" width={24} alt="" />;
+    return <Image width={24} height={24} src="/img/warning-icon.svg" alt="" />;
   }
 };
 export default BestAlternatives;
