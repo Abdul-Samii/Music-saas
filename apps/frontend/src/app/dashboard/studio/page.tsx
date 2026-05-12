@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import { creativeApi } from "@/lib/api";
 
 const BLUE = "#3A60E7";
@@ -361,100 +361,132 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     return hasRealTimes ? filled : null;
   }, [timestamps]);
 
-  // Audio element — simple setup, loop within trim region
+  // Stable refs so timer callbacks always read latest data, not stale closures
+  const safeTimesRef = useRef<number[] | null>(null);
+  const safeLinesRef = useRef<string[]>([]);
+  const pendingTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useLayoutEffect(() => {
+    safeTimesRef.current = safeTimes;
+    safeLinesRef.current = safeLines;
+  });
+
+  function clearTimers() {
+    pendingTimers.current.forEach(clearTimeout);
+    pendingTimers.current = [];
+  }
+
+  // Pre-schedule every lyric line change from the given audio position.
+  // Called once on play/resume — each line fires at its exact millisecond offset.
+  function syncFrom(audioCurrentTime: number) {
+    clearTimers();
+    const times = safeTimesRef.current;
+    const lns = safeLinesRef.current;
+    if (!times || times.length === 0) return;
+
+    // Show the correct line for the current position immediately
+    let li = -1;
+    for (let i = 0; i < times.length; i++) {
+      if (audioCurrentTime >= times[i]) li = i;
+      else break;
+    }
+    if (li >= 0) li = Math.min(li, lns.length - 1);
+    setActiveLineIndex(li);
+    setActiveWordIdx(0);
+    setAnimKey((k) => k + 1);
+    prevLineRef.current = li;
+    prevWordRef.current = 0;
+
+    // Schedule each future line at its exact millisecond delay from now
+    for (let i = 0; i < times.length; i++) {
+      const delay = (times[i] - audioCurrentTime) * 1000;
+      if (delay <= 0) continue;
+      const lineIdx = Math.min(i, lns.length - 1);
+      const timer = setTimeout(() => {
+        setActiveLineIndex(lineIdx);
+        setActiveWordIdx(0);
+        setAnimKey((k) => k + 1);
+        prevLineRef.current = lineIdx;
+        prevWordRef.current = 0;
+      }, delay);
+      pendingTimers.current.push(timer);
+    }
+  }
+
+  // Audio element — loop within trim region, reschedule lyrics on each loop
   useEffect(() => {
     if (!audioSrc) return;
     const audio = new Audio(audioSrc);
     const start = audioTrimStart ?? 0;
     const end = audioTrimEnd;
     audio.currentTime = start;
-    function onEnded() {
+
+    function loopBack() {
       audio.currentTime = start;
       audio.play().catch(() => {});
-      // Reset lyric state so lyrics wait again for first timestamp on loop
       setActiveLineIndex(-1);
-      setActiveWordIdx(0);
       prevLineRef.current = -1;
-      prevWordRef.current = -1;
+      syncFrom(start);
     }
-    function onTimeUpdate() {
-      if (end && audio.currentTime >= end) {
-        audio.currentTime = start;
-        audio.play().catch(() => {});
-        setActiveLineIndex(-1);
-        setActiveWordIdx(0);
-        prevLineRef.current = -1;
-        prevWordRef.current = -1;
-      }
-    }
-    audio.addEventListener("ended", onEnded);
-    audio.addEventListener("timeupdate", onTimeUpdate);
+
+    audio.addEventListener("ended", loopBack);
+    audio.addEventListener("timeupdate", () => {
+      if (end && audio.currentTime >= end) loopBack();
+    });
     audioRef.current = audio;
     return () => {
-      audio.removeEventListener("ended", onEnded);
-      audio.removeEventListener("timeupdate", onTimeUpdate);
-      audio.pause(); audioRef.current = null;
+      audio.pause();
+      audioRef.current = null;
+      clearTimers();
     };
-  }, [audioSrc, audioTrimStart, audioTrimEnd]);
+  }, [audioSrc, audioTrimStart, audioTrimEnd]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const v = ref.current;
     if (!v) return;
-    v.play().then(() => { setPlaying(true); audioRef.current?.play().catch(() => {}); }).catch(() => {});
-    return () => { v.pause(); audioRef.current?.pause(); };
-  }, [src]);
+    v.play().then(() => {
+      setPlaying(true);
+      const audio = audioRef.current;
+      if (audio) { audio.play().catch(() => {}); syncFrom(audio.currentTime); }
+    }).catch(() => {});
+    return () => { v.pause(); audioRef.current?.pause(); clearTimers(); };
+  }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Single polling loop — reads audioRef.currentTime directly every 80ms ──
+  // When Whisper timestamps arrive (or change) while already playing, reschedule
   useEffect(() => {
-    if (!playing) return;
-    const times = safeTimes;
+    if (!playing || !safeTimes || !audioRef.current) return;
+    syncFrom(audioRef.current.currentTime);
+  }, [safeTimes, playing]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Word advancement poll — lightweight, only tracks word index within active line ──
+  useEffect(() => {
+    if (!playing || !safeTimes || activeLineIndex < 0) return;
+    if (lyricStyle !== "word-by-word" && lyricStyle !== "spotlight") return;
+    const times = safeTimes;
     const tick = setInterval(() => {
       const audio = audioRef.current;
-
-      if (times && times.length > 0 && audio) {
-        // Time-driven: find which line we're in
-        const elapsed = audio.currentTime; // timestamps are absolute (from full file)
-        let li = -1; // -1 means before the first lyric
-        for (let i = 0; i < times.length; i++) { if (elapsed >= times[i]) li = i; else break; }
-        if (li >= 0) li = Math.min(li, safeLines.length - 1);
-
-        if (li !== prevLineRef.current) {
-          setActiveLineIndex(li);
-          setActiveWordIdx(0);
-          setAnimKey((k) => k + 1);
-          prevLineRef.current = li;
-          prevWordRef.current = 0;
-        }
-
-        // Word index within current line (only when a line is active)
-        if (li >= 0 && (lyricStyle === "word-by-word" || lyricStyle === "spotlight")) {
-          const lineStart = times[li] ?? 0;
-          const lineEnd = times[li + 1] ?? (lineStart + 5);
-          const words = safeLines[li].split(" ").filter(Boolean);
-          const wi = Math.min(
-            Math.floor(((elapsed - lineStart) / Math.max(0.1, lineEnd - lineStart)) * words.length),
-            words.length - 1
-          );
-          if (wi !== prevWordRef.current) {
-            setActiveWordIdx(wi);
-            prevWordRef.current = wi;
-          }
-        }
-
-      } else {
-        // Fallback: dumb timers when no timestamps available (manual lyrics)
-        // handled by separate effects below
+      if (!audio) return;
+      const elapsed = audio.currentTime;
+      const li = activeLineIndex;
+      if (li < 0 || li >= times.length) return;
+      const lineStart = times[li];
+      const lineEnd = times[li + 1] ?? (lineStart + 5);
+      const words = safeLines[li]?.split(" ").filter(Boolean) ?? [];
+      if (words.length === 0) return;
+      const wi = Math.min(
+        Math.floor(((elapsed - lineStart) / Math.max(0.1, lineEnd - lineStart)) * words.length),
+        words.length - 1
+      );
+      if (wi >= 0 && wi !== prevWordRef.current) {
+        setActiveWordIdx(wi);
+        prevWordRef.current = wi;
       }
-    }, 80);
-
+    }, 60);
     return () => clearInterval(tick);
-  }, [playing, safeTimes, safeLines, lyricStyle, audioTrimStart]);
+  }, [playing, safeTimes, safeLines, lyricStyle, activeLineIndex]);
 
-  // ── Fallback timers — only when no timestamps ──
+  // ── Fallback timers — only when no Whisper timestamps (manual lyrics) ──
   useEffect(() => {
     if (lyricStyle !== "word-by-word" || !playing || safeTimes) return;
-    // If before first line, wait then start at 0
     if (activeLineIndex < 0) {
       const t = setTimeout(() => { setActiveLineIndex(0); setActiveWordIdx(0); setAnimKey((k) => k + 1); }, 800);
       return () => clearTimeout(t);
@@ -489,8 +521,20 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
 
   function toggle() {
     if (!ref.current) return;
-    if (playing) { ref.current.pause(); audioRef.current?.pause(); setPlaying(false); }
-    else { ref.current.play().catch(() => {}); audioRef.current?.play().catch(() => {}); setPlaying(true); }
+    if (playing) {
+      ref.current.pause();
+      audioRef.current?.pause();
+      clearTimers(); // cancel all scheduled lyric changes while paused
+      setPlaying(false);
+    } else {
+      ref.current.play().catch(() => {});
+      const audio = audioRef.current;
+      if (audio) {
+        audio.play().catch(() => {});
+        syncFrom(audio.currentTime); // reschedule from exact resume position
+      }
+      setPlaying(true);
+    }
   }
 
   const fSize = fontSize === "sm" ? "0.9rem" : fontSize === "md" ? "1.15rem" : "1.4rem";
