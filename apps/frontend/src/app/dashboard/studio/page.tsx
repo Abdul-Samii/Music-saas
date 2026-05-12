@@ -339,41 +339,45 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   const ref = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
-  const [audioTime, setAudioTime] = useState(0);
-  // Fallback timer state (used only when no timestamps)
-  const [timerLine, setTimerLine] = useState(0);
-  const [timerWord, setTimerWord] = useState(0);
+  const [activeLineIndex, setActiveLineIndex] = useState(0);
+  const [activeWordIdx, setActiveWordIdx] = useState(0);
   const [animKey, setAnimKey] = useState(0);
   const prevLineRef = useRef(-1);
+  const prevWordRef = useRef(-1);
 
   const safeLines = useMemo(() => lines.length > 0 ? lines : ["Your lyric appears here"], [lines]);
+  const allWords = useMemo(() => safeLines.flatMap((l) => l.split(" ").filter(Boolean)), [safeLines]);
 
-  // Resolve timestamps — fill null gaps with linear interpolation
+  // Resolved timestamps — fill any null gaps
   const safeTimes = useMemo((): number[] | null => {
     if (!timestamps || timestamps.length === 0) return null;
-    return timestamps.map((t, i) => {
-      if (t !== null) return t;
+    const filled = timestamps.map((t, i) => {
+      if (t !== null) return t as number;
       for (let j = i - 1; j >= 0; j--) if (timestamps[j] !== null) return (timestamps[j] as number) + (i - j) * 2;
       return i * 2;
     });
+    // Only use if we have real timestamps (not all zeros)
+    const hasRealTimes = filled.some((t) => t > 0.1);
+    return hasRealTimes ? filled : null;
   }, [timestamps]);
 
-  const hasSync = !!(safeTimes && safeTimes.length > 0);
-
-  // Audio element — track currentTime for lyric sync, loop within trim region
+  // Audio element — simple setup, loop within trim region
   useEffect(() => {
     if (!audioSrc) return;
     const audio = new Audio(audioSrc);
     const start = audioTrimStart ?? 0;
     const end = audioTrimEnd;
     audio.currentTime = start;
-    function onTimeUpdate() {
-      setAudioTime(Math.max(0, audio.currentTime - start));
-      if (end && audio.currentTime >= end) { audio.currentTime = start; setAudioTime(0); audio.play().catch(() => {}); }
-    }
+    function onEnded() { audio.currentTime = start; audio.play().catch(() => {}); }
+    function onTimeUpdate() { if (end && audio.currentTime >= end) { audio.currentTime = start; audio.play().catch(() => {}); } }
+    audio.addEventListener("ended", onEnded);
     audio.addEventListener("timeupdate", onTimeUpdate);
     audioRef.current = audio;
-    return () => { audio.removeEventListener("timeupdate", onTimeUpdate); audio.pause(); audioRef.current = null; };
+    return () => {
+      audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.pause(); audioRef.current = null;
+    };
   }, [audioSrc, audioTrimStart, audioTrimEnd]);
 
   useEffect(() => {
@@ -383,77 +387,80 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     return () => { v.pause(); audioRef.current?.pause(); };
   }, [src]);
 
-  // ── Active line from audio time ──
-  const activeLineIndex = useMemo(() => {
-    if (!hasSync) return timerLine;
-    let idx = 0;
-    for (let i = 0; i < safeTimes!.length; i++) { if (audioTime >= safeTimes![i]) idx = i; else break; }
-    return Math.min(idx, safeLines.length - 1);
-  }, [audioTime, safeTimes, timerLine, hasSync, safeLines.length]);
-
-  // Fire animation when line changes
+  // ── Single polling loop — reads audioRef.currentTime directly every 80ms ──
   useEffect(() => {
-    if (activeLineIndex !== prevLineRef.current) {
-      setAnimKey((k) => k + 1);
-      if (!hasSync) setTimerWord(0);
-      prevLineRef.current = activeLineIndex;
-    }
-  }, [activeLineIndex, hasSync]);
+    if (!playing) return;
+    const times = safeTimes;
+    const trimOffset = audioTrimStart ?? 0;
 
-  // ── Fallback timers — only active when no timestamps ──
+    const tick = setInterval(() => {
+      const audio = audioRef.current;
+
+      if (times && times.length > 0 && audio) {
+        // Time-driven: find which line we're in
+        const elapsed = Math.max(0, audio.currentTime - trimOffset);
+        let li = 0;
+        for (let i = 0; i < times.length; i++) { if (elapsed >= times[i]) li = i; else break; }
+        li = Math.min(li, safeLines.length - 1);
+
+        if (li !== prevLineRef.current) {
+          setActiveLineIndex(li);
+          setActiveWordIdx(0);
+          setAnimKey((k) => k + 1);
+          prevLineRef.current = li;
+          prevWordRef.current = 0;
+        }
+
+        // Word index within current line
+        if (lyricStyle === "word-by-word" || lyricStyle === "spotlight") {
+          const lineStart = times[li] ?? 0;
+          const lineEnd = times[li + 1] ?? (lineStart + 5);
+          const words = safeLines[li].split(" ").filter(Boolean);
+          const wi = Math.min(
+            Math.floor(((elapsed - lineStart) / Math.max(0.1, lineEnd - lineStart)) * words.length),
+            words.length - 1
+          );
+          if (wi !== prevWordRef.current) {
+            setActiveWordIdx(wi);
+            prevWordRef.current = wi;
+          }
+        }
+
+      } else {
+        // Fallback: dumb timers when no timestamps available (manual lyrics)
+        // handled by separate effects below
+      }
+    }, 80);
+
+    return () => clearInterval(tick);
+  }, [playing, safeTimes, safeLines, lyricStyle, audioTrimStart]);
+
+  // ── Fallback timers — only when no timestamps ──
   useEffect(() => {
-    if (lyricStyle !== "word-by-word" || !playing || hasSync) return;
-    const words = (safeLines[timerLine] || "").split(" ").filter(Boolean);
-    if (timerWord < words.length - 1) {
-      const t = setTimeout(() => { setTimerWord((w) => w + 1); setAnimKey((k) => k + 1); }, 340);
+    if (lyricStyle !== "word-by-word" || !playing || safeTimes) return;
+    const words = (safeLines[activeLineIndex] || "").split(" ").filter(Boolean);
+    if (activeWordIdx < words.length - 1) {
+      const t = setTimeout(() => { setActiveWordIdx((w) => w + 1); setAnimKey((k) => k + 1); }, 340);
       return () => clearTimeout(t);
     }
-    const t = setTimeout(() => { setTimerLine((l) => (l + 1) % safeLines.length); setTimerWord(0); setAnimKey((k) => k + 1); }, 1600);
+    const t = setTimeout(() => {
+      setActiveLineIndex((l) => (l + 1) % safeLines.length);
+      setActiveWordIdx(0); setAnimKey((k) => k + 1);
+    }, 1600);
     return () => clearTimeout(t);
-  }, [lyricStyle, timerLine, timerWord, safeLines, playing, hasSync]);
-
-  const allWords = useMemo(() => safeLines.flatMap((l) => l.split(" ").filter(Boolean)), [safeLines]);
+  }, [lyricStyle, activeLineIndex, activeWordIdx, safeLines, playing, safeTimes]);
 
   useEffect(() => {
-    if (lyricStyle !== "spotlight" || !playing || hasSync) return;
-    const t = setInterval(() => { setTimerWord((w) => (w + 1) % allWords.length); setAnimKey((k) => k + 1); }, 650);
+    if (lyricStyle !== "spotlight" || !playing || safeTimes) return;
+    const t = setInterval(() => { setActiveWordIdx((w) => (w + 1) % allWords.length); setAnimKey((k) => k + 1); }, 650);
     return () => clearInterval(t);
-  }, [lyricStyle, allWords.length, playing, hasSync]);
+  }, [lyricStyle, allWords.length, playing, safeTimes]);
 
   useEffect(() => {
-    if (lyricStyle === "word-by-word" || lyricStyle === "spotlight" || !playing || hasSync) return;
-    const t = setInterval(() => { setTimerLine((i) => (i + 1) % safeLines.length); setAnimKey((k) => k + 1); }, 2400);
+    if (lyricStyle === "word-by-word" || lyricStyle === "spotlight" || !playing || safeTimes) return;
+    const t = setInterval(() => { setActiveLineIndex((i) => (i + 1) % safeLines.length); setAnimKey((k) => k + 1); }, 2400);
     return () => clearInterval(t);
-  }, [lyricStyle, safeLines.length, playing, hasSync]);
-
-  // ── Time-driven word index (word-by-word) ──
-  const activeWordIndex = useMemo(() => {
-    if (!hasSync) return timerWord;
-    const lineStart = safeTimes![activeLineIndex] ?? 0;
-    const lineEnd = safeTimes![activeLineIndex + 1] ?? (lineStart + 5);
-    const words = (safeLines[activeLineIndex] || "").split(" ").filter(Boolean);
-    if (!words.length) return 0;
-    const elapsed = Math.max(0, audioTime - lineStart);
-    return Math.min(Math.floor((elapsed / Math.max(0.1, lineEnd - lineStart)) * words.length), words.length - 1);
-  }, [audioTime, safeTimes, activeLineIndex, safeLines, timerWord, hasSync]);
-
-  // ── Time-driven spotlight word ──
-  const activeSpotlightWord = useMemo(() => {
-    if (!hasSync) return timerWord;
-    let globalIdx = 0;
-    for (let li = 0; li < safeLines.length; li++) {
-      const lineStart = safeTimes![li] ?? 0;
-      const lineEnd = safeTimes![li + 1] ?? (lineStart + 5);
-      const words = safeLines[li].split(" ").filter(Boolean);
-      if (audioTime >= lineStart && (li === safeLines.length - 1 || audioTime < (safeTimes![li + 1] ?? Infinity))) {
-        const elapsed = Math.max(0, audioTime - lineStart);
-        const wIdx = Math.min(Math.floor((elapsed / Math.max(0.1, lineEnd - lineStart)) * words.length), words.length - 1);
-        return globalIdx + wIdx;
-      }
-      globalIdx += words.length;
-    }
-    return 0;
-  }, [audioTime, safeTimes, safeLines, timerWord, hasSync]);
+  }, [lyricStyle, safeLines.length, playing, safeTimes]);
 
   function toggle() {
     if (!ref.current) return;
@@ -469,51 +476,60 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   };
 
   function renderLyric() {
+    const curLine = safeLines[activeLineIndex] || "";
+    const curWords = curLine.split(" ").filter(Boolean);
+    const revealed = curWords.slice(0, activeWordIdx + 1);
+
     if (lyricStyle === "word-by-word") {
-      const words = (safeLines[activeLineIndex] || "").split(" ").filter(Boolean);
-      const revealed = words.slice(0, activeWordIndex + 1);
       return (
         <p style={textStyle}>
           {revealed.slice(0, -1).join(" ")}
           {revealed.length > 1 ? " " : ""}
-          <span key={`${activeLineIndex}-${activeWordIndex}`} style={{ display: "inline", animation: "lyr-word 0.28s ease forwards" }}>
+          <span key={`${activeLineIndex}-${activeWordIdx}`} style={{ display: "inline", animation: "lyr-word 0.28s ease forwards" }}>
             {revealed[revealed.length - 1]}
           </span>
         </p>
       );
     }
     if (lyricStyle === "spotlight") {
-      const word = allWords[activeSpotlightWord % allWords.length] || "";
-      const isHighlighted = activeSpotlightWord % 3 === 0 || activeSpotlightWord % 7 === 4;
+      const globalWord = safeTimes
+        ? allWords[Math.min(
+            safeLines.slice(0, activeLineIndex).flatMap((l) => l.split(" ").filter(Boolean)).length + activeWordIdx,
+            allWords.length - 1
+          )]
+        : allWords[activeWordIdx % allWords.length] || "";
+      const wi = safeTimes
+        ? safeLines.slice(0, activeLineIndex).flatMap((l) => l.split(" ").filter(Boolean)).length + activeWordIdx
+        : activeWordIdx;
+      const isHighlighted = wi % 3 === 0 || wi % 7 === 4;
       return (
-        <p key={`spot-${activeSpotlightWord}`} style={{ ...textStyle, fontSize: fontSize === "sm" ? "1.5rem" : fontSize === "md" ? "2rem" : "2.6rem",
+        <p key={`spot-${wi}`} style={{ ...textStyle, fontSize: fontSize === "sm" ? "1.5rem" : fontSize === "md" ? "2rem" : "2.6rem",
           color: isHighlighted ? highlightColor : textColor,
           animation: "lyr-spotlight 0.3s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
           textShadow: isHighlighted ? `0 0 24px ${highlightColor}88, 0 2px 14px rgba(0,0,0,0.95)` : textStyle.textShadow,
         }}>
-          {word}
+          {globalWord}
         </p>
       );
     }
     if (lyricStyle === "echo") {
-      const line = safeLines[activeLineIndex] || "";
       return (
         <div key={animKey} style={{ display: "flex", flexDirection: "column", alignItems: "center", animation: "lyr-echo-in 0.5s ease forwards" }}>
-          <p style={{ ...textStyle, margin: 0 }}>{line}</p>
-          <p style={{ ...textStyle, margin: "-0.35em 0 0 0", opacity: 0.28, filter: "blur(2.5px)", transform: "scaleY(-1) scaleX(0.97)", fontSize: `calc(${fSize} * 0.85)` }}>{line}</p>
+          <p style={{ ...textStyle, margin: 0 }}>{curLine}</p>
+          <p style={{ ...textStyle, margin: "-0.35em 0 0 0", opacity: 0.28, filter: "blur(2.5px)", transform: "scaleY(-1) scaleX(0.97)", fontSize: `calc(${fSize} * 0.85)` }}>{curLine}</p>
         </div>
       );
     }
     if (lyricStyle === "glow") {
       return (
         <p key={animKey} style={{ ...textStyle, animation: "lyr-glow 0.6s ease forwards" }}>
-          <span style={{ filter: "drop-shadow(0 0 10px currentColor)" }}>{safeLines[activeLineIndex]}</span>
+          <span style={{ filter: "drop-shadow(0 0 10px currentColor)" }}>{curLine}</span>
         </p>
       );
     }
     return (
       <p key={animKey} style={{ ...textStyle, animation: "lyr-pop 0.5s cubic-bezier(0.175,0.885,0.32,1.275) forwards" }}>
-        {safeLines[activeLineIndex]}
+        {curLine}
       </p>
     );
   }
