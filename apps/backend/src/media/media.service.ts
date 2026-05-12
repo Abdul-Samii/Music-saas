@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import FormData from 'form-data';
 import * as fs from 'fs';
-import { S3Client, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  GetObjectCommand,
+  ListObjectsV2Command,
+} from '@aws-sdk/client-s3';
 import { PrismaService } from '../prisma/prisma.service';
 
 const s3 = new S3Client({
@@ -37,10 +41,12 @@ export class MediaService {
   async getVideoLibrary(): Promise<{ clips: VideoClip[] }> {
     // Try manifest.json first (fastest, allows custom metadata)
     try {
-      const obj = await s3.send(new GetObjectCommand({
-        Bucket: BUCKET,
-        Key: `${CLIPS_PREFIX}manifest.json`,
-      }));
+      const obj = await s3.send(
+        new GetObjectCommand({
+          Bucket: BUCKET,
+          Key: `${CLIPS_PREFIX}manifest.json`,
+        }),
+      );
       const body = await obj.Body?.transformToString();
       if (body) {
         const clips = JSON.parse(body) as VideoClip[];
@@ -52,10 +58,12 @@ export class MediaService {
 
     // Auto-discover: list .mp4 files and build clip objects from S3 keys
     try {
-      const list = await s3.send(new ListObjectsV2Command({
-        Bucket: BUCKET,
-        Prefix: CLIPS_PREFIX,
-      }));
+      const list = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: BUCKET,
+          Prefix: CLIPS_PREFIX,
+        }),
+      );
 
       const baseUrl = `https://${BUCKET}.s3.${process.env.AWS_REGION ?? 'eu-north-1'}.amazonaws.com`;
 
@@ -72,7 +80,9 @@ export class MediaService {
           const thumbKey = key.replace(/\.mp4$/i, '.jpg');
           return {
             id: `s3-${i}`,
-            title: name.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+            title: name
+              .replace(/[-_]/g, ' ')
+              .replace(/\b\w/g, (c) => c.toUpperCase()),
             style,
             duration: 0, // duration not available without ffprobe; set in manifest.json for accuracy
             url: `${baseUrl}/${encodeURIComponent(key).replace(/%2F/g, '/')}`,
@@ -102,6 +112,10 @@ export class MediaService {
       });
       fd.append('model', 'whisper-1');
       fd.append('response_format', 'verbose_json');
+      // Word-level granularity forces Whisper to compute accurate per-word timing,
+      // which in turn makes segment start/end times far more reliable.
+      fd.append('timestamp_granularities[]', 'word');
+      fd.append('timestamp_granularities[]', 'segment');
 
       const { data } = await axios.post(
         'https://api.openai.com/v1/audio/transcriptions',
@@ -114,16 +128,35 @@ export class MediaService {
 
       type WhisperResponse = {
         text: string;
-        segments?: { text: string; start: number; end: number }[];
+        segments?: {
+          text: string;
+          start: number;
+          end: number;
+          words?: { word: string; start: number; end: number }[];
+        }[];
       };
       const r = data as WhisperResponse;
+      console.log('[transcribeAudio] segment count:', r.segments?.length);
+      r.segments?.forEach((s, i) => {
+        console.log(
+          `  seg[${i}] start=${s.start.toFixed(2)} end=${s.end.toFixed(2)} text="${s.text.trim()}"`,
+        );
+      });
       return {
         text: r.text ?? '',
-        segments: r.segments?.map((s) => ({ text: s.text, start: s.start, end: s.end })) ?? [],
+        segments:
+          r.segments?.map((s) => ({
+            text: s.text,
+            start: s.start,
+            end: s.end,
+          })) ?? [],
       };
     } catch (err: unknown) {
       const e = err as { response?: { data?: unknown } };
-      console.error('[transcribeAudio]', JSON.stringify(e?.response?.data ?? err));
+      console.error(
+        '[transcribeAudio]',
+        JSON.stringify(e?.response?.data ?? err),
+      );
       return { text: '', segments: [] };
     }
   }

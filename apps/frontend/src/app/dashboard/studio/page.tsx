@@ -350,7 +350,10 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
 
   // Resolved timestamps — fill any null gaps
   const safeTimes = useMemo((): number[] | null => {
-    if (!timestamps || timestamps.length === 0) return null;
+    if (!timestamps || timestamps.length === 0) {
+      console.log("[VideoPreview] safeTimes: null (no timestamps)");
+      return null;
+    }
     const filled = timestamps.map((t, i) => {
       if (t !== null) return t as number;
       for (let j = i - 1; j >= 0; j--) if (timestamps[j] !== null) return (timestamps[j] as number) + (i - j) * 2;
@@ -358,6 +361,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     });
     // Only use if we have real timestamps (not all zeros)
     const hasRealTimes = filled.some((t) => t > 0.1);
+    console.log("[VideoPreview] safeTimes:", hasRealTimes ? filled : "null (all zeros)", "| raw timestamps:", timestamps);
     return hasRealTimes ? filled : null;
   }, [timestamps]);
 
@@ -1250,11 +1254,16 @@ export default function StudioPage() {
                         .then((res: { audioUrl: string; transcription?: { segments?: { text: string; start: number; end: number }[] } }) => {
                           setUploadedAudioUrl(res.audioUrl);
                           const segs = res.transcription?.segments;
+                          console.log("[Whisper] trimStart:", trimStart, "trimEnd:", trimEnd);
+                          console.log("[Whisper] raw segments:", segs);
                           if (segs && segs.length > 0) {
                             // Only keep segments that fall within the trimmed playback window
                             const inWindow = segs.filter((s) => s.start >= trimStart && s.start < trimEnd);
+                            console.log("[Whisper] segments in trim window:", inWindow);
                             const relevant = inWindow.length > 0 ? inWindow : segs;
                             const newLines = relevant.map((s) => s.text.trim()).filter(Boolean);
+                            console.log("[Whisper] final lines:", newLines);
+                            console.log("[Whisper] final timestamps:", relevant.map((s) => s.start));
                             setLyricsText(newLines.join("\n"));
                             setTimestamps(relevant.map((s) => s.start));
                             setSyncIndex(newLines.length);
