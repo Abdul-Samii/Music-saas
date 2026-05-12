@@ -391,14 +391,13 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   useEffect(() => {
     if (!playing) return;
     const times = safeTimes;
-    const trimOffset = audioTrimStart ?? 0;
 
     const tick = setInterval(() => {
       const audio = audioRef.current;
 
       if (times && times.length > 0 && audio) {
         // Time-driven: find which line we're in
-        const elapsed = Math.max(0, audio.currentTime - trimOffset);
+        const elapsed = audio.currentTime; // timestamps are absolute (from full file)
         let li = 0;
         for (let i = 0; i < times.length; i++) { if (elapsed >= times[i]) li = i; else break; }
         li = Math.min(li, safeLines.length - 1);
@@ -650,44 +649,6 @@ export default function StudioPage() {
       audioCtxRef.current = new AudioContext();
     }
     return audioCtxRef.current;
-  }
-
-  function audioBufferToWav(buffer: AudioBuffer): Blob {
-    const numChannels = buffer.numberOfChannels;
-    const sampleRate = buffer.sampleRate;
-    const length = buffer.length * numChannels * 2;
-    const arrayBuf = new ArrayBuffer(44 + length);
-    const view = new DataView(arrayBuf);
-    const write = (o: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
-    const u16 = (o: number, v: number) => view.setUint16(o, v, true);
-    const u32 = (o: number, v: number) => view.setUint32(o, v, true);
-    write(0, "RIFF"); u32(4, 36 + length); write(8, "WAVE");
-    write(12, "fmt "); u32(16, 16); u16(20, 1); u16(22, numChannels);
-    u32(24, sampleRate); u32(28, sampleRate * numChannels * 2); u16(32, numChannels * 2); u16(34, 16);
-    write(36, "data"); u32(40, length);
-    let offset = 44;
-    for (let i = 0; i < buffer.length; i++) {
-      for (let ch = 0; ch < numChannels; ch++) {
-        const s = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
-        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-        offset += 2;
-      }
-    }
-    return new Blob([arrayBuf], { type: "audio/wav" });
-  }
-
-  function extractTrimmedAudioFile(buffer: AudioBuffer, start: number, end: number): File {
-    const sampleRate = buffer.sampleRate;
-    const startSample = Math.floor(start * sampleRate);
-    const endSample = Math.floor(end * sampleRate);
-    const frameCount = endSample - startSample;
-    const trimmed = new OfflineAudioContext(buffer.numberOfChannels, frameCount, sampleRate).createBuffer(
-      buffer.numberOfChannels, frameCount, sampleRate
-    );
-    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-      trimmed.getChannelData(ch).set(buffer.getChannelData(ch).subarray(startSample, endSample));
-    }
-    return new File([audioBufferToWav(trimmed)], "trimmed.wav", { type: "audio/wav" });
   }
 
   async function handleFile(file: File) {
@@ -1246,8 +1207,7 @@ export default function StudioPage() {
                       setTranscribing(true);
                       setAutoTranscribed(false);
                       setUploadedAudioUrl("");
-                      const trimmedFile = extractTrimmedAudioFile(audioBuffer, trimStart, trimEnd);
-                      creativeApi.uploadAudio(trimmedFile, () => {})
+                      creativeApi.uploadAudio(audioFileRef.current!, () => {})
                         .then((res: { audioUrl: string; transcription?: { segments?: { text: string; start: number; end: number }[] } }) => {
                           setUploadedAudioUrl(res.audioUrl);
                           const segs = res.transcription?.segments;
