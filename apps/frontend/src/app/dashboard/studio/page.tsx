@@ -1169,9 +1169,10 @@ export default function StudioPage() {
       ctx.shadowBlur = 0;
     }
 
-    const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api").replace(/\/api$/, "");
-    const fullAudioUrl = uploadedAudioUrl.startsWith("http") ? uploadedAudioUrl : `${apiBase}${uploadedAudioUrl}`;
-    const proxiedClipUrl = `${apiBase}/api/media/proxy-clip?url=${encodeURIComponent(clipUrl)}`;
+    const apiRoot = process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api/v1";
+    const apiOrigin = new URL(apiRoot).origin; // e.g. https://api.escalium.io
+    const fullAudioUrl = uploadedAudioUrl.startsWith("http") ? uploadedAudioUrl : `${apiOrigin}${uploadedAudioUrl}`;
+    const proxiedClipUrl = `${apiRoot}/media/proxy-clip?url=${encodeURIComponent(clipUrl)}`;
 
     const cleanups: (() => void)[] = [];
     try {
