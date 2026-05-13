@@ -72,7 +72,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-theme="light">
+    <html lang="en" data-theme="light" suppressHydrationWarning>
       <head>
         {/* Preconnect (optional but good for performance) */}
         <link rel="preconnect" href="https://www.googletagmanager.com" />
@@ -81,6 +81,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
       <body
         className={`${dmSans.variable} ${dmSerifDisplay.variable} ${instrumentSerif.variable}`}
+        suppressHydrationWarning
       >
         {/* Google Analytics - optimized */}
         <Script
