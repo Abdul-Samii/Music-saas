@@ -26,7 +26,8 @@ function GoogleButton() {
             fill="#EA4335"
           />
         </svg>
-        <TextAnimation text="Continue with Google" />
+        {/* <TextAnimation text="Continue with Google" /> */}
+        Continue with Google
       </button>
     </div>
   );
