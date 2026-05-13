@@ -834,6 +834,7 @@ export default function StudioPage() {
   const [clipPage, setClipPage] = useState(0);
   // ── Transcription ──
   const [transcribing, setTranscribing] = useState(false);
+  const [audioLanguage, setAudioLanguage] = useState("");
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState("");
   const [autoTranscribed, setAutoTranscribed] = useState(false);
   const [wordTimestamps, setWordTimestamps] = useState<WordTs[][]>([]);
@@ -1400,6 +1401,41 @@ export default function StudioPage() {
                 ))}
               </div>
 
+              {/* Language */}
+              <div style={{ background: "#fff", borderRadius: 20, border: "1px solid #E2E6F0", padding: "1.25rem 1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                <div>
+                  <p style={{ fontWeight: 700, fontSize: "0.875rem", color: NAVY }}>Song Language</p>
+                  <p style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "0.15rem" }}>Helps AI transcribe lyrics more accurately</p>
+                </div>
+                <select
+                  value={audioLanguage}
+                  onChange={(e) => setAudioLanguage(e.target.value)}
+                  style={{
+                    marginLeft: "auto", padding: "0.5rem 0.85rem", borderRadius: 10,
+                    border: "1.5px solid #E2E6F0", background: "#F8F9FC",
+                    fontSize: "0.83rem", fontWeight: 600, color: NAVY,
+                    cursor: "pointer", outline: "none",
+                  }}
+                >
+                  <option value="">Auto-detect</option>
+                  <option value="en">English</option>
+                  <option value="es">Spanish</option>
+                  <option value="pt">Portuguese</option>
+                  <option value="fr">French</option>
+                  <option value="ar">Arabic</option>
+                  <option value="hi">Hindi</option>
+                  <option value="ko">Korean</option>
+                  <option value="tr">Turkish</option>
+                  <option value="de">German</option>
+                  <option value="it">Italian</option>
+                  <option value="ja">Japanese</option>
+                  <option value="ru">Russian</option>
+                  <option value="nl">Dutch</option>
+                  <option value="pl">Polish</option>
+                  <option value="sv">Swedish</option>
+                </select>
+              </div>
+
               {/* Continue */}
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <button
@@ -1414,7 +1450,7 @@ export default function StudioPage() {
                       setTranscribing(true);
                       setAutoTranscribed(false);
                       setUploadedAudioUrl("");
-                      creativeApi.uploadAudio(audioFileRef.current!, () => {})
+                      creativeApi.uploadAudio(audioFileRef.current!, () => {}, audioLanguage || undefined)
                         .then((res: { audioUrl: string; transcription?: { segments?: { text: string; start: number; end: number; words?: WordTs[] }[] } }) => {
                           setUploadedAudioUrl(res.audioUrl);
                           const segs = res.transcription?.segments;

@@ -65,9 +65,10 @@ export const spotifyApi = {
 };
 
 export const creativeApi = {
-  uploadAudio: (file: File, onProgress?: (p: number) => void) => {
+  uploadAudio: (file: File, onProgress?: (p: number) => void, language?: string) => {
     const fd = new FormData();
     fd.append("audio", file);
+    if (language) fd.append("language", language);
     return api
       .post("/media/upload-audio", fd, {
         onUploadProgress: (e) =>
