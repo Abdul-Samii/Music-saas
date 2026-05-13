@@ -133,20 +133,23 @@ export class MediaService {
         },
       );
 
+      // Whisper returns word timestamps as a flat top-level array, NOT nested inside segments.
       type WhisperResponse = {
         text: string;
-        segments?: {
-          text: string;
-          start: number;
-          end: number;
-          words?: { word: string; start: number; end: number }[];
-        }[];
+        words?: WordTimestamp[];
+        segments?: { text: string; start: number; end: number }[];
       };
       const r = data as WhisperResponse;
-      console.log('[transcribeAudio] segment count:', r.segments?.length);
+      const allWords: WordTimestamp[] = r.words ?? [];
+      console.log(
+        `[transcribeAudio] segments=${r.segments?.length ?? 0} words=${allWords.length}`,
+      );
       r.segments?.forEach((s, i) => {
+        const segWords = allWords.filter(
+          (w) => w.start >= s.start && w.start < s.end,
+        );
         console.log(
-          `  seg[${i}] start=${s.start.toFixed(2)} end=${s.end.toFixed(2)} text="${s.text.trim()}"`,
+          `  seg[${i}] start=${s.start.toFixed(2)} end=${s.end.toFixed(2)} words=${segWords.length} text="${s.text.trim()}"`,
         );
       });
       return {
@@ -156,7 +159,10 @@ export class MediaService {
             text: s.text,
             start: s.start,
             end: s.end,
-            words: s.words ?? [],
+            // Associate top-level word timestamps to this segment by time range
+            words: allWords.filter(
+              (w) => w.start >= s.start && w.start < s.end,
+            ),
           })) ?? [],
       };
     } catch (err: unknown) {
