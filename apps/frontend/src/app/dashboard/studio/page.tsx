@@ -361,17 +361,17 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   [safeLines]);
 
   // All words grouped for TikTok style:
-  // long words (>7 chars) get their own line, short words group 3 per line
+  // words >5 chars get their own line, short words group up to 3 per line
   const wordChunks = useMemo(() => {
     const chunks: string[][] = [];
     let i = 0;
     while (i < allWords.length) {
-      if (allWords[i].length > 7) {
+      if (allWords[i].length > 5) {
         chunks.push([allWords[i]]);
         i++;
       } else {
         const chunk: string[] = [];
-        while (i < allWords.length && chunk.length < 3 && allWords[i].length <= 7) {
+        while (i < allWords.length && chunk.length < 3 && allWords[i].length <= 5) {
           chunk.push(allWords[i]);
           i++;
         }
@@ -615,7 +615,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
         .reduce((acc, c) => acc + c.length, 0);
 
       return (
-        <div key={page} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.08em" }}>
+        <div key={page} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.08em", width: "100%", overflow: "hidden" }}>
           {visibleChunks.map((chunk, relIdx) => {
             const absChunkIdx = pageStart + relIdx;
             const chunkGlobalStart = pageFirstWordIdx +
@@ -637,6 +637,10 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
                         letterSpacing: "0.02em",
                         textShadow: "0 1px 12px rgba(0,0,0,0.55)",
                         whiteSpace: "nowrap",
+                        maxWidth: "90%",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        display: "inline-block",
                       }}
                     >
                       {word}
