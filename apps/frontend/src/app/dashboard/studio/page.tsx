@@ -1113,12 +1113,42 @@ export default function StudioPage() {
     const dur = trimEnd - trimStart;
     const fsPx = cfg.fontSize === "sm" ? 44 : cfg.fontSize === "md" ? 56 : 72;
 
+    // Build all words + tiktok chunks once
+    const allWords = lines.flatMap((l) => l.split(" ").filter(Boolean));
+    const wordChunksRender: string[][] = [];
+    let wci = 0;
+    while (wci < allWords.length) {
+      if (allWords[wci].length > 5) { wordChunksRender.push([allWords[wci]]); wci++; }
+      else {
+        const chunk: string[] = [];
+        while (wci < allWords.length && chunk.length < 3 && allWords[wci].length <= 5) { chunk.push(allWords[wci]); wci++; }
+        if (chunk.length > 0) wordChunksRender.push(chunk);
+      }
+    }
+
+    // Per-line word offsets
+    const lineWordOffsets = lines.map((_, li2) =>
+      lines.slice(0, li2).reduce((acc, l) => acc + l.split(" ").filter(Boolean).length, 0)
+    );
+
     function lineAt(t: number): number {
       let cur = -1;
       for (let i = 0; i < timestamps.length; i++) {
         if (timestamps[i] !== null && (timestamps[i] as number) <= t) cur = i;
       }
       return cur;
+    }
+
+    function globalWordAt(t: number): number {
+      let best = -1;
+      for (let li2 = 0; li2 < lines.length; li2++) {
+        const wts = wordTimestamps?.[li2] ?? [];
+        for (let wi = 0; wi < wts.length; wi++) {
+          if (wts[wi]?.start <= t) best = lineWordOffsets[li2] + wi;
+          else break;
+        }
+      }
+      return best;
     }
 
     function wordAt(li: number, t: number): number {
@@ -1130,42 +1160,112 @@ export default function StudioPage() {
       return w;
     }
 
+    function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+      const words = text.split(" ");
+      const result: string[] = [];
+      let cur = "";
+      for (const word of words) {
+        const test = cur ? `${cur} ${word}` : word;
+        if (ctx.measureText(test).width > maxW && cur) { result.push(cur); cur = word; }
+        else cur = test;
+      }
+      if (cur) result.push(cur);
+      return result;
+    }
+
     function drawLyrics(ctx: CanvasRenderingContext2D, t: number) {
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowBlur = 0;
+      const maxTextW = W - 80;
+
+      // ── TikTok style ──────────────────────────────────────────
+      if (cfg.lyricStyle === "tiktok") {
+        const gwi = globalWordAt(t);
+        if (gwi < 0) return;
+
+        // Find which chunk contains the active word
+        let accumulated = 0;
+        let currentChunk = 0;
+        for (let ci = 0; ci < wordChunksRender.length; ci++) {
+          accumulated += wordChunksRender[ci].length;
+          if (accumulated > gwi) { currentChunk = ci; break; }
+          currentChunk = ci;
+        }
+
+        const page = Math.floor(currentChunk / 3);
+        const pageStart = page * 3;
+        const posInPage = currentChunk - pageStart;
+        const visibleChunks = wordChunksRender.slice(pageStart, pageStart + 3).slice(0, posInPage + 1);
+
+        ctx.font = `700 52px 'Varela Round', sans-serif`;
+        ctx.fillStyle = "#FFFFFF";
+        ctx.shadowColor = "rgba(0,0,0,0.8)";
+        ctx.shadowBlur = 8;
+        const lh = 72;
+        const totalH = visibleChunks.length * lh;
+        const yStart = H / 2 - totalH / 2;
+        visibleChunks.forEach((chunk, idx) => {
+          ctx.fillText(chunk.join(" "), W / 2, yStart + idx * lh + lh / 2);
+        });
+        ctx.shadowBlur = 0;
+        return;
+      }
+
+      // ── Other styles ──────────────────────────────────────────
       const li = lineAt(t);
       if (li < 0 || li >= lines.length) return;
       const line = lines[li] ?? "";
       const yBase = cfg.textPosition === "top" ? H * 0.14 : cfg.textPosition === "center" ? H * 0.5 : H * 0.80;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
 
       if (cfg.lyricStyle === "spotlight") {
         ctx.font = `900 ${Math.round(fsPx * 1.3)}px ${cfg.fontFamily}`;
         ctx.fillStyle = cfg.highlightColor;
         ctx.shadowColor = cfg.highlightColor;
         ctx.shadowBlur = 24;
-        ctx.fillText(line, W / 2, yBase);
+        const wrapped = wrapLines(ctx, line, maxTextW);
+        const lh = Math.round(fsPx * 1.3) * 1.25;
+        wrapped.forEach((l, i) => ctx.fillText(l, W / 2, yBase + (i - wrapped.length / 2 + 0.5) * lh));
       } else if (cfg.lyricStyle === "word-by-word") {
         const words = line.split(" ").filter(Boolean);
         const activeWi = wordAt(li, t);
         ctx.font = `800 ${fsPx}px ${cfg.fontFamily}`;
-        const totalW = words.reduce((acc, w, wi) => acc + ctx.measureText(w + (wi < words.length - 1 ? " " : "")).width, 0);
-        let x = W / 2 - totalW / 2;
+        // Wrap into rows
+        const rows: { word: string; wi: number }[][] = [];
+        let row: { word: string; wi: number }[] = [];
+        let rowW = 0;
         words.forEach((word, wi) => {
-          const active = wi === activeWi;
-          ctx.fillStyle = active ? cfg.highlightColor : cfg.textColor;
-          ctx.shadowColor = active ? cfg.highlightColor : "rgba(0,0,0,0.8)";
-          ctx.shadowBlur = active ? 16 : 8;
-          ctx.textAlign = "left";
-          ctx.fillText(word + (wi < words.length - 1 ? " " : ""), x, yBase);
-          x += ctx.measureText(word + " ").width;
+          const ww = ctx.measureText(word + " ").width;
+          if (rowW + ww > maxTextW && row.length) { rows.push(row); row = []; rowW = 0; }
+          row.push({ word, wi }); rowW += ww;
         });
-        ctx.textAlign = "center";
+        if (row.length) rows.push(row);
+        const lh = fsPx * 1.35;
+        rows.forEach((r, ri) => {
+          const rowText = r.map((x) => x.word).join(" ");
+          const rowTotalW = ctx.measureText(rowText).width;
+          let x = W / 2 - rowTotalW / 2;
+          const y = yBase + (ri - rows.length / 2 + 0.5) * lh;
+          r.forEach(({ word, wi }, rWi) => {
+            const active = wi === activeWi;
+            ctx.fillStyle = active ? cfg.highlightColor : cfg.textColor;
+            ctx.shadowColor = active ? cfg.highlightColor : "rgba(0,0,0,0.8)";
+            ctx.shadowBlur = active ? 16 : 8;
+            ctx.textAlign = "left";
+            const label = word + (rWi < r.length - 1 ? " " : "");
+            ctx.fillText(label, x, y);
+            x += ctx.measureText(label).width;
+          });
+          ctx.textAlign = "center";
+        });
       } else {
         ctx.font = `800 ${fsPx}px ${cfg.fontFamily}`;
         ctx.fillStyle = cfg.textColor;
         ctx.shadowColor = "rgba(0,0,0,0.9)";
         ctx.shadowBlur = 10;
-        ctx.fillText(line, W / 2, yBase);
+        const wrapped = wrapLines(ctx, line, maxTextW);
+        const lh = fsPx * 1.35;
+        wrapped.forEach((l, i) => ctx.fillText(l, W / 2, yBase + (i - wrapped.length / 2 + 0.5) * lh));
       }
       ctx.shadowBlur = 0;
     }
@@ -1230,6 +1330,7 @@ export default function StudioPage() {
         setDownloadingId(null);
       };
 
+      await document.fonts.ready;
       rec.start(100);
       videoEl.play();
       audioEl.play();
