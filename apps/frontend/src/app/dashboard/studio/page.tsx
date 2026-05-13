@@ -1156,7 +1156,7 @@ export default function StudioPage() {
 
   // ── Derived ──
   const trimDuration = trimEnd - trimStart;
-  const overLimit = trimDuration > MAX_TRIM;
+  const overLimit = trimDuration > MAX_TRIM + 0.01;
   const timedCount = timestamps.filter((t) => t !== null).length;
   const allSynced = lines.length > 0 && timedCount === lines.length;
   const trimProgress = trimEnd > trimStart
