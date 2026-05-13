@@ -4,59 +4,24 @@ import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer
-      style={{
-        padding: "3rem 2.5rem 2rem",
-        borderTop: "1px solid var(--border)",
-        background: "var(--bg-card)",
-      }}
-    >
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "2fr 1fr 1fr 1fr",
-            gap: "2.5rem",
-            marginBottom: "3rem",
-          }}
-          className="footer-grid"
-        >
+    <footer className="border-t border-[var(--border)] bg-[var(--bg-card)] px-10 pt-12 pb-8">
+      <div className="mx-auto max-w-[1100px]">
+        <div className="footer-grid mb-12 grid gap-10 [grid-template-columns:2fr_1fr_1fr_1fr]">
           {/* Brand */}
           <div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                marginBottom: "0.875rem",
-              }}
-            >
+            <div className="mb-3.5 flex items-center gap-2">
               <Image
                 src="/logo.png"
                 alt="Escalium"
                 width={28}
                 height={28}
-                style={{ borderRadius: 6 }}
+                className="rounded-md"
               />
-              <span
-                style={{
-                  fontWeight: 800,
-                  fontSize: "1.1rem",
-                  color: "var(--text-primary)",
-                  letterSpacing: "-0.02em",
-                }}
-              >
+              <span className="text-[1.1rem] font-extrabold tracking-[-0.02em] text-[var(--text-primary)]">
                 Escalium
               </span>
             </div>
-            <p
-              style={{
-                fontSize: "0.8125rem",
-                color: "var(--text-muted)",
-                lineHeight: 1.7,
-                maxWidth: 260,
-              }}
-            >
+            <p className="max-w-[260px] text-[0.8125rem] leading-[1.7] text-[var(--text-muted)]">
               The all-in-one music marketing platform for independent artists.
               Launch Meta Ads, track streams, and create lyric videos.
             </p>
@@ -64,25 +29,10 @@ export default function Footer() {
 
           {/* Features */}
           <div>
-            <p
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.07em",
-                color: "var(--text-muted)",
-                marginBottom: "1rem",
-              }}
-            >
+            <p className="mb-4 text-xs font-bold uppercase tracking-[0.07em] text-[var(--text-muted)]">
               Features
             </p>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.625rem",
-              }}
-            >
+            <div className="flex flex-col gap-2.5">
               {[
                 { label: "Music Marketing", href: "/features/music-marketing" },
                 { label: "Video Generator", href: "/features/video-generator" },
@@ -102,17 +52,7 @@ export default function Footer() {
                 <Link
                   key={l.label}
                   href={l.href}
-                  style={{
-                    fontSize: "0.8125rem",
-                    color: "var(--text-muted)",
-                    textDecoration: "none",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.color = "var(--text-primary)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.color = "var(--text-muted)")
-                  }
+                  className="text-[0.8125rem] text-[var(--text-muted)] no-underline transition-colors hover:text-[var(--text-primary)]"
                 >
                   {l.label}
                 </Link>
@@ -122,25 +62,10 @@ export default function Footer() {
 
           {/* Resources */}
           <div>
-            <p
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.07em",
-                color: "var(--text-muted)",
-                marginBottom: "1rem",
-              }}
-            >
+            <p className="mb-4 text-xs font-bold uppercase tracking-[0.07em] text-[var(--text-muted)]">
               Resources
             </p>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.625rem",
-              }}
-            >
+            <div className="flex flex-col gap-2.5">
               {[
                 { label: "Blog", href: "/article/how-to-promote-your-song" },
                 {
@@ -157,17 +82,7 @@ export default function Footer() {
                 <Link
                   key={l.label}
                   href={l.href}
-                  style={{
-                    fontSize: "0.8125rem",
-                    color: "var(--text-muted)",
-                    textDecoration: "none",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.color = "var(--text-primary)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.color = "var(--text-muted)")
-                  }
+                  className="text-[0.8125rem] text-[var(--text-muted)] no-underline transition-colors hover:text-[var(--text-primary)]"
                 >
                   {l.label}
                 </Link>
@@ -177,25 +92,10 @@ export default function Footer() {
 
           {/* Company */}
           <div>
-            <p
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.07em",
-                color: "var(--text-muted)",
-                marginBottom: "1rem",
-              }}
-            >
+            <p className="mb-4 text-xs font-bold uppercase tracking-[0.07em] text-[var(--text-muted)]">
               Company
             </p>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.625rem",
-              }}
-            >
+            <div className="flex flex-col gap-2.5">
               {[
                 { label: "Privacy", href: "#" },
                 { label: "Terms", href: "#" },
@@ -204,17 +104,7 @@ export default function Footer() {
                 <Link
                   key={l.label}
                   href={l.href}
-                  style={{
-                    fontSize: "0.8125rem",
-                    color: "var(--text-muted)",
-                    textDecoration: "none",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.color = "var(--text-primary)")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.color = "var(--text-muted)")
-                  }
+                  className="text-[0.8125rem] text-[var(--text-muted)] no-underline transition-colors hover:text-[var(--text-primary)]"
                 >
                   {l.label}
                 </Link>
@@ -223,21 +113,11 @@ export default function Footer() {
           </div>
         </div>
 
-        <div
-          style={{
-            borderTop: "1px solid var(--border)",
-            paddingTop: "1.5rem",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "0.75rem",
-          }}
-        >
-          <p style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-6">
+          <p className="text-[0.8rem] text-[var(--text-muted)]">
             © 2025 Escalium. All rights reserved.
           </p>
-          <p style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
+          <p className="text-[0.8rem] text-[var(--text-muted)]">
             Built for independent artists worldwide.
           </p>
         </div>
