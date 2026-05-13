@@ -1202,7 +1202,7 @@ export default function StudioPage() {
         ctx.fillStyle = "#FFFFFF";
         ctx.shadowColor = "rgba(0,0,0,0.8)";
         ctx.shadowBlur = 8;
-        const lh = 72;
+        const lh = 110;
         const totalH = visibleChunks.length * lh;
         const yStart = H / 2 - totalH / 2;
         visibleChunks.forEach((chunk, idx) => {
