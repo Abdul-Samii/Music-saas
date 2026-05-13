@@ -1,6 +1,4 @@
 "use client";
-import FadeInUp from "@/components/animations/FadeInUp";
-import TextAnimation from "@/components/animations/TextAnimation";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { Parallax } from "react-scroll-parallax";
@@ -10,15 +8,15 @@ import { DotGrid } from "../pricing/DotGrid";
 import BuiltFor from "./BuiltFor";
 
 const Hero = () => {
-  const [daysRemaining, setDaysRemaining] = useState(0);
+  // const [daysRemaining, setDaysRemaining] = useState(0);
 
-  useEffect(() => {
-    const launchDate = new Date("2026-05-11");
-    const today = new Date();
-    const diffTime = launchDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    setDaysRemaining(diffDays);
-  }, []);
+  // useEffect(() => {
+  //   const launchDate = new Date("2026-05-11");
+  //   const today = new Date();
+  //   const diffTime = launchDate.getTime() - today.getTime();
+  //   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  //   setDaysRemaining(diffDays);
+  // }, []);
 
   return (
     <section>
@@ -35,12 +33,12 @@ const Hero = () => {
           <Parallax speed={-5}>
             <div>
               {/* <FadeInUp> */}
-              {daysRemaining > 0 && (
+              {/* {daysRemaining > 0 && (
                 <button className="sectionLabel mx-auto mb-4">
                   {daysRemaining} {daysRemaining > 1 ? "days" : "day"} left from
                   launching
                 </button>
-              )}
+              )} */}
               <h1 className="text-4xl lg:text-6xl lg:leading-[1.3] tracking-wide">
                 {/* <TextAnimation text="" /> */}
                 You make the music
