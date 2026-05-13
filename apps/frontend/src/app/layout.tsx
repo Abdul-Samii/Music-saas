@@ -1,9 +1,10 @@
 import { Providers } from "@/components/providers";
 import type { Metadata } from "next";
 import { DM_Sans, DM_Serif_Display, Instrument_Serif } from "next/font/google";
-
+import Script from "next/script";
 import ParallaxWrapper from "@/page-components/ParallaxWrapper";
 import "./globals.css";
+import { ReactNode } from "react";
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
 const dmSerifDisplay = DM_Serif_Display({
   subsets: ["latin"],
@@ -17,61 +18,6 @@ const instrumentSerif = Instrument_Serif({
   style: ["normal", "italic"],
   variable: "--font-instrument",
 });
-
-// already optimised for SEO and made the template for further pages, you can add more metadata fields if needed, but this should cover the basics for now.
-// export const metadata: Metadata = {
-// 	metadataBase: new URL("https://escalium.io"),
-
-// 	title: {
-// 		default: "Escalium — The All in one Music Marketing Platform",
-// 		template: "%s | Escalium",
-// 	},
-
-// 	description:
-// 		"Simplify your music marketing with Escalium. Create, manage, and optimize lyric video ads and ad campaigns across multiple platforms from one intuitive dashboard.",
-
-// 	alternates: {
-// 		canonical: "/",
-// 	},
-
-// 	openGraph: {
-// 		title: "Escalium — The All in one Music Marketing Platform",
-// 		description:
-// 			"Simplify your music marketing with Escalium. Create, manage, and optimize lyric video ads and ad campaigns across multiple platforms from one intuitive dashboard.",
-// 		url: "/",
-// 		siteName: "Escalium",
-// 		images: [
-// 			{
-// 				url: "/logo.webp",
-// 				width: 1200,
-// 				height: 630,
-// 				alt: "Escalium Platform Preview",
-// 			},
-// 		],
-// 		locale: "en_US",
-// 		type: "website",
-// 	},
-
-// 	twitter: {
-// 		card: "summary_large_image",
-// 		title: "Escalium — The All in one Music Marketing Platform",
-// 		description:
-// 			"Simplify your music marketing with Escalium. Create, manage, and optimize lyric video ads and ad campaigns across multiple platforms from one intuitive dashboard.",
-// 		images: ["/logo.webp"],
-// 	},
-
-// 	robots: {
-// 		index: true,
-// 		follow: true,
-// 	},
-
-// 	category: "technology",
-
-// 	icons: {
-// 		icon: "/logo.png",
-// 		apple: "/logo.png",
-// 	},
-// };
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://escalium.io"),
@@ -124,42 +70,53 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-theme="light" suppressHydrationWarning>
+    <html lang="en" data-theme="light">
       <head>
-        {/* Google Analytics */}
-        {}
-        <script
-          async
+        {/* Preconnect (optional but good for performance) */}
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="preconnect" href="https://connect.facebook.net" />
+      </head>
+
+      <body
+        className={`${dmSans.variable} ${dmSerifDisplay.variable} ${instrumentSerif.variable}`}
+      >
+        {/* Google Analytics - optimized */}
+        <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-5YEWG0088W"
+          strategy="afterInteractive"
         />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-5YEWG0088W');`,
-          }}
-        />
-        {/* Meta Pixel */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              !function(f,b,e,v,n,t,s)
-              {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-              n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-              if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-              n.queue=[];t=b.createElement(e);t.async=!0;
-              t.src=v;s=b.getElementsByTagName(e)[0];
-              s.parentNode.insertBefore(t,s)}(window, document,'script',
-              'https://connect.facebook.net/en_US/fbevents.js');
-              fbq('init', '1390337178858770');
-              fbq('track', 'PageView');
-            `,
-          }}
-        />
+
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-5YEWG0088W', {
+              page_path: window.location.pathname,
+            });
+          `}
+        </Script>
+
+        {/* Meta Pixel - optimized */}
+        <Script id="meta-pixel" strategy="afterInteractive">
+          {`
+            !function(f,b,e,v,n,t,s)
+            {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+            n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+            if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+            n.queue=[];t=b.createElement(e);t.async=!0;
+            t.src=v;s=b.getElementsByTagName(e)[0];
+            s.parentNode.insertBefore(t,s)}(window, document,'script',
+            'https://connect.facebook.net/en_US/fbevents.js');
+
+            fbq('init', '1390337178858770');
+            fbq('track', 'PageView');
+          `}
+        </Script>
+
+        {/* Fallback for users without JS */}
         <noscript>
           <img
             height="1"
@@ -169,11 +126,7 @@ export default function RootLayout({
             alt=""
           />
         </noscript>
-      </head>
-      <body
-        className={`${dmSans.variable} ${dmSerifDisplay.variable} ${instrumentSerif.variable}`}
-        suppressHydrationWarning
-      >
+
         <Providers>
           <ParallaxWrapper>{children}</ParallaxWrapper>
         </Providers>
