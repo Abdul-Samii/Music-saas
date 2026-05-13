@@ -1861,7 +1861,7 @@ export default function StudioPage() {
               </div>
 
               {/* Video grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "0.75rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "0.75rem" }}>
                 {pagedClips.map((clip) => (
                   <VideoCard key={clip.id} clip={clip} selected={selectedClips.some((c) => c.id === clip.id)} onSelect={() => toggleClip(clip)} />
                 ))}
