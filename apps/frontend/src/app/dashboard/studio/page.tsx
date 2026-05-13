@@ -354,6 +354,12 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
       console.log("[VideoPreview] safeTimes: null (no timestamps)");
       return null;
     }
+    // If every entry is null there are no real timestamps — don't generate fake ones
+    const hasAnyReal = timestamps.some((t) => t !== null);
+    if (!hasAnyReal) {
+      console.log("[VideoPreview] safeTimes: null (all timestamps are null) | raw:", timestamps);
+      return null;
+    }
     const filled = timestamps.map((t, i) => {
       if (t !== null) return t as number;
       for (let j = i - 1; j >= 0; j--) if (timestamps[j] !== null) return (timestamps[j] as number) + (i - j) * 2;
@@ -413,6 +419,9 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   // ── RAF loop — drives line + word sync from audio.currentTime when timestamps exist ──
   useEffect(() => {
     if (!playing || !safeTimes) return;
+    // Force the first tick to always apply the correct line, even if the fallback
+    // timer left activeLineIndex at a stale value while safeTimes was null.
+    prevLineRef.current = -999;
     let rafId: number;
     function tick() {
       const audio = audioRef.current;
@@ -431,6 +440,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
       if (li >= 0) li = Math.min(li, lns.length - 1);
 
       if (li !== prevLineRef.current) {
+        console.log(`[RAF] line ${prevLineRef.current === -999 ? "init" : prevLineRef.current} → ${li} at audio t=${t.toFixed(2)}s`);
         setActiveLineIndex(li);
         setActiveWordIdx(0);
         setAnimKey((k) => k + 1);
@@ -464,6 +474,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   // ── Fallback timers — only when no Whisper timestamps (manual lyrics) ──
   useEffect(() => {
     if (lyricStyle !== "word-by-word" || !playing || safeTimes) return;
+    console.warn("[Fallback word-by-word] running — safeTimes is null, activeLineIndex:", activeLineIndex);
     if (activeLineIndex < 0) {
       const t = setTimeout(() => { setActiveLineIndex(0); setActiveWordIdx(0); setAnimKey((k) => k + 1); }, 800);
       return () => clearTimeout(t);
@@ -482,12 +493,14 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
 
   useEffect(() => {
     if (lyricStyle !== "spotlight" || !playing || safeTimes) return;
+    console.warn("[Fallback spotlight] running — safeTimes is null");
     const t = setInterval(() => { setActiveWordIdx((w) => (w + 1) % allWords.length); setAnimKey((k) => k + 1); }, 650);
     return () => clearInterval(t);
   }, [lyricStyle, allWords.length, playing, safeTimes]);
 
   useEffect(() => {
     if (lyricStyle === "word-by-word" || lyricStyle === "spotlight" || !playing || safeTimes) return;
+    console.warn("[Fallback other] running — safeTimes is null, lyricStyle:", lyricStyle);
     if (activeLineIndex < 0) {
       const t = setTimeout(() => { setActiveLineIndex(0); setAnimKey((k) => k + 1); }, 800);
       return () => clearTimeout(t);
@@ -1372,8 +1385,12 @@ export default function StudioPage() {
               disabled={lines.length === 0}
               onClick={() => {
                 if (lines.length === 0) return;
-                setTimestamps(Array(lines.length).fill(null));
-                setSyncIndex(0);
+                if (!autoTranscribed) {
+                  // Manual lyrics — reset for fresh spacebar sync
+                  setTimestamps(Array(lines.length).fill(null));
+                  setSyncIndex(0);
+                }
+                // If Whisper already set timestamps, preserve them as-is
                 setSyncActive(false);
                 stopPlayback(false);
                 pausedAtRef.current = trimStart;
