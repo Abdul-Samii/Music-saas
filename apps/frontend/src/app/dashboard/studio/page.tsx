@@ -24,7 +24,7 @@ interface VideoClip {
   thumbnail: string;
 }
 
-type LyricStyle = "word-by-word" | "spotlight" | "echo" | "pop" | "glow";
+type LyricStyle = "word-by-word" | "spotlight" | "echo" | "pop" | "glow" | "tiktok";
 
 interface ClipConfig {
   creativeName: string;
@@ -49,11 +49,12 @@ const DEFAULT_CONFIG: ClipConfig = {
 };
 
 const LYRIC_STYLES: { id: LyricStyle; label: string; desc: string; icon: string }[] = [
-  { id: "word-by-word", label: "Word by Word", desc: "Sentence builds word by word",     icon: "✍️" },
-  { id: "spotlight",    label: "Spotlight",    desc: "One big word at a time, highlighted", icon: "🔦" },
-  { id: "echo",         label: "Echo",         desc: "Double-line ghost effect",          icon: "〰️" },
-  { id: "pop",          label: "Pop",          desc: "Elastic scale pop",                  icon: "💥" },
-  { id: "glow",         label: "Glow",         desc: "Blurs in with glow",                icon: "🌟" },
+  { id: "tiktok",       label: "TikTok Reveal", desc: "3 words per row, appear as sung",   icon: "🎵" },
+  { id: "word-by-word", label: "Word by Word",  desc: "Sentence builds word by word",      icon: "✍️" },
+  { id: "spotlight",    label: "Spotlight",     desc: "One big word at a time, highlighted", icon: "🔦" },
+  { id: "echo",         label: "Echo",          desc: "Double-line ghost effect",           icon: "〰️" },
+  { id: "pop",          label: "Pop",           desc: "Elastic scale pop",                  icon: "💥" },
+  { id: "glow",         label: "Glow",          desc: "Blurs in with glow",                 icon: "🌟" },
 ];
 
 const FONTS: { label: string; value: string; preview: string }[] = [
@@ -344,12 +345,27 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   const [playing, setPlaying] = useState(false);
   const [activeLineIndex, setActiveLineIndex] = useState(-1);
   const [activeWordIdx, setActiveWordIdx] = useState(0);
+  const [activeGlobalWordIdx, setActiveGlobalWordIdx] = useState(-1);
   const [animKey, setAnimKey] = useState(0);
   const prevLineRef = useRef(-1);
   const prevWordRef = useRef(-1);
 
   const safeLines = useMemo(() => lines.length > 0 ? lines : ["Your lyric appears here"], [lines]);
   const allWords = useMemo(() => safeLines.flatMap((l) => l.split(" ").filter(Boolean)), [safeLines]);
+
+  // Word offset per line (how many words come before each line globally)
+  const wordOffsets = useMemo(() =>
+    safeLines.map((_, li) =>
+      safeLines.slice(0, li).reduce((acc, l) => acc + l.split(" ").filter(Boolean).length, 0)
+    ),
+  [safeLines]);
+
+  // All words grouped into chunks of 3 for TikTok style
+  const wordChunks = useMemo(() => {
+    const chunks: string[][] = [];
+    for (let i = 0; i < allWords.length; i += 3) chunks.push(allWords.slice(i, i + 3));
+    return chunks;
+  }, [allWords]);
 
   // Resolved timestamps — fill any null gaps
   const safeTimes = useMemo((): number[] | null => {
@@ -378,10 +394,12 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   const safeTimesRef = useRef<number[] | null>(null);
   const safeLinesRef = useRef<string[]>([]);
   const wordTsRef = useRef<WordTs[][] | undefined>(undefined);
+  const wordOffsetsRef = useRef<number[]>([]);
   useLayoutEffect(() => {
     safeTimesRef.current = safeTimes;
     safeLinesRef.current = safeLines;
     wordTsRef.current = wordTimestamps;
+    wordOffsetsRef.current = wordOffsets;
   });
 
   // Audio element — loop within trim region
@@ -396,6 +414,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
       audio.currentTime = start;
       audio.play().catch(() => {});
       setActiveLineIndex(-1);
+      setActiveGlobalWordIdx(-1);
       prevLineRef.current = -1;
       prevWordRef.current = 0;
     }
@@ -453,8 +472,15 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
         prevWordRef.current = 0;
       }
 
+      // Global word index — used by tiktok style
+      if (li >= 0) {
+        const offsets = wordOffsetsRef.current;
+        const globalWi = (offsets[li] ?? 0) + (prevWordRef.current >= 0 ? prevWordRef.current : 0);
+        setActiveGlobalWordIdx(globalWi);
+      }
+
       // Word advancement within the active line
-      if (li >= 0 && (lyricStyle === "word-by-word" || lyricStyle === "spotlight")) {
+      if (li >= 0 && (lyricStyle === "word-by-word" || lyricStyle === "spotlight" || lyricStyle === "tiktok")) {
         const lineWordTs = wordTsRef.current?.[li];
         let wi: number;
         if (lineWordTs && lineWordTs.length > 0) {
@@ -516,7 +542,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   }, [lyricStyle, allWords.length, playing, safeTimes]);
 
   useEffect(() => {
-    if (lyricStyle === "word-by-word" || lyricStyle === "spotlight" || !playing || safeTimes) return;
+    if (lyricStyle === "word-by-word" || lyricStyle === "spotlight" || lyricStyle === "tiktok" || !playing || safeTimes) return;
     console.warn("[Fallback other] running — safeTimes is null, lyricStyle:", lyricStyle);
     if (activeLineIndex < 0) {
       const t = setTimeout(() => { setActiveLineIndex(0); setAnimKey((k) => k + 1); }, 800);
@@ -547,6 +573,48 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   };
 
   function renderLyric() {
+    // ── TikTok Reveal style ──────────────────────────────────────────────────
+    if (lyricStyle === "tiktok") {
+      if (activeGlobalWordIdx < 0) return null;
+      const currentChunk = Math.floor(activeGlobalWordIdx / 3);
+      // Show up to 3 lines: the current chunk and the two above it
+      const startChunk = Math.max(0, currentChunk - 2);
+      const visibleChunks = wordChunks.slice(startChunk, currentChunk + 1);
+      const chunkFontSize = fontSize === "sm" ? "1.6rem" : fontSize === "md" ? "2.1rem" : "2.7rem";
+      return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.1em" }}>
+          {visibleChunks.map((chunk, relIdx) => {
+            const absChunkIdx = startChunk + relIdx;
+            return (
+              <div key={absChunkIdx} style={{ display: "flex", justifyContent: "center", gap: "0.55em" }}>
+                {chunk.map((word, wi) => {
+                  const globalWi = absChunkIdx * 3 + wi;
+                  const revealed = globalWi <= activeGlobalWordIdx;
+                  return (
+                    <span
+                      key={`${absChunkIdx}-${wi}`}
+                      style={{
+                        opacity: revealed ? 1 : 0,
+                        fontFamily: "'Nunito', sans-serif",
+                        fontWeight: 300,
+                        fontSize: chunkFontSize,
+                        color: textColor,
+                        letterSpacing: "0.01em",
+                        textShadow: "0 1px 10px rgba(0,0,0,0.6)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {word}
+                    </span>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
     if (activeLineIndex < 0) return null; // before first lyric — show nothing
     const curLine = safeLines[activeLineIndex] || "";
     const curWords = curLine.split(" ").filter(Boolean);
@@ -2083,7 +2151,7 @@ export default function StudioPage() {
       )}
 
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@700;800;900&family=Pacifico&family=Orbitron:wght@700;800&family=Dancing+Script:wght@700&family=Space+Grotesk:wght@700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@700;800;900&family=Pacifico&family=Orbitron:wght@700;800&family=Dancing+Script:wght@700&family=Space+Grotesk:wght@700;800&family=Nunito:wght@300;400&display=swap');
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes lyr-word {
           0%   { opacity: 0; transform: translateY(10px) scale(0.9); }
