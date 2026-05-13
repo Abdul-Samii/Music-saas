@@ -1177,7 +1177,7 @@ export default function StudioPage() {
 
     const session = await getSession();
     const token = (session as { accessToken?: string } | null)?.accessToken;
-    const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+    const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
     const cleanups: (() => void)[] = [];
     try {
