@@ -1169,11 +1169,15 @@ export default function StudioPage() {
       ctx.shadowBlur = 0;
     }
 
+    const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api").replace(/\/api$/, "");
+    const fullAudioUrl = uploadedAudioUrl.startsWith("http") ? uploadedAudioUrl : `${apiBase}${uploadedAudioUrl}`;
+    const proxiedClipUrl = `${apiBase}/api/media/proxy-clip?url=${encodeURIComponent(clipUrl)}`;
+
     const cleanups: (() => void)[] = [];
     try {
       const [videoBlob, audioBlob] = await Promise.all([
-        fetch(clipUrl).then((r) => r.blob()),
-        fetch(uploadedAudioUrl).then((r) => r.blob()),
+        fetch(proxiedClipUrl).then((r) => r.blob()),
+        fetch(fullAudioUrl).then((r) => r.blob()),
       ]);
       const videoObjUrl = URL.createObjectURL(videoBlob);
       const audioObjUrl = URL.createObjectURL(audioBlob);

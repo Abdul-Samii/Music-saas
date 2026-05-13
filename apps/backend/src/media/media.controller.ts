@@ -4,6 +4,8 @@ import {
   Post,
   Param,
   Body,
+  Query,
+  Res,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -12,6 +14,8 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
+import axios from 'axios';
+import type { Response } from 'express';
 import { MediaService } from './media.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -108,5 +112,22 @@ export class MediaController {
   @Get('my-creatives')
   async myCreatives(@CurrentUser() user: JwtUser) {
     return this.media.listCreatives(user.id);
+  }
+
+  // GET /media/proxy-clip?url=<encoded-s3-url>  — proxies S3 video to avoid browser CORS
+  @Get('proxy-clip')
+  async proxyClip(@Query('url') url: string, @Res() res: Response) {
+    if (!url || !url.includes('amazonaws.com')) {
+      res.status(400).json({ error: 'Invalid URL' });
+      return;
+    }
+    try {
+      const upstream = await axios.get(decodeURIComponent(url), { responseType: 'stream' });
+      res.setHeader('Content-Type', upstream.headers['content-type'] ?? 'video/mp4');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      (upstream.data as NodeJS.ReadableStream).pipe(res);
+    } catch {
+      res.status(502).json({ error: 'Failed to fetch clip' });
+    }
   }
 }
