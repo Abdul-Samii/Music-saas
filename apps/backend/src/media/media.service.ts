@@ -2,12 +2,17 @@ import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import FormData from 'form-data';
 import * as fs from 'fs';
+import * as path from 'path';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import {
   S3Client,
   GetObjectCommand,
   ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { PrismaService } from '../prisma/prisma.service';
+
+const execFileAsync = promisify(execFile);
 
 const s3 = new S3Client({
   region: process.env.AWS_REGION ?? 'eu-north-1',
@@ -104,6 +109,26 @@ export class MediaService {
     }
   }
 
+  private async separateVocals(inputPath: string): Promise<string> {
+    const outDir = path.join(path.dirname(inputPath), 'demucs_out');
+    const basename = path.basename(inputPath, path.extname(inputPath));
+    const vocalsPath = path.join(outDir, 'htdemucs', basename, 'vocals.wav');
+
+    console.log(`[Demucs] Separating vocals from ${inputPath}`);
+    const python = process.env.DEMUCS_PYTHON ?? 'python3';
+    await execFileAsync(
+      python,
+      ['-m', 'demucs', '--two-stems=vocals', '-o', outDir, inputPath],
+      { timeout: 5 * 60 * 1000 }, // 5 min max
+    );
+
+    if (!fs.existsSync(vocalsPath)) {
+      throw new Error(`Demucs output not found at ${vocalsPath}`);
+    }
+    console.log(`[Demucs] Vocals extracted to ${vocalsPath}`);
+    return vocalsPath;
+  }
+
   async transcribeAudio(
     filePath: string,
     mimetype: string,
@@ -112,11 +137,24 @@ export class MediaService {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return { text: '', segments: [] };
 
+    // Attempt vocal isolation — fall back to raw file if Demucs isn't installed
+    let audioPath = filePath;
+    let audioMime = mimetype;
+    try {
+      audioPath = await this.separateVocals(filePath);
+      audioMime = 'audio/wav';
+    } catch (err) {
+      console.warn(
+        '[Demucs] Skipping vocal separation, using raw audio:',
+        (err as Error).message,
+      );
+    }
+
     try {
       const fd = new FormData();
-      fd.append('file', fs.createReadStream(filePath), {
-        filename: 'audio.mp3',
-        contentType: mimetype,
+      fd.append('file', fs.createReadStream(audioPath), {
+        filename: 'audio.wav',
+        contentType: audioMime,
       });
       fd.append('model', 'whisper-1');
       fd.append('response_format', 'verbose_json');
