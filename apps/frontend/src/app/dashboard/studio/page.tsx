@@ -475,6 +475,8 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
           );
         }
         if (wi !== prevWordRef.current) {
+          const wordText = wordTsRef.current?.[li]?.[wi]?.word ?? lns[li]?.split(" ")[wi];
+          console.log(`[RAF] word ${prevWordRef.current} → ${wi} "${wordText}" at t=${t.toFixed(2)}s`);
           setActiveWordIdx(wi);
           prevWordRef.current = wi;
         }
@@ -548,16 +550,32 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     if (activeLineIndex < 0) return null; // before first lyric — show nothing
     const curLine = safeLines[activeLineIndex] || "";
     const curWords = curLine.split(" ").filter(Boolean);
-    const revealed = curWords.slice(0, activeWordIdx + 1);
 
     if (lyricStyle === "word-by-word") {
+      // Karaoke-style: full line visible, current word highlighted, upcoming words dimmed
       return (
-        <p style={textStyle}>
-          {revealed.slice(0, -1).join(" ")}
-          {revealed.length > 1 ? " " : ""}
-          <span key={`${activeLineIndex}-${activeWordIdx}`} style={{ display: "inline", animation: "lyr-word 0.28s ease forwards" }}>
-            {revealed[revealed.length - 1]}
-          </span>
+        <p style={{ ...textStyle, lineHeight: 1.55 }}>
+          {curWords.map((word, i) => {
+            const isCurrent = i === activeWordIdx;
+            const isFuture = i > activeWordIdx;
+            return (
+              <span
+                key={`${activeLineIndex}-${i}`}
+                style={{
+                  color: isCurrent ? highlightColor : textColor,
+                  opacity: isFuture ? 0.4 : 1,
+                  fontWeight: isCurrent ? 900 : 700,
+                  textShadow: isCurrent
+                    ? `0 0 18px ${highlightColor}99, 0 2px 14px rgba(0,0,0,0.95)`
+                    : textStyle.textShadow,
+                  display: "inline",
+                  transition: "color 0.06s, opacity 0.1s",
+                }}
+              >
+                {word}{i < curWords.length - 1 ? " " : ""}
+              </span>
+            );
+          })}
         </p>
       );
     }
