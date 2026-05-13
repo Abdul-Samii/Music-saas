@@ -329,12 +329,15 @@ function VideoThumb({ src, style }: { src: string; style?: React.CSSProperties }
 }
 
 // ── Interactive preview video with animated lyrics ────────────────────────────
-function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpacity, textColor, highlightColor, textPosition, fontSize, lyricStyle, fontFamily, lines, timestamps }: {
+type WordTs = { word: string; start: number; end: number };
+
+function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpacity, textColor, highlightColor, textPosition, fontSize, lyricStyle, fontFamily, lines, timestamps, wordTimestamps }: {
   src: string; audioSrc?: string; audioTrimStart?: number; audioTrimEnd?: number;
   overlayOpacity: number; textColor: string; highlightColor: string;
   textPosition: "top" | "center" | "bottom"; fontSize: "sm" | "md" | "lg";
   lyricStyle: LyricStyle; fontFamily: string; lines: string[];
   timestamps?: (number | null)[];
+  wordTimestamps?: WordTs[][];
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -374,9 +377,11 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   // Stable refs so RAF callbacks always read latest data
   const safeTimesRef = useRef<number[] | null>(null);
   const safeLinesRef = useRef<string[]>([]);
+  const wordTsRef = useRef<WordTs[][] | undefined>(undefined);
   useLayoutEffect(() => {
     safeTimesRef.current = safeTimes;
     safeLinesRef.current = safeLines;
+    wordTsRef.current = wordTimestamps;
   });
 
   // Audio element — loop within trim region
@@ -450,18 +455,28 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
 
       // Word advancement within the active line
       if (li >= 0 && (lyricStyle === "word-by-word" || lyricStyle === "spotlight")) {
-        const lineStart = times[li];
-        const lineEnd = times[li + 1] ?? (lineStart + 5);
-        const words = lns[li]?.split(" ").filter(Boolean) ?? [];
-        if (words.length > 0) {
-          const wi = Math.min(
-            Math.floor(((t - lineStart) / Math.max(0.1, lineEnd - lineStart)) * words.length),
-            words.length - 1
-          );
-          if (wi !== prevWordRef.current) {
-            setActiveWordIdx(wi);
-            prevWordRef.current = wi;
+        const lineWordTs = wordTsRef.current?.[li];
+        let wi: number;
+        if (lineWordTs && lineWordTs.length > 0) {
+          // Exact timing from Whisper word timestamps
+          wi = 0;
+          for (let w = 0; w < lineWordTs.length; w++) {
+            if (t >= lineWordTs[w].start) wi = w;
+            else break;
           }
+        } else {
+          // Fallback: linear interpolation across segment duration
+          const lineStart = times[li];
+          const lineEnd = times[li + 1] ?? (lineStart + 5);
+          const words = lns[li]?.split(" ").filter(Boolean) ?? [];
+          wi = Math.min(
+            Math.floor(((t - lineStart) / Math.max(0.1, lineEnd - lineStart)) * words.length),
+            Math.max(0, words.length - 1)
+          );
+        }
+        if (wi !== prevWordRef.current) {
+          setActiveWordIdx(wi);
+          prevWordRef.current = wi;
         }
       }
 
@@ -686,6 +701,7 @@ export default function StudioPage() {
   const [transcribing, setTranscribing] = useState(false);
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState("");
   const [autoTranscribed, setAutoTranscribed] = useState(false);
+  const [wordTimestamps, setWordTimestamps] = useState<WordTs[][]>([]);
 
   const [selectedClips, setSelectedClips] = useState<VideoClip[]>([]);
   const [clipConfigs, setClipConfigs] = useState<Record<string, ClipConfig>>({});
@@ -1264,7 +1280,7 @@ export default function StudioPage() {
                       setAutoTranscribed(false);
                       setUploadedAudioUrl("");
                       creativeApi.uploadAudio(audioFileRef.current!, () => {})
-                        .then((res: { audioUrl: string; transcription?: { segments?: { text: string; start: number; end: number }[] } }) => {
+                        .then((res: { audioUrl: string; transcription?: { segments?: { text: string; start: number; end: number; words?: WordTs[] }[] } }) => {
                           setUploadedAudioUrl(res.audioUrl);
                           const segs = res.transcription?.segments;
                           console.log("[Whisper] trimStart:", trimStart, "trimEnd:", trimEnd);
@@ -1279,6 +1295,7 @@ export default function StudioPage() {
                             console.log("[Whisper] final timestamps:", relevant.map((s) => s.start));
                             setLyricsText(newLines.join("\n"));
                             setTimestamps(relevant.map((s) => s.start));
+                            setWordTimestamps(relevant.map((s) => s.words ?? []));
                             setSyncIndex(newLines.length);
                             setAutoTranscribed(true);
                           }
@@ -1922,6 +1939,7 @@ export default function StudioPage() {
                           fontFamily={activeConfig.fontFamily}
                           lines={lines.length > 0 ? lines : ["Your lyric line appears here"]}
                           timestamps={timestamps}
+                          wordTimestamps={wordTimestamps}
                         />
                       </div>
                     </div>

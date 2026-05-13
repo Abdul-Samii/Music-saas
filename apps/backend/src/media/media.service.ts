@@ -29,9 +29,16 @@ type VideoClip = {
   thumbnail: string;
 };
 
+type WordTimestamp = { word: string; start: number; end: number };
+
 type TranscriptionResult = {
   text: string;
-  segments: { text: string; start: number; end: number }[];
+  segments: {
+    text: string;
+    start: number;
+    end: number;
+    words: WordTimestamp[];
+  }[];
 };
 
 @Injectable()
@@ -149,6 +156,7 @@ export class MediaService {
             text: s.text,
             start: s.start,
             end: s.end,
+            words: s.words ?? [],
           })) ?? [],
       };
     } catch (err: unknown) {
