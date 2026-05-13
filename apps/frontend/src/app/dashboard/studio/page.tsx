@@ -180,16 +180,16 @@ function WaveformCanvas({
     return () => ro.disconnect();
   }, [draw]);
 
-  function getPosTime(e: React.MouseEvent | MouseEvent) {
+  function clientToTime(clientX: number) {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return 0;
-    const x = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1));
-    return x * duration;
+    return Math.max(0, Math.min((clientX - rect.left) / rect.width, 1)) * duration;
   }
 
-  function onMouseDown(e: React.MouseEvent) {
-    const t = getPosTime(e);
-    const threshold = duration * 0.025;
+  function startDrag(clientX: number, isTouch = false) {
+    const t = clientToTime(clientX);
+    // Larger grab threshold on touch so fingers can hit the handles
+    const threshold = duration * (isTouch ? 0.06 : 0.025);
     const dStart = Math.abs(t - trimStart);
     const dEnd = Math.abs(t - trimEnd);
     if (dStart < threshold && dStart <= dEnd) {
@@ -202,26 +202,41 @@ function WaveformCanvas({
     }
   }
 
+  function onMouseDown(e: React.MouseEvent) { startDrag(e.clientX, false); }
+
+  function onTouchStart(e: React.TouchEvent) {
+    e.preventDefault();
+    if (e.touches.length > 0) startDrag(e.touches[0].clientX, true);
+  }
+
   useEffect(() => {
-    function onMove(e: MouseEvent) {
+    function handleMove(clientX: number) {
       if (!dragRef.current) return;
-      const t = getPosTime(e);
+      const t = clientToTime(clientX);
       if (dragRef.current === "start") {
-        const ns = Math.max(0, Math.min(t, trimEnd - 1));
-        onTrimChange(ns, trimEnd);
+        onTrimChange(Math.max(0, Math.min(t, trimEnd - 1)), trimEnd);
       } else if (dragRef.current === "end") {
-        const ne = Math.min(duration, Math.max(t, trimStart + 1), trimStart + MAX_TRIM);
-        onTrimChange(trimStart, ne);
+        onTrimChange(trimStart, Math.min(duration, Math.max(t, trimStart + 1), trimStart + MAX_TRIM));
       } else {
         onSeek(Math.max(trimStart, Math.min(t, trimEnd)));
       }
     }
+    function onMove(e: MouseEvent) { handleMove(e.clientX); }
+    function onTouchMove(e: TouchEvent) {
+      e.preventDefault();
+      if (e.touches.length > 0) handleMove(e.touches[0].clientX);
+    }
     function onUp() { dragRef.current = null; }
+
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onUp);
     return () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onUp);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration, trimStart, trimEnd, onSeek, onTrimChange]);
@@ -230,7 +245,8 @@ function WaveformCanvas({
     <div
       ref={containerRef}
       onMouseDown={onMouseDown}
-      style={{ position: "relative", width: "100%", height: 96, cursor: "crosshair", userSelect: "none" }}
+      onTouchStart={onTouchStart}
+      style={{ position: "relative", width: "100%", height: 96, cursor: "crosshair", userSelect: "none", touchAction: "none" }}
     >
       <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
     </div>
