@@ -630,17 +630,11 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
                       key={`${absChunkIdx}-${wi}`}
                       style={{
                         opacity: revealed ? 1 : 0,
-                        fontFamily: "'Quicksand', sans-serif",
-                        fontWeight: 300,
+                        fontFamily: "'Varela Round', sans-serif",
                         fontSize: fixedSize,
                         color: textColor,
                         letterSpacing: "0.02em",
                         textShadow: "0 1px 12px rgba(0,0,0,0.55)",
-                        whiteSpace: "nowrap",
-                        maxWidth: "90%",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        display: "inline-block",
                       }}
                     >
                       {word}
@@ -2190,7 +2184,7 @@ export default function StudioPage() {
       )}
 
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@700;800;900&family=Pacifico&family=Orbitron:wght@700;800&family=Dancing+Script:wght@700&family=Space+Grotesk:wght@700;800&family=Nunito:wght@300;400&family=Quicksand:wght@300;400&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@700;800;900&family=Pacifico&family=Orbitron:wght@700;800&family=Dancing+Script:wght@700&family=Space+Grotesk:wght@700;800&family=Nunito:wght@300;400&family=Quicksand:wght@300;400&family=Varela+Round&display=swap');
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes lyr-word {
           0%   { opacity: 0; transform: translateY(10px) scale(0.9); }
