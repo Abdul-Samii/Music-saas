@@ -2212,6 +2212,48 @@ export default function StudioPage() {
               ))}
             </div>
 
+            {/* Download buttons */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", justifyContent: "center", marginBottom: "1rem" }}>
+              {renderResults.map((r, i) => {
+                const clipUrl = selectedClips[i]?.url ?? selectedClips[0]?.url;
+                const label = renderResults.length === 1 ? "Download Video" : `Download #${i + 1}`;
+                return (
+                  <a
+                    key={r.id}
+                    href={clipUrl}
+                    download={`${r.name}.mp4`}
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      try {
+                        const res = await fetch(clipUrl);
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${r.name}.mp4`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      } catch {
+                        window.open(clipUrl, "_blank");
+                      }
+                    }}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: "0.4rem",
+                      padding: "0.6rem 1.1rem", borderRadius: 10,
+                      border: "1.5px solid #3A60E7", background: "#EEF2FF",
+                      color: "#3A60E7", fontWeight: 700, fontSize: "0.8rem",
+                      cursor: "pointer", textDecoration: "none",
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    {label}
+                  </a>
+                );
+              })}
+            </div>
+
             <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
               <button
                 onClick={() => {
