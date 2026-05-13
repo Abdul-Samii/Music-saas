@@ -55,10 +55,11 @@ export class MediaController {
   async uploadAudio(
     @UploadedFile() file: MulterDiskFile,
     @CurrentUser() _user: JwtUser,
+    @Body('language') language?: string,
   ) {
     if (!file) throw new BadRequestException('No audio file uploaded');
     const audioUrl = `/uploads/audio/${file.filename}`;
-    const transcription = await this.media.transcribeAudio(file.path, file.mimetype);
+    const transcription = await this.media.transcribeAudio(file.path, file.mimetype, language);
     return { audioUrl, filename: file.originalname, transcription };
   }
 

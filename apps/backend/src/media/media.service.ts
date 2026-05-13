@@ -107,6 +107,7 @@ export class MediaService {
   async transcribeAudio(
     filePath: string,
     mimetype: string,
+    language?: string,
   ): Promise<TranscriptionResult> {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return { text: '', segments: [] };
@@ -119,10 +120,10 @@ export class MediaService {
       });
       fd.append('model', 'whisper-1');
       fd.append('response_format', 'verbose_json');
-      // Word-level granularity forces Whisper to compute accurate per-word timing,
-      // which in turn makes segment start/end times far more reliable.
       fd.append('timestamp_granularities[]', 'word');
       fd.append('timestamp_granularities[]', 'segment');
+      // Providing the language upfront skips auto-detection and improves accuracy
+      if (language) fd.append('language', language);
 
       const { data } = await axios.post(
         'https://api.openai.com/v1/audio/transcriptions',
