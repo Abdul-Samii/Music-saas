@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
+import { getSession } from "next-auth/react";
 import { creativeApi } from "@/lib/api";
 
 const BLUE = "#3A60E7";
@@ -1174,11 +1175,15 @@ export default function StudioPage() {
     const fullAudioUrl = uploadedAudioUrl.startsWith("http") ? uploadedAudioUrl : `${apiOrigin}${uploadedAudioUrl}`;
     const proxiedClipUrl = `${apiRoot}/media/proxy-clip?url=${encodeURIComponent(clipUrl)}`;
 
+    const session = await getSession();
+    const token = (session as { accessToken?: string } | null)?.accessToken;
+    const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+
     const cleanups: (() => void)[] = [];
     try {
       const [videoBlob, audioBlob] = await Promise.all([
-        fetch(proxiedClipUrl).then((r) => r.blob()),
-        fetch(fullAudioUrl).then((r) => r.blob()),
+        fetch(proxiedClipUrl, { headers: authHeader }).then((r) => r.blob()),
+        fetch(fullAudioUrl, { headers: authHeader }).then((r) => r.blob()),
       ]);
       const videoObjUrl = URL.createObjectURL(videoBlob);
       const audioObjUrl = URL.createObjectURL(audioBlob);
