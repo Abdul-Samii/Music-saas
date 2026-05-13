@@ -850,6 +850,7 @@ export default function StudioPage() {
   const [renderStage, setRenderStage] = useState<"uploading" | "saving" | "done">("uploading");
   const [renderError, setRenderError] = useState("");
   const [renderResults, setRenderResults] = useState<{ id: string; name: string; clipTitle: string; clipStyle: string; config: ClipConfig }[]>([]);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   // ── Audio helpers ──
   function getCtx() {
@@ -1098,6 +1099,148 @@ export default function StudioPage() {
   function updateActiveConfig(patch: Partial<ClipConfig>) {
     if (!activeClipId) return;
     setClipConfigs((prev) => ({ ...prev, [activeClipId]: { ...prev[activeClipId], ...patch } }));
+  }
+
+  // ── Canvas-based video download ──
+  async function downloadVideoCanvas(result: { id: string; name: string; config: ClipConfig }, clipIndex: number) {
+    if (downloadingId) return;
+    setDownloadingId(result.id);
+
+    const clipUrl = selectedClips[clipIndex]?.url ?? selectedClips[0]?.url;
+    const cfg = result.config;
+    const W = 720, H = 1280;
+    const dur = trimEnd - trimStart;
+    const fsPx = cfg.fontSize === "sm" ? 44 : cfg.fontSize === "md" ? 56 : 72;
+
+    function lineAt(t: number): number {
+      let cur = -1;
+      for (let i = 0; i < timestamps.length; i++) {
+        if (timestamps[i] !== null && (timestamps[i] as number) <= t) cur = i;
+      }
+      return cur;
+    }
+
+    function wordAt(li: number, t: number): number {
+      const wts = wordTimestamps?.[li] ?? [];
+      let w = 0;
+      for (let wi = 0; wi < wts.length; wi++) {
+        if (wts[wi]?.start <= t) w = wi; else break;
+      }
+      return w;
+    }
+
+    function drawLyrics(ctx: CanvasRenderingContext2D, t: number) {
+      const li = lineAt(t);
+      if (li < 0 || li >= lines.length) return;
+      const line = lines[li] ?? "";
+      const yBase = cfg.textPosition === "top" ? H * 0.14 : cfg.textPosition === "center" ? H * 0.5 : H * 0.80;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      if (cfg.lyricStyle === "spotlight") {
+        ctx.font = `900 ${Math.round(fsPx * 1.3)}px ${cfg.fontFamily}`;
+        ctx.fillStyle = cfg.highlightColor;
+        ctx.shadowColor = cfg.highlightColor;
+        ctx.shadowBlur = 24;
+        ctx.fillText(line, W / 2, yBase);
+      } else if (cfg.lyricStyle === "word-by-word") {
+        const words = line.split(" ").filter(Boolean);
+        const activeWi = wordAt(li, t);
+        ctx.font = `800 ${fsPx}px ${cfg.fontFamily}`;
+        const totalW = words.reduce((acc, w, wi) => acc + ctx.measureText(w + (wi < words.length - 1 ? " " : "")).width, 0);
+        let x = W / 2 - totalW / 2;
+        words.forEach((word, wi) => {
+          const active = wi === activeWi;
+          ctx.fillStyle = active ? cfg.highlightColor : cfg.textColor;
+          ctx.shadowColor = active ? cfg.highlightColor : "rgba(0,0,0,0.8)";
+          ctx.shadowBlur = active ? 16 : 8;
+          ctx.textAlign = "left";
+          ctx.fillText(word + (wi < words.length - 1 ? " " : ""), x, yBase);
+          x += ctx.measureText(word + " ").width;
+        });
+        ctx.textAlign = "center";
+      } else {
+        ctx.font = `800 ${fsPx}px ${cfg.fontFamily}`;
+        ctx.fillStyle = cfg.textColor;
+        ctx.shadowColor = "rgba(0,0,0,0.9)";
+        ctx.shadowBlur = 10;
+        ctx.fillText(line, W / 2, yBase);
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    const cleanups: (() => void)[] = [];
+    try {
+      const [videoBlob, audioBlob] = await Promise.all([
+        fetch(clipUrl).then((r) => r.blob()),
+        fetch(uploadedAudioUrl).then((r) => r.blob()),
+      ]);
+      const videoObjUrl = URL.createObjectURL(videoBlob);
+      const audioObjUrl = URL.createObjectURL(audioBlob);
+      cleanups.push(() => URL.revokeObjectURL(videoObjUrl));
+      cleanups.push(() => URL.revokeObjectURL(audioObjUrl));
+
+      const videoEl = document.createElement("video");
+      videoEl.src = videoObjUrl;
+      videoEl.muted = true;
+      videoEl.loop = true;
+      await new Promise<void>((res, rej) => { videoEl.onloadeddata = () => res(); videoEl.onerror = rej; videoEl.load(); });
+
+      const audioEl = document.createElement("audio");
+      audioEl.src = audioObjUrl;
+      await new Promise<void>((res, rej) => { audioEl.oncanplay = () => res(); audioEl.onerror = rej; audioEl.load(); });
+      audioEl.currentTime = trimStart;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = W; canvas.height = H;
+      const ctx = canvas.getContext("2d")!;
+
+      const audioCtx = new AudioContext();
+      const src = audioCtx.createMediaElementSource(audioEl);
+      const dest = audioCtx.createMediaStreamDestination();
+      src.connect(dest);
+      cleanups.push(() => audioCtx.close());
+
+      const mimeType = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"]
+        .find((t) => MediaRecorder.isTypeSupported(t)) ?? "video/webm";
+      const chunks: Blob[] = [];
+      const rec = new MediaRecorder(
+        new MediaStream([...canvas.captureStream(30).getTracks(), ...dest.stream.getTracks()]),
+        { mimeType },
+      );
+      rec.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunks, { type: "video/webm" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = `${result.name}.webm`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        cleanups.forEach((fn) => fn());
+        setDownloadingId(null);
+      };
+
+      rec.start(100);
+      videoEl.play();
+      audioEl.play();
+      const t0 = performance.now();
+
+      function frame() {
+        const elapsed = (performance.now() - t0) / 1000;
+        if (elapsed >= dur) { rec.stop(); videoEl.pause(); audioEl.pause(); return; }
+        ctx.drawImage(videoEl, 0, 0, W, H);
+        ctx.fillStyle = `rgba(0,0,0,${cfg.overlayOpacity})`;
+        ctx.fillRect(0, 0, W, H);
+        drawLyrics(ctx, trimStart + elapsed);
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+
+    } catch (err) {
+      console.error("[Download]", err);
+      cleanups.forEach((fn) => fn());
+      setDownloadingId(null);
+    }
   }
 
   // ── Batch render handler ──
@@ -2215,41 +2358,35 @@ export default function StudioPage() {
             {/* Download buttons */}
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", justifyContent: "center", marginBottom: "1rem" }}>
               {renderResults.map((r, i) => {
-                const clipUrl = selectedClips[i]?.url ?? selectedClips[0]?.url;
+                const isThis = downloadingId === r.id;
                 const label = renderResults.length === 1 ? "Download Video" : `Download #${i + 1}`;
                 return (
-                  <a
+                  <button
                     key={r.id}
-                    href={clipUrl}
-                    download={`${r.name}.mp4`}
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      try {
-                        const res = await fetch(clipUrl);
-                        const blob = await res.blob();
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `${r.name}.mp4`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      } catch {
-                        window.open(clipUrl, "_blank");
-                      }
-                    }}
+                    disabled={!!downloadingId}
+                    onClick={() => downloadVideoCanvas(r, i)}
                     style={{
                       display: "inline-flex", alignItems: "center", gap: "0.4rem",
                       padding: "0.6rem 1.1rem", borderRadius: 10,
-                      border: "1.5px solid #3A60E7", background: "#EEF2FF",
-                      color: "#3A60E7", fontWeight: 700, fontSize: "0.8rem",
-                      cursor: "pointer", textDecoration: "none",
+                      border: `1.5px solid ${BLUE}`, background: isThis ? "#C7D7FB" : "#EEF2FF",
+                      color: BLUE, fontWeight: 700, fontSize: "0.8rem",
+                      cursor: downloadingId ? "not-allowed" : "pointer", opacity: downloadingId && !isThis ? 0.5 : 1,
                     }}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    {label}
-                  </a>
+                    {isThis ? (
+                      <>
+                        <svg style={{ animation: "spin 1s linear infinite" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                        Rendering…
+                      </>
+                    ) : (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        {label}
+                      </>
+                    )}
+                  </button>
                 );
               })}
             </div>
