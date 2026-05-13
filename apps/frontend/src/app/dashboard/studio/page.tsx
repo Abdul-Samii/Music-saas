@@ -360,10 +360,24 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     ),
   [safeLines]);
 
-  // All words grouped into chunks of 3 for TikTok style
+  // All words grouped for TikTok style:
+  // long words (>7 chars) get their own line, short words group 3 per line
   const wordChunks = useMemo(() => {
     const chunks: string[][] = [];
-    for (let i = 0; i < allWords.length; i += 3) chunks.push(allWords.slice(i, i + 3));
+    let i = 0;
+    while (i < allWords.length) {
+      if (allWords[i].length > 7) {
+        chunks.push([allWords[i]]);
+        i++;
+      } else {
+        const chunk: string[] = [];
+        while (i < allWords.length && chunk.length < 3 && allWords[i].length <= 7) {
+          chunk.push(allWords[i]);
+          i++;
+        }
+        if (chunk.length > 0) chunks.push(chunk);
+      }
+    }
     return chunks;
   }, [allWords]);
 
@@ -576,31 +590,47 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     // ── TikTok Reveal style ──────────────────────────────────────────────────
     if (lyricStyle === "tiktok") {
       if (activeGlobalWordIdx < 0) return null;
-      const currentChunk = Math.floor(activeGlobalWordIdx / 3);
-      // Show up to 3 lines: the current chunk and the two above it
+
+      // Find which chunk the current global word falls in
+      let currentChunk = 0;
+      let wordCount = 0;
+      for (let ci = 0; ci < wordChunks.length; ci++) {
+        wordCount += wordChunks[ci].length;
+        if (wordCount > activeGlobalWordIdx) { currentChunk = ci; break; }
+        currentChunk = ci;
+      }
+
       const startChunk = Math.max(0, currentChunk - 2);
       const visibleChunks = wordChunks.slice(startChunk, currentChunk + 1);
-      const chunkFontSize = fontSize === "sm" ? "1.6rem" : fontSize === "md" ? "2.1rem" : "2.7rem";
+      const fixedSize = fontSize === "sm" ? "1.7rem" : fontSize === "md" ? "2.2rem" : "2.8rem";
+
+      // Pre-compute global word start index for each visible chunk
+      const chunkStartGlobalIdx = wordChunks
+        .slice(0, startChunk)
+        .reduce((acc, c) => acc + c.length, 0);
+
       return (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.1em" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.08em" }}>
           {visibleChunks.map((chunk, relIdx) => {
             const absChunkIdx = startChunk + relIdx;
+            const chunkGlobalStart = chunkStartGlobalIdx +
+              wordChunks.slice(startChunk, absChunkIdx).reduce((acc, c) => acc + c.length, 0);
             return (
-              <div key={absChunkIdx} style={{ display: "flex", justifyContent: "center", gap: "0.55em" }}>
+              <div key={absChunkIdx} style={{ display: "flex", justifyContent: "center", gap: "0.5em" }}>
                 {chunk.map((word, wi) => {
-                  const globalWi = absChunkIdx * 3 + wi;
+                  const globalWi = chunkGlobalStart + wi;
                   const revealed = globalWi <= activeGlobalWordIdx;
                   return (
                     <span
                       key={`${absChunkIdx}-${wi}`}
                       style={{
                         opacity: revealed ? 1 : 0,
-                        fontFamily: "'Nunito', sans-serif",
+                        fontFamily: "'Quicksand', sans-serif",
                         fontWeight: 300,
-                        fontSize: chunkFontSize,
+                        fontSize: fixedSize,
                         color: textColor,
-                        letterSpacing: "0.01em",
-                        textShadow: "0 1px 10px rgba(0,0,0,0.6)",
+                        letterSpacing: "0.02em",
+                        textShadow: "0 1px 12px rgba(0,0,0,0.55)",
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -2151,7 +2181,7 @@ export default function StudioPage() {
       )}
 
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@700;800;900&family=Pacifico&family=Orbitron:wght@700;800&family=Dancing+Script:wght@700&family=Space+Grotesk:wght@700;800&family=Nunito:wght@300;400&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@700;800;900&family=Pacifico&family=Orbitron:wght@700;800&family=Dancing+Script:wght@700&family=Space+Grotesk:wght@700;800&family=Nunito:wght@300;400&family=Quicksand:wght@300;400&display=swap');
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes lyr-word {
           0%   { opacity: 0; transform: translateY(10px) scale(0.9); }
