@@ -591,30 +591,35 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     if (lyricStyle === "tiktok") {
       if (activeGlobalWordIdx < 0) return null;
 
-      // Find which chunk the current global word falls in
+      // Find which chunk index the current global word belongs to
       let currentChunk = 0;
-      let wordCount = 0;
+      let counted = 0;
       for (let ci = 0; ci < wordChunks.length; ci++) {
-        wordCount += wordChunks[ci].length;
-        if (wordCount > activeGlobalWordIdx) { currentChunk = ci; break; }
+        counted += wordChunks[ci].length;
         currentChunk = ci;
+        if (counted > activeGlobalWordIdx) break;
       }
 
-      const startChunk = Math.max(0, currentChunk - 2);
-      const visibleChunks = wordChunks.slice(startChunk, currentChunk + 1);
+      // Pages of 3 chunks — when chunk 3 starts, page flips and everything restarts from top
+      const page = Math.floor(currentChunk / 3);
+      const pageStart = page * 3;                              // first chunk on this page
+      const posInPage = currentChunk - pageStart;             // 0, 1, or 2
+      const pageChunks = wordChunks.slice(pageStart, pageStart + 3);
+      const visibleChunks = pageChunks.slice(0, posInPage + 1); // only revealed rows
+
       const fixedSize = fontSize === "sm" ? "1.7rem" : fontSize === "md" ? "2.2rem" : "2.8rem";
 
-      // Pre-compute global word start index for each visible chunk
-      const chunkStartGlobalIdx = wordChunks
-        .slice(0, startChunk)
+      // Global word index of the first word on this page
+      const pageFirstWordIdx = wordChunks
+        .slice(0, pageStart)
         .reduce((acc, c) => acc + c.length, 0);
 
       return (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.08em" }}>
+        <div key={page} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.08em" }}>
           {visibleChunks.map((chunk, relIdx) => {
-            const absChunkIdx = startChunk + relIdx;
-            const chunkGlobalStart = chunkStartGlobalIdx +
-              wordChunks.slice(startChunk, absChunkIdx).reduce((acc, c) => acc + c.length, 0);
+            const absChunkIdx = pageStart + relIdx;
+            const chunkGlobalStart = pageFirstWordIdx +
+              wordChunks.slice(pageStart, absChunkIdx).reduce((acc, c) => acc + c.length, 0);
             return (
               <div key={absChunkIdx} style={{ display: "flex", justifyContent: "center", gap: "0.5em" }}>
                 {chunk.map((word, wi) => {
