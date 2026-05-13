@@ -9,22 +9,24 @@ import VideoGeneratorCta from "./VideoGeneratorCta";
 import VideoGeneratorHero from "./VideoGeneratorHero";
 import VideoGeneratorHowItWorks from "./VideoGeneratorHowItWorks";
 import WhatWeCanGenerate from "./WhatWeCanGenerate";
+import WhoIsItFor from "./WhoIsItFor";
 import WhyWeExists from "./WhyWeExists";
 
 export default function LyricVideoMakerClient() {
-  return (
-    <main className="bg-body-2">
-      <Navbar />
-      <VideoGeneratorHero />
-      <WhatWeCanGenerate />
-      <VideoGeneratorHowItWorks />
-      <WhyWeExists />
-      <StartCreating />
-      <LyricVideo />
-      <EscaliumMadePublic />
-      <TryItFree />
-      <VideoGeneratorCta />
-      <Footer />
-    </main>
-  );
+	return (
+		<main className="bg-body-2">
+			<Navbar />
+			<VideoGeneratorHero />
+			<WhatWeCanGenerate />
+			<VideoGeneratorHowItWorks />
+			<WhoIsItFor />
+			<WhyWeExists />
+			<StartCreating />
+			<LyricVideo />
+			<EscaliumMadePublic />
+			<TryItFree />
+			<VideoGeneratorCta />
+			<Footer />
+		</main>
+	);
 }
