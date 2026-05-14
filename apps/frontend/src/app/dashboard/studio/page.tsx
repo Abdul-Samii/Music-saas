@@ -639,7 +639,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
         .slice(0, pageStart)
         .reduce((acc, c) => acc + c.length, 0);
 
-      // Scale font to match canvas (720px wide, 52px font) proportionally to preview width
+      // Scale font proportionally to preview container (canvas is 720px wide)
       const baseFs = fontSize === "sm" ? 44 : fontSize === "md" ? 52 : 64;
       const fixedSize = `${Math.round((previewW / 720) * baseFs)}px`;
 
