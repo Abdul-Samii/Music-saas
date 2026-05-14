@@ -282,9 +282,10 @@ export class MediaService {
     }
   }
 
-  // ─── gpt-4o-transcribe ──────────────────────────────────────────────────────
+  // ─── OpenAI transcription (gpt-4o-transcribe with whisper-1 fallback) ────────
 
-  private async transcribeWithGpt4o(
+  private async callOpenAITranscription(
+    model: string,
     filePath: string,
     mimetype: string,
     language?: string,
@@ -292,12 +293,13 @@ export class MediaService {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return { text: '', segments: [] };
 
+    const ext = filePath.split('.').pop() ?? 'mp3';
     const fd = new FormData();
     fd.append('file', fs.createReadStream(filePath), {
-      filename: 'audio.wav',
+      filename: `audio.${ext}`,
       contentType: mimetype,
     });
-    fd.append('model', 'gpt-4o-transcribe');
+    fd.append('model', model);
     fd.append('response_format', 'verbose_json');
     fd.append('timestamp_granularities[]', 'word');
     fd.append('timestamp_granularities[]', 'segment');
@@ -313,17 +315,17 @@ export class MediaService {
       },
     );
 
-    type Gpt4oResponse = {
+    type OpenAITranscribeResponse = {
       text: string;
       words?: WordTimestamp[];
       segments?: { text: string; start: number; end: number }[];
     };
 
-    const r = data as Gpt4oResponse;
+    const r = data as OpenAITranscribeResponse;
     const allWords: WordTimestamp[] = r.words ?? [];
 
     console.log(
-      `[transcribeWithGpt4o] segments=${r.segments?.length ?? 0} words=${allWords.length}`,
+      `[${model}] segments=${r.segments?.length ?? 0} words=${allWords.length}`,
     );
 
     return {
@@ -336,6 +338,37 @@ export class MediaService {
           words: allWords.filter((w) => w.start >= s.start && w.start < s.end),
         })) ?? [],
     };
+  }
+
+  private async transcribeWithGpt4o(
+    filePath: string,
+    mimetype: string,
+    language?: string,
+  ): Promise<TranscriptionResult> {
+    try {
+      console.log('[transcribeWithGpt4o] Trying gpt-4o-transcribe...');
+      return await this.callOpenAITranscription(
+        'gpt-4o-transcribe',
+        filePath,
+        mimetype,
+        language,
+      );
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: unknown; status?: number } };
+      console.warn(
+        '[transcribeWithGpt4o] gpt-4o-transcribe failed — falling back to whisper-1.',
+        'Status:',
+        e?.response?.status,
+        'Error:',
+        JSON.stringify(e?.response?.data ?? err),
+      );
+      return this.callOpenAITranscription(
+        'whisper-1',
+        filePath,
+        mimetype,
+        language,
+      );
+    }
   }
 
   // ─── LCS-based lyrics alignment ────────────────────────────────────────────
