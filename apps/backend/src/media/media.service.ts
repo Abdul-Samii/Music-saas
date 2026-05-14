@@ -284,20 +284,31 @@ export class MediaService {
 
   // ─── OpenAI transcription (gpt-4o-transcribe with whisper-1 fallback) ────────
 
+  // Converts any audio format to mp3 so both gpt-4o-transcribe and whisper-1
+  // always receive a format they support (mpeg/mpeg variants are not accepted by
+  // gpt-4o-transcribe but are fine for whisper-1 — normalising avoids the mismatch).
+  private async toMp3(filePath: string): Promise<string> {
+    const mp3Path = filePath.replace(/\.[^.]+$/, '.transcribe.mp3');
+    await execFileAsync(
+      'ffmpeg',
+      ['-i', filePath, '-ar', '16000', '-ac', '1', '-f', 'mp3', '-y', mp3Path],
+      { timeout: 60_000 },
+    );
+    return mp3Path;
+  }
+
   private async callOpenAITranscription(
     model: string,
     filePath: string,
-    mimetype: string,
     language?: string,
   ): Promise<TranscriptionResult> {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return { text: '', segments: [] };
 
-    const ext = filePath.split('.').pop() ?? 'mp3';
     const fd = new FormData();
     fd.append('file', fs.createReadStream(filePath), {
-      filename: `audio.${ext}`,
-      contentType: mimetype,
+      filename: 'audio.mp3',
+      contentType: 'audio/mpeg',
     });
     fd.append('model', model);
     fd.append('response_format', 'verbose_json');
@@ -342,32 +353,34 @@ export class MediaService {
 
   private async transcribeWithGpt4o(
     filePath: string,
-    mimetype: string,
     language?: string,
   ): Promise<TranscriptionResult> {
+    const mp3Path = await this.toMp3(filePath);
     try {
-      console.log('[transcribeWithGpt4o] Trying gpt-4o-transcribe...');
-      return await this.callOpenAITranscription(
-        'gpt-4o-transcribe',
-        filePath,
-        mimetype,
-        language,
-      );
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: unknown; status?: number } };
-      console.warn(
-        '[transcribeWithGpt4o] gpt-4o-transcribe failed — falling back to whisper-1.',
-        'Status:',
-        e?.response?.status,
-        'Error:',
-        JSON.stringify(e?.response?.data ?? err),
-      );
-      return this.callOpenAITranscription(
-        'whisper-1',
-        filePath,
-        mimetype,
-        language,
-      );
+      try {
+        console.log('[transcribeWithGpt4o] Trying gpt-4o-transcribe...');
+        return await this.callOpenAITranscription(
+          'gpt-4o-transcribe',
+          mp3Path,
+          language,
+        );
+      } catch (err: unknown) {
+        const e = err as { response?: { data?: unknown; status?: number } };
+        console.warn(
+          '[transcribeWithGpt4o] gpt-4o-transcribe failed — falling back to whisper-1.',
+          'Status:',
+          e?.response?.status,
+          'Error:',
+          JSON.stringify(e?.response?.data ?? err),
+        );
+        return await this.callOpenAITranscription(
+          'whisper-1',
+          mp3Path,
+          language,
+        );
+      }
+    } finally {
+      fs.unlink(mp3Path, () => {});
     }
   }
 
@@ -545,14 +558,14 @@ export class MediaService {
   // or lyrics cannot be fetched.
   async transcribeAudio(
     filePath: string,
-    mimetype: string,
+    _mimetype: string,
     language?: string,
   ): Promise<TranscriptionResult> {
     try {
       // Steps 1 & 3 run in parallel — identification and transcription are independent
       const [songInfo, transcription] = await Promise.all([
         this.identifySong(filePath),
-        this.transcribeWithGpt4o(filePath, mimetype, language),
+        this.transcribeWithGpt4o(filePath, language),
       ]);
 
       if (songInfo) {
