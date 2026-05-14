@@ -377,21 +377,24 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     ),
   [safeLines]);
 
-  // TikTok chunks: long words (>8 chars) get their own row, short words group up to 2
+  // TikTok chunks: up to 3 words per row, but total chars ≤ 18 and no word >10 chars alone with others
   const wordChunks = useMemo(() => {
     const chunks: string[][] = [];
     let i = 0;
     while (i < allWords.length) {
-      if (allWords[i].length > 8) {
-        chunks.push([allWords[i]]);
-        i++;
-      } else if (i + 1 < allWords.length && allWords[i + 1].length <= 8) {
-        chunks.push([allWords[i], allWords[i + 1]]);
-        i += 2;
-      } else {
-        chunks.push([allWords[i]]);
-        i++;
+      const chunk: string[] = [];
+      let totalChars = 0;
+      while (i < allWords.length && chunk.length < 3) {
+        const w = allWords[i];
+        if (chunk.length === 0) {
+          chunk.push(w); totalChars += w.length; i++;
+          if (w.length > 10) break; // very long word → solo
+        } else {
+          if (w.length > 10 || totalChars + w.length > 18) break;
+          chunk.push(w); totalChars += w.length; i++;
+        }
       }
+      if (chunk.length > 0) chunks.push(chunk);
     }
     return chunks;
   }, [allWords]);
@@ -1119,18 +1122,24 @@ export default function StudioPage() {
     const dur = trimEnd - trimStart;
     const fsPx = cfg.fontSize === "sm" ? 44 : cfg.fontSize === "md" ? 56 : 72;
 
-    // Build all words + tiktok chunks: long words solo, short words max 2
+    // Build all words + tiktok chunks: up to 3 words, total chars ≤ 18, no word >10 mixed
     const allWords = lines.flatMap((l) => l.split(" ").filter(Boolean));
     const wordChunksRender: string[][] = [];
     let wci = 0;
     while (wci < allWords.length) {
-      if (allWords[wci].length > 8) {
-        wordChunksRender.push([allWords[wci]]); wci++;
-      } else if (wci + 1 < allWords.length && allWords[wci + 1].length <= 8) {
-        wordChunksRender.push([allWords[wci], allWords[wci + 1]]); wci += 2;
-      } else {
-        wordChunksRender.push([allWords[wci]]); wci++;
+      const chunk: string[] = [];
+      let totalChars = 0;
+      while (wci < allWords.length && chunk.length < 3) {
+        const w = allWords[wci];
+        if (chunk.length === 0) {
+          chunk.push(w); totalChars += w.length; wci++;
+          if (w.length > 10) break;
+        } else {
+          if (w.length > 10 || totalChars + w.length > 18) break;
+          chunk.push(w); totalChars += w.length; wci++;
+        }
       }
+      if (chunk.length > 0) wordChunksRender.push(chunk);
     }
 
     // Per-line word offsets
