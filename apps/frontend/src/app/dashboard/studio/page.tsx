@@ -1198,6 +1198,11 @@ export default function StudioPage() {
         const posInPage = currentChunk - pageStart;
         const visibleChunks = wordChunksRender.slice(pageStart, pageStart + 3).slice(0, posInPage + 1);
 
+        // Global word index of the first word on this page (mirrors preview logic)
+        const pageFirstWordIdx = wordChunksRender
+          .slice(0, pageStart)
+          .reduce((acc, c) => acc + c.length, 0);
+
         ctx.font = `700 52px 'Varela Round', sans-serif`;
         ctx.fillStyle = "#FFFFFF";
         ctx.shadowColor = "rgba(0,0,0,0.8)";
@@ -1207,21 +1212,22 @@ export default function StudioPage() {
         const totalH = visibleChunks.length * lh;
         const yStart = H / 2 - totalH / 2;
         visibleChunks.forEach((chunk, idx) => {
+          const absChunkIdx = pageStart + idx;
+          const chunkGlobalStart = pageFirstWordIdx +
+            wordChunksRender.slice(pageStart, absChunkIdx).reduce((acc, c) => acc + c.length, 0);
           const y = yStart + idx * lh + lh / 2;
-          if (chunk.length === 1) {
-            ctx.textAlign = "center";
-            ctx.fillText(chunk[0], W / 2, y);
-          } else {
-            const wordWidths = chunk.map((w) => ctx.measureText(w).width);
-            const totalW = wordWidths.reduce((a, b) => a + b, 0) + wordGap * (chunk.length - 1);
-            let x = W / 2 - totalW / 2;
-            chunk.forEach((word, wi) => {
+          const wordWidths = chunk.map((w) => ctx.measureText(w).width);
+          const totalW = wordWidths.reduce((a, b) => a + b, 0) + wordGap * (chunk.length - 1);
+          let x = W / 2 - totalW / 2;
+          chunk.forEach((word, wi) => {
+            // Only draw words that have been reached — matches preview opacity:0/1 logic
+            if (chunkGlobalStart + wi <= gwi) {
               ctx.textAlign = "left";
               ctx.fillText(word, x, y);
-              x += wordWidths[wi] + wordGap;
-            });
-            ctx.textAlign = "center";
-          }
+            }
+            x += wordWidths[wi] + wordGap; // always advance x to keep spacing correct
+          });
+          ctx.textAlign = "center";
         });
         ctx.shadowBlur = 0;
         return;
