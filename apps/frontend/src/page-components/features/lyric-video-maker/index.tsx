@@ -1,17 +1,12 @@
 "use client";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
-import EscaliumMadePublic from "./EscaliumMadePublic";
+import FAQs from "./FAQs";
 import Features from "./Features";
-import LyricVideo from "./LyricVideo";
-import StartCreating from "./StartCreating";
-import TryItFree from "./TryItFree";
-import VideoGeneratorCta from "./VideoGeneratorCta";
 import VideoGeneratorHero from "./VideoGeneratorHero";
 import VideoGeneratorHowItWorks from "./VideoGeneratorHowItWorks";
 import WhatWeCanGenerate from "./WhatWeCanGenerate";
 import WhoIsItFor from "./WhoIsItFor";
-import WhyWeExists from "./WhyWeExists";
 
 export default function LyricVideoMakerClient() {
 	return (
@@ -22,12 +17,7 @@ export default function LyricVideoMakerClient() {
 			<VideoGeneratorHowItWorks />
 			<WhoIsItFor />
 			<Features />
-			<WhyWeExists />
-			<StartCreating />
-			<LyricVideo />
-			<EscaliumMadePublic />
-			<TryItFree />
-			<VideoGeneratorCta />
+			<FAQs />
 			<Footer />
 		</main>
 	);
