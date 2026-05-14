@@ -245,4 +245,27 @@ export class MediaService {
   async getCreative(id: string, userId: string) {
     return this.prisma.adCreative.findFirst({ where: { id, userId } });
   }
+
+  async convertWebmToMp4(inputPath: string): Promise<string> {
+    const outputPath = inputPath.replace(/\.[^.]+$/, '.mp4');
+    await execFileAsync(
+      'ffmpeg',
+      [
+        '-i',
+        inputPath,
+        '-c:v',
+        'libx264',
+        '-preset',
+        'fast',
+        '-c:a',
+        'aac',
+        '-movflags',
+        '+faststart',
+        '-y',
+        outputPath,
+      ],
+      { timeout: 5 * 60 * 1000 },
+    );
+    return outputPath;
+  }
 }

@@ -1202,11 +1202,26 @@ export default function StudioPage() {
         ctx.fillStyle = "#FFFFFF";
         ctx.shadowColor = "rgba(0,0,0,0.8)";
         ctx.shadowBlur = 8;
-        const lh = 110;
+        const lh = 160;
+        const wordGap = 28; // extra px between words in a chunk
         const totalH = visibleChunks.length * lh;
         const yStart = H / 2 - totalH / 2;
         visibleChunks.forEach((chunk, idx) => {
-          ctx.fillText(chunk.join(" "), W / 2, yStart + idx * lh + lh / 2);
+          const y = yStart + idx * lh + lh / 2;
+          if (chunk.length === 1) {
+            ctx.textAlign = "center";
+            ctx.fillText(chunk[0], W / 2, y);
+          } else {
+            const wordWidths = chunk.map((w) => ctx.measureText(w).width);
+            const totalW = wordWidths.reduce((a, b) => a + b, 0) + wordGap * (chunk.length - 1);
+            let x = W / 2 - totalW / 2;
+            chunk.forEach((word, wi) => {
+              ctx.textAlign = "left";
+              ctx.fillText(word, x, y);
+              x += wordWidths[wi] + wordGap;
+            });
+            ctx.textAlign = "center";
+          }
         });
         ctx.shadowBlur = 0;
         return;
@@ -1319,15 +1334,35 @@ export default function StudioPage() {
         { mimeType },
       );
       rec.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-      rec.onstop = () => {
-        const blob = new Blob(chunks, { type: "video/webm" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url; a.download = `${result.name}.webm`;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        cleanups.forEach((fn) => fn());
-        setDownloadingId(null);
+      rec.onstop = async () => {
+        try {
+          const webmBlob = new Blob(chunks, { type: "video/webm" });
+          const fd = new FormData();
+          fd.append("video", webmBlob, "video.webm");
+          const resp = await fetch(`${apiRoot}/media/convert-mp4`, {
+            method: "POST",
+            headers: authHeader,
+            body: fd,
+          });
+          if (!resp.ok) throw new Error("conversion failed");
+          const mp4Blob = await resp.blob();
+          const url = URL.createObjectURL(mp4Blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = `${result.name}.mp4`;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch {
+          // fallback: download webm if conversion fails
+          const blob = new Blob(chunks, { type: "video/webm" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = `${result.name}.webm`;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } finally {
+          cleanups.forEach((fn) => fn());
+          setDownloadingId(null);
+        }
       };
 
       await document.fonts.ready;

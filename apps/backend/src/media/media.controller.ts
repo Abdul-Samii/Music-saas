@@ -15,6 +15,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import axios from 'axios';
+import * as fs from 'fs';
 import type { Response } from 'express';
 import { MediaService } from './media.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -112,6 +113,32 @@ export class MediaController {
   @Get('my-creatives')
   async myCreatives(@CurrentUser() user: JwtUser) {
     return this.media.listCreatives(user.id);
+  }
+
+  // POST /media/convert-mp4  — accepts a webm blob, returns mp4
+  @Post('convert-mp4')
+  @UseInterceptors(
+    FileInterceptor('video', {
+      storage: diskStorage({
+        destination: './uploads/tmp',
+        filename: (_req, _file, cb) => cb(null, `${Date.now()}.webm`),
+      }),
+      limits: { fileSize: 500 * 1024 * 1024 },
+    }),
+  )
+  async convertToMp4(@UploadedFile() file: MulterDiskFile, @Res() res: Response) {
+    if (!file) throw new BadRequestException('No video file');
+    let mp4Path: string | null = null;
+    try {
+      mp4Path = await this.media.convertWebmToMp4(file.path);
+      res.download(mp4Path, 'video.mp4', () => {
+        fs.unlink(file.path, () => {});
+        if (mp4Path) fs.unlink(mp4Path, () => {});
+      });
+    } catch {
+      fs.unlink(file.path, () => {});
+      res.status(500).json({ error: 'Conversion failed' });
+    }
   }
 
   // GET /media/proxy-clip?url=<encoded-s3-url>  — proxies S3 video to avoid browser CORS
