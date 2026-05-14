@@ -656,10 +656,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
                         fontWeight: 700,
                         color: textColor,
                         letterSpacing: "0.02em",
-                        textShadow: "0 1px 12px rgba(0,0,0,0.55)",
                         opacity: revealed ? 1 : 0,
-                        transform: revealed ? "translateX(0)" : "translateX(45px)",
-                        transition: "opacity 0.22s ease-out, transform 0.22s ease-out",
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -1221,10 +1218,8 @@ export default function StudioPage() {
 
         ctx.font = `700 52px 'Varela Round', sans-serif`;
         ctx.fillStyle = "#FFFFFF";
-        ctx.shadowColor = "rgba(0,0,0,0.8)";
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 0;
         const lh = 108;
-        const animDur = 0.22;
         const pad = W * 0.10; // 10% each side → 80% text area
         const maxW = W - pad * 2;
         const totalH = visibleChunks.length * lh;
@@ -1237,37 +1232,19 @@ export default function StudioPage() {
           const y = yStart + idx * lh + lh / 2;
           const wordWidths = chunk.map((w) => ctx.measureText(w).width);
           const totalWordW = wordWidths.reduce((a, b) => a + b, 0);
-          // Justify words across 80% zone; single word → left-aligned at pad
           const gap = chunk.length > 1 ? (maxW - totalWordW) / (chunk.length - 1) : 0;
           let x = pad;
 
           chunk.forEach((word, wi) => {
             if (chunkGlobalStart + wi <= gwi) {
-              // Find this word's reveal timestamp for slide animation
-              const globalWi2 = chunkGlobalStart + wi;
-              let wordStartT = t;
-              let g = 0;
-              outer: for (let li2 = 0; li2 < lines.length; li2++) {
-                const wts2 = wordTimestamps?.[li2] ?? [];
-                for (let w2 = 0; w2 < wts2.length; w2++) {
-                  if (g === globalWi2) { wordStartT = wts2[w2]?.start ?? t; break outer; }
-                  g++;
-                }
-              }
-              const elapsed = Math.max(0, t - wordStartT);
-              const progress = Math.min(1, elapsed / animDur);
-              const slideX = (1 - progress) * 60;
-              ctx.globalAlpha = 0.3 + 0.7 * progress;
               ctx.textAlign = "left";
-              ctx.fillText(word, x + slideX, y);
-              ctx.globalAlpha = 1;
+              ctx.fillText(word, x, y);
             }
             x += wordWidths[wi] + gap;
           });
           ctx.textAlign = "center";
         });
 
-        ctx.shadowBlur = 0;
         ctx.textAlign = "center";
         return;
       }
