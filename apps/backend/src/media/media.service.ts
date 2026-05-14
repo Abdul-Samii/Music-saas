@@ -47,7 +47,11 @@ type TranscriptionResult = {
 
 @Injectable()
 export class MediaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    // Ensure upload directories exist on startup
+    fs.mkdirSync('./uploads/audio', { recursive: true });
+    fs.mkdirSync('./uploads/tmp', { recursive: true });
+  }
 
   async getVideoLibrary(): Promise<{ clips: VideoClip[] }> {
     // Try manifest.json first (fastest, allows custom metadata)

@@ -359,8 +359,6 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const containerRef2 = useRef<HTMLDivElement>(null);
-  const [previewW, setPreviewW] = useState(300);
   const [playing, setPlaying] = useState(false);
   const [activeLineIndex, setActiveLineIndex] = useState(-1);
   const [activeWordIdx, setActiveWordIdx] = useState(0);
@@ -586,14 +584,6 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     return () => clearInterval(t);
   }, [lyricStyle, safeLines.length, playing, safeTimes, activeLineIndex]);
 
-  useEffect(() => {
-    const el = containerRef2.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setPreviewW(el.offsetWidth));
-    ro.observe(el);
-    setPreviewW(el.offsetWidth);
-    return () => ro.disconnect();
-  }, []);
 
   function toggle() {
     if (!ref.current) return;
@@ -639,9 +629,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
         .slice(0, pageStart)
         .reduce((acc, c) => acc + c.length, 0);
 
-      // Scale font proportionally to preview container (canvas is 720px wide)
-      const baseFs = fontSize === "sm" ? 44 : fontSize === "md" ? 52 : 64;
-      const fixedSize = `${Math.round((previewW / 720) * baseFs)}px`;
+      const fixedSize = fSize; // same scale as all other lyric styles
 
       return (
         <div key={page} style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "0.4em", width: "80%", margin: "0 auto" }}>
@@ -760,7 +748,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   }
 
   return (
-    <div ref={containerRef2} onClick={toggle} style={{ borderRadius: 14, overflow: "hidden", position: "relative", aspectRatio: "9/16", background: "#000", maxWidth: 300, margin: "0 auto", cursor: "pointer" }}>
+    <div onClick={toggle} style={{ borderRadius: 14, overflow: "hidden", position: "relative", aspectRatio: "9/16", background: "#000", maxWidth: 300, margin: "0 auto", cursor: "pointer" }}>
       <video ref={ref} src={src} muted playsInline loop preload="metadata"
         onLoadedMetadata={() => { if (ref.current) ref.current.currentTime = 0.5; }}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 - overlayOpacity }} />
@@ -1379,15 +1367,23 @@ export default function StudioPage() {
             headers: authHeader,
             body: fd,
           });
-          if (!resp.ok) throw new Error("conversion failed");
+          if (!resp.ok) {
+            const errText = await resp.text().catch(() => "unknown");
+            throw new Error(`Server ${resp.status}: ${errText}`);
+          }
+          const contentType = resp.headers.get("content-type") ?? "";
+          if (!contentType.includes("video") && !contentType.includes("octet-stream")) {
+            const errText = await resp.text().catch(() => "unknown");
+            throw new Error(`Unexpected content-type ${contentType}: ${errText}`);
+          }
           const mp4Blob = await resp.blob();
           const url = URL.createObjectURL(mp4Blob);
           const a = document.createElement("a");
           a.href = url; a.download = `${result.name}.mp4`;
           document.body.appendChild(a); a.click(); document.body.removeChild(a);
           setTimeout(() => URL.revokeObjectURL(url), 1000);
-        } catch {
-          // fallback: download webm if conversion fails
+        } catch (convErr) {
+          console.error("[convert-mp4] failed, downloading as webm:", convErr);
           const blob = new Blob(chunks, { type: "video/webm" });
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
