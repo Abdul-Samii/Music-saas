@@ -1183,53 +1183,79 @@ export default function StudioPage() {
       if (cfg.lyricStyle === "tiktok") {
         const gwi = globalWordAt(t);
         if (gwi < 0) return;
+        const li = lineAt(t);
+        if (li < 0) return;
 
-        // Find which chunk contains the active word
-        let accumulated = 0;
-        let currentChunk = 0;
-        for (let ci = 0; ci < wordChunksRender.length; ci++) {
-          accumulated += wordChunksRender[ci].length;
-          if (accumulated > gwi) { currentChunk = ci; break; }
-          currentChunk = ci;
-        }
-
-        const page = Math.floor(currentChunk / 3);
-        const pageStart = page * 3;
-        const posInPage = currentChunk - pageStart;
-        const visibleChunks = wordChunksRender.slice(pageStart, pageStart + 3).slice(0, posInPage + 1);
-
-        // Global word index of the first word on this page (mirrors preview logic)
-        const pageFirstWordIdx = wordChunksRender
-          .slice(0, pageStart)
-          .reduce((acc, c) => acc + c.length, 0);
-
-        ctx.font = `700 52px 'Varela Round', sans-serif`;
+        const fontSize = 52;
+        ctx.font = `700 ${fontSize}px 'Varela Round', sans-serif`;
         ctx.fillStyle = "#FFFFFF";
-        ctx.shadowColor = "rgba(0,0,0,0.8)";
-        ctx.shadowBlur = 8;
-        const lh = 105;
-        const wordGap = 28; // extra px between words in a chunk
-        const totalH = visibleChunks.length * lh;
-        const yStart = H / 2 - totalH / 2;
-        visibleChunks.forEach((chunk, idx) => {
-          const absChunkIdx = pageStart + idx;
-          const chunkGlobalStart = pageFirstWordIdx +
-            wordChunksRender.slice(pageStart, absChunkIdx).reduce((acc, c) => acc + c.length, 0);
-          const y = yStart + idx * lh + lh / 2;
-          const wordWidths = chunk.map((w) => ctx.measureText(w).width);
-          const totalW = wordWidths.reduce((a, b) => a + b, 0) + wordGap * (chunk.length - 1);
-          let x = W / 2 - totalW / 2;
-          chunk.forEach((word, wi) => {
-            // Only draw words that have been reached — matches preview opacity:0/1 logic
-            if (chunkGlobalStart + wi <= gwi) {
-              ctx.textAlign = "left";
-              ctx.fillText(word, x, y);
-            }
-            x += wordWidths[wi] + wordGap; // always advance x to keep spacing correct
-          });
-          ctx.textAlign = "center";
+        ctx.shadowColor = "rgba(0,0,0,0.75)";
+        ctx.shadowBlur = 10;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+
+        const pad = 60;
+        const maxW = W - pad * 2;
+        const lh = 108;
+        const animDur = 0.22; // seconds for slide-in
+
+        // Wrap current line's words into canvas rows
+        const lineWords = lines[li]?.split(" ").filter(Boolean) ?? [];
+        const lineOffset = lineWordOffsets[li];
+        type WRow = { words: string[]; startWi: number };
+        const rows: WRow[] = [];
+        let rowWords: string[] = [];
+        let rowStart = 0;
+        lineWords.forEach((word, wi) => {
+          const test = rowWords.length === 0 ? word : rowWords.join(" ") + " " + word;
+          if (ctx.measureText(test).width > maxW && rowWords.length > 0) {
+            rows.push({ words: rowWords, startWi: rowStart });
+            rowWords = [word]; rowStart = wi;
+          } else { rowWords.push(word); }
         });
+        if (rowWords.length > 0) rows.push({ words: rowWords, startWi: rowStart });
+
+        // Only show rows that contain at least one revealed word
+        const activeInLine = gwi - lineOffset;
+        const visibleRows = rows.filter((r) => r.startWi <= activeInLine);
+
+        const totalH = visibleRows.length * lh;
+        const yStart = H / 2 - totalH / 2;
+
+        visibleRows.forEach((row, rowIdx) => {
+          const y = yStart + rowIdx * lh + lh / 2;
+          const wordWidths = row.words.map((w) => ctx.measureText(w).width);
+          const totalWordW = wordWidths.reduce((a, b) => a + b, 0);
+
+          // Justify words across maxW; single word → center
+          let x: number;
+          let gap: number;
+          if (row.words.length === 1) {
+            x = W / 2 - wordWidths[0] / 2;
+            gap = 0;
+          } else {
+            gap = (maxW - totalWordW) / (row.words.length - 1);
+            x = pad;
+          }
+
+          row.words.forEach((word, wi) => {
+            const globalWi = lineOffset + row.startWi + wi;
+            if (globalWi <= gwi) {
+              // Slide-in from right using word's actual start timestamp
+              const wordStart = wordTimestamps?.[li]?.[row.startWi + wi]?.start ?? t;
+              const elapsed = Math.max(0, t - wordStart);
+              const progress = Math.min(1, elapsed / animDur);
+              const slideX = (1 - progress) * 70; // 70px slide from right
+              ctx.globalAlpha = 0.3 + 0.7 * progress; // fade from 30%→100%
+              ctx.fillText(word, x + slideX, y);
+              ctx.globalAlpha = 1;
+            }
+            x += wordWidths[wi] + gap;
+          });
+        });
+
         ctx.shadowBlur = 0;
+        ctx.textAlign = "center";
         return;
       }
 
