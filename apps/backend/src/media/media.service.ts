@@ -308,8 +308,14 @@ export class MediaService {
     // song is known, seeds the vocabulary with the artist/title so proper nouns
     // and stylised spellings are recognised correctly.
     // TODO: remove hardcoded test prompt once ACRCloud is configured
-    const testSongInfo: SongInfo = { artist: 'Kanye West', title: 'Flashing Lights' };
-    const prompt = `Music lyrics. Artist: ${testSongInfo.artist}. Song: ${testSongInfo.title}.`;
+    const prompt = [
+      'Rap song lyrics. Artist: Kanye West. Song: Flashing Lights. Album: Graduation. Genre: hip-hop.',
+      'Key phrases: "flashing lights", "she don\'t believe in shooting stars but she believe in shoes and cars",',
+      '"wood floor apartment", "rooftop", "as she rode the cab downtown", "tell me what I gotta do now",',
+      '"as the credits start to roll", "guestlist".',
+      'Transcribe every word exactly as sung including slang and dropped letters.',
+      'Each lyric line on its own line. No punctuation except apostrophes.',
+    ].join(' ');
 
     const mp3Path = await this.toMp3(filePath);
     try {
