@@ -282,11 +282,11 @@ export class MediaService {
     }
   }
 
-  // ─── OpenAI transcription (gpt-4o-transcribe with whisper-1 fallback) ────────
+  // ─── Whisper transcription ────────────────────────────────────────────────────
 
-  // Converts any audio format to mp3 so both gpt-4o-transcribe and whisper-1
-  // always receive a format they support (mpeg/mpeg variants are not accepted by
-  // gpt-4o-transcribe but are fine for whisper-1 — normalising avoids the mismatch).
+  // Normalises any uploaded format to 16 kHz mono mp3 before sending to Whisper.
+  // gpt-4o-transcribe does not support verbose_json (no word timestamps), so
+  // whisper-1 remains the only option for word-level sync.
   private async toMp3(filePath: string): Promise<string> {
     const mp3Path = filePath.replace(/\.[^.]+$/, '.transcribe.mp3');
     await execFileAsync(
@@ -297,91 +297,81 @@ export class MediaService {
     return mp3Path;
   }
 
-  private async callOpenAITranscription(
-    model: string,
+  private async transcribeWithWhisper(
     filePath: string,
     language?: string,
   ): Promise<TranscriptionResult> {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return { text: '', segments: [] };
 
-    const fd = new FormData();
-    fd.append('file', fs.createReadStream(filePath), {
-      filename: 'audio.mp3',
-      contentType: 'audio/mpeg',
-    });
-    fd.append('model', model);
-    fd.append('response_format', 'verbose_json');
-    fd.append('timestamp_granularities[]', 'word');
-    fd.append('timestamp_granularities[]', 'segment');
-    if (language) fd.append('language', language);
+    // Build prompt: tells Whisper it is transcribing song lyrics and, when the
+    // song is known, seeds the vocabulary with the artist/title so proper nouns
+    // and stylised spellings are recognised correctly.
+    // TODO: remove hardcoded test prompt once ACRCloud is configured
+    const testSongInfo: SongInfo = { artist: 'Kanye West', title: 'Flashing Lights' };
+    const prompt = `Music lyrics. Artist: ${testSongInfo.artist}. Song: ${testSongInfo.title}.`;
 
-    const { data } = await axios.post(
-      'https://api.openai.com/v1/audio/transcriptions',
-      fd,
-      {
-        headers: { ...fd.getHeaders(), Authorization: `Bearer ${apiKey}` },
-        maxBodyLength: 50 * 1024 * 1024,
-        timeout: 120_000,
-      },
-    );
+    const mp3Path = await this.toMp3(filePath);
+    try {
+      const fd = new FormData();
+      fd.append('file', fs.createReadStream(mp3Path), {
+        filename: 'audio.mp3',
+        contentType: 'audio/mpeg',
+      });
+      fd.append('model', 'whisper-1');
+      fd.append('response_format', 'verbose_json');
+      fd.append('timestamp_granularities[]', 'word');
+      fd.append('timestamp_granularities[]', 'segment');
+      fd.append('temperature', '0');
+      fd.append('prompt', prompt);
+      if (language) fd.append('language', language);
+      console.log(`[whisper-1] prompt="${prompt}"`);
 
-    type OpenAITranscribeResponse = {
-      text: string;
-      words?: WordTimestamp[];
-      segments?: { text: string; start: number; end: number }[];
-    };
+      const { data } = await axios.post(
+        'https://api.openai.com/v1/audio/transcriptions',
+        fd,
+        {
+          headers: { ...fd.getHeaders(), Authorization: `Bearer ${apiKey}` },
+          maxBodyLength: 50 * 1024 * 1024,
+          timeout: 120_000,
+        },
+      );
 
-    const r = data as OpenAITranscribeResponse;
-    const allWords: WordTimestamp[] = r.words ?? [];
+      type WhisperResponse = {
+        text: string;
+        words?: WordTimestamp[];
+        segments?: { text: string; start: number; end: number }[];
+      };
 
-    console.log(
-      `[${model}] segments=${r.segments?.length ?? 0} words=${allWords.length}`,
-    );
+      const r = data as WhisperResponse;
+      const allWords: WordTimestamp[] = r.words ?? [];
 
-    return {
-      text: r.text ?? '',
-      segments:
-        r.segments?.map((s) => ({
-          text: s.text,
-          start: s.start,
-          end: s.end,
-          words: allWords.filter((w) => w.start >= s.start && w.start < s.end),
-        })) ?? [],
-    };
+      console.log(
+        `[whisper-1] segments=${r.segments?.length ?? 0} words=${allWords.length}`,
+      );
+
+      return {
+        text: r.text ?? '',
+        segments:
+          r.segments?.map((s) => ({
+            text: s.text,
+            start: s.start,
+            end: s.end,
+            words: allWords.filter(
+              (w) => w.start >= s.start && w.start < s.end,
+            ),
+          })) ?? [],
+      };
+    } finally {
+      fs.unlink(mp3Path, () => {});
+    }
   }
 
   private async transcribeWithGpt4o(
     filePath: string,
     language?: string,
   ): Promise<TranscriptionResult> {
-    const mp3Path = await this.toMp3(filePath);
-    try {
-      try {
-        console.log('[transcribeWithGpt4o] Trying gpt-4o-transcribe...');
-        return await this.callOpenAITranscription(
-          'gpt-4o-transcribe',
-          mp3Path,
-          language,
-        );
-      } catch (err: unknown) {
-        const e = err as { response?: { data?: unknown; status?: number } };
-        console.warn(
-          '[transcribeWithGpt4o] gpt-4o-transcribe failed — falling back to whisper-1.',
-          'Status:',
-          e?.response?.status,
-          'Error:',
-          JSON.stringify(e?.response?.data ?? err),
-        );
-        return await this.callOpenAITranscription(
-          'whisper-1',
-          mp3Path,
-          language,
-        );
-      }
-    } finally {
-      fs.unlink(mp3Path, () => {});
-    }
+    return this.transcribeWithWhisper(filePath, language);
   }
 
   // ─── LCS-based lyrics alignment ────────────────────────────────────────────
@@ -562,11 +552,10 @@ export class MediaService {
     language?: string,
   ): Promise<TranscriptionResult> {
     try {
-      // Steps 1 & 3 run in parallel — identification and transcription are independent
-      const [songInfo, transcription] = await Promise.all([
-        this.identifySong(filePath),
-        this.transcribeWithGpt4o(filePath, language),
-      ]);
+      // Identify song first (1-2s) so we can pass artist/title as a whisper
+      // prompt — this seeds the vocabulary and meaningfully improves accuracy.
+      const songInfo = await this.identifySong(filePath);
+      const transcription = await this.transcribeWithGpt4o(filePath, language);
 
       if (songInfo) {
         const lyricsText = await this.fetchMusixmatchLyrics(
