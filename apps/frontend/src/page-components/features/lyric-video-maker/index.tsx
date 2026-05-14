@@ -2,6 +2,7 @@
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import EscaliumMadePublic from "./EscaliumMadePublic";
+import Features from "./Features";
 import LyricVideo from "./LyricVideo";
 import StartCreating from "./StartCreating";
 import TryItFree from "./TryItFree";
@@ -20,6 +21,7 @@ export default function LyricVideoMakerClient() {
 			<WhatWeCanGenerate />
 			<VideoGeneratorHowItWorks />
 			<WhoIsItFor />
+			<Features />
 			<WhyWeExists />
 			<StartCreating />
 			<LyricVideo />
