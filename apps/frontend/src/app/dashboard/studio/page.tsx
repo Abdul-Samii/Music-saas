@@ -1202,7 +1202,7 @@ export default function StudioPage() {
         ctx.fillStyle = "#FFFFFF";
         ctx.shadowColor = "rgba(0,0,0,0.8)";
         ctx.shadowBlur = 8;
-        const lh = 160;
+        const lh = 105;
         const wordGap = 28; // extra px between words in a chunk
         const totalH = visibleChunks.length * lh;
         const yStart = H / 2 - totalH / 2;
