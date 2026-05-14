@@ -377,11 +377,21 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     ),
   [safeLines]);
 
-  // All words grouped for TikTok style: max 3 words per chunk
+  // TikTok chunks: long words (>8 chars) get their own row, short words group up to 2
   const wordChunks = useMemo(() => {
     const chunks: string[][] = [];
-    for (let i = 0; i < allWords.length; i += 3) {
-      chunks.push(allWords.slice(i, i + 3));
+    let i = 0;
+    while (i < allWords.length) {
+      if (allWords[i].length > 8) {
+        chunks.push([allWords[i]]);
+        i++;
+      } else if (i + 1 < allWords.length && allWords[i + 1].length <= 8) {
+        chunks.push([allWords[i], allWords[i + 1]]);
+        i += 2;
+      } else {
+        chunks.push([allWords[i]]);
+        i++;
+      }
     }
     return chunks;
   }, [allWords]);
@@ -618,13 +628,20 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
       const fixedSize = fontSize === "sm" ? "1.7rem" : fontSize === "md" ? "2.2rem" : "2.8rem";
 
       return (
-        <div key={page} style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "0.35em", width: "100%" }}>
+        <div key={page} style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "0.4em", width: "80%", margin: "0 auto" }}>
           {visibleChunks.map((chunk, relIdx) => {
             const absChunkIdx = pageStart + relIdx;
             const chunkGlobalStart = pageFirstWordIdx +
               wordChunks.slice(pageStart, absChunkIdx).reduce((acc, c) => acc + c.length, 0);
             return (
-              <div key={absChunkIdx} style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "0 4px" }}>
+              <div
+                key={absChunkIdx}
+                style={{
+                  display: "flex",
+                  justifyContent: chunk.length === 1 ? "flex-start" : "space-between",
+                  width: "100%",
+                }}
+              >
                 {chunk.map((word, wi) => {
                   const revealed = chunkGlobalStart + wi <= activeGlobalWordIdx;
                   return (
@@ -640,6 +657,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
                         opacity: revealed ? 1 : 0,
                         transform: revealed ? "translateX(0)" : "translateX(45px)",
                         transition: "opacity 0.22s ease-out, transform 0.22s ease-out",
+                        whiteSpace: "nowrap",
                       }}
                     >
                       {word}
@@ -1101,11 +1119,18 @@ export default function StudioPage() {
     const dur = trimEnd - trimStart;
     const fsPx = cfg.fontSize === "sm" ? 44 : cfg.fontSize === "md" ? 56 : 72;
 
-    // Build all words + tiktok chunks: max 3 words per chunk
+    // Build all words + tiktok chunks: long words solo, short words max 2
     const allWords = lines.flatMap((l) => l.split(" ").filter(Boolean));
     const wordChunksRender: string[][] = [];
-    for (let wci = 0; wci < allWords.length; wci += 3) {
-      wordChunksRender.push(allWords.slice(wci, wci + 3));
+    let wci = 0;
+    while (wci < allWords.length) {
+      if (allWords[wci].length > 8) {
+        wordChunksRender.push([allWords[wci]]); wci++;
+      } else if (wci + 1 < allWords.length && allWords[wci + 1].length <= 8) {
+        wordChunksRender.push([allWords[wci], allWords[wci + 1]]); wci += 2;
+      } else {
+        wordChunksRender.push([allWords[wci]]); wci++;
+      }
     }
 
     // Per-line word offsets
@@ -1191,7 +1216,7 @@ export default function StudioPage() {
         ctx.shadowBlur = 8;
         const lh = 108;
         const animDur = 0.22;
-        const pad = 60;
+        const pad = W * 0.10; // 10% each side → 80% text area
         const maxW = W - pad * 2;
         const totalH = visibleChunks.length * lh;
         const yStart = H / 2 - totalH / 2;
@@ -1203,9 +1228,9 @@ export default function StudioPage() {
           const y = yStart + idx * lh + lh / 2;
           const wordWidths = chunk.map((w) => ctx.measureText(w).width);
           const totalWordW = wordWidths.reduce((a, b) => a + b, 0);
-          // Justify words across maxW; single word → center
+          // Justify words across 80% zone; single word → left-aligned at pad
           const gap = chunk.length > 1 ? (maxW - totalWordW) / (chunk.length - 1) : 0;
-          let x = chunk.length === 1 ? W / 2 - wordWidths[0] / 2 : pad;
+          let x = pad;
 
           chunk.forEach((word, wi) => {
             if (chunkGlobalStart + wi <= gwi) {
