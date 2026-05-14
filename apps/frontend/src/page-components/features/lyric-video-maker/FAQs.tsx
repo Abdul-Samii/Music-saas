@@ -83,7 +83,7 @@ const FAQs = () => {
 	};
 
 	return (
-		<section className="p-20 lg:p-30">
+		<section className="py-20 lg:py-30">
 			<div className="container">
 				<FadeInUp>
 					<div className="text-center mb-8 md:mb-12">

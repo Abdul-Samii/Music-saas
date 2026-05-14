@@ -1,6 +1,7 @@
 "use client";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
+import EscaliumVsOthers from "./EscaliumVsOthers";
 import FAQs from "./FAQs";
 import Features from "./Features";
 import VideoGeneratorHero from "./VideoGeneratorHero";
@@ -17,6 +18,7 @@ export default function LyricVideoMakerClient() {
 			<VideoGeneratorHowItWorks />
 			<WhoIsItFor />
 			<Features />
+			<EscaliumVsOthers />
 			<FAQs />
 			<Footer />
 		</main>
