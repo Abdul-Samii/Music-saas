@@ -358,12 +358,14 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   wordTimestamps?: WordTs[][];
 }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [activeLineIndex, setActiveLineIndex] = useState(-1);
   const [activeWordIdx, setActiveWordIdx] = useState(0);
   const [activeGlobalWordIdx, setActiveGlobalWordIdx] = useState(-1);
   const [animKey, setAnimKey] = useState(0);
+  const [previewWidth, setPreviewWidth] = useState(280);
   const prevLineRef = useRef(-1);
   const prevWordRef = useRef(-1);
 
@@ -433,6 +435,18 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     wordTsRef.current = wordTimestamps;
     wordOffsetsRef.current = wordOffsets;
   });
+
+  // Measure preview container width for proportional TikTok font sizing
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setPreviewWidth(entry.contentRect.width);
+    });
+    ro.observe(el);
+    setPreviewWidth(el.getBoundingClientRect().width || 280);
+    return () => ro.disconnect();
+  }, []);
 
   // Audio element — loop within trim region
   useEffect(() => {
@@ -629,10 +643,14 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
         .slice(0, pageStart)
         .reduce((acc, c) => acc + c.length, 0);
 
-      const fixedSize = fSize; // same scale as all other lyric styles
+      // Scale font proportionally: canvas uses 52px at 720px width
+      const CANVAS_W = 720;
+      const tiktokFontPx = Math.max(10, Math.round(52 * previewWidth / CANVAS_W));
+      // Line height: canvas uses lh=108 for 52px font; scale proportionally
+      const tiktokRowGapPx = Math.max(4, Math.round((108 - 52) * previewWidth / CANVAS_W));
 
       return (
-        <div key={page} style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "0.4em", width: "80%", margin: "0 auto" }}>
+        <div key={page} style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: `${tiktokRowGapPx}px`, width: "80%", margin: "0 auto" }}>
           {visibleChunks.map((chunk, relIdx) => {
             const absChunkIdx = pageStart + relIdx;
             const chunkGlobalStart = pageFirstWordIdx +
@@ -653,7 +671,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
                       key={wi}
                       style={{
                         fontFamily: "'Varela Round', sans-serif",
-                        fontSize: fixedSize,
+                        fontSize: `${tiktokFontPx}px`,
                         fontWeight: 700,
                         color: textColor,
                         letterSpacing: "0.02em",
@@ -748,7 +766,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   }
 
   return (
-    <div onClick={toggle} style={{ borderRadius: 14, overflow: "hidden", position: "relative", aspectRatio: "9/16", background: "#000", maxWidth: 300, margin: "0 auto", cursor: "pointer" }}>
+    <div ref={containerRef} onClick={toggle} style={{ borderRadius: 14, overflow: "hidden", position: "relative", aspectRatio: "9/16", background: "#000", maxWidth: 300, margin: "0 auto", cursor: "pointer" }}>
       <video ref={ref} src={src} muted playsInline loop preload="metadata"
         onLoadedMetadata={() => { if (ref.current) ref.current.currentTime = 0.5; }}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 - overlayOpacity }} />
