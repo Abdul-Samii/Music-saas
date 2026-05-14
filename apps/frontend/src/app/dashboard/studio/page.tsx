@@ -359,6 +359,8 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const containerRef2 = useRef<HTMLDivElement>(null);
+  const [previewW, setPreviewW] = useState(300);
   const [playing, setPlaying] = useState(false);
   const [activeLineIndex, setActiveLineIndex] = useState(-1);
   const [activeWordIdx, setActiveWordIdx] = useState(0);
@@ -584,6 +586,15 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     return () => clearInterval(t);
   }, [lyricStyle, safeLines.length, playing, safeTimes, activeLineIndex]);
 
+  useEffect(() => {
+    const el = containerRef2.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setPreviewW(el.offsetWidth));
+    ro.observe(el);
+    setPreviewW(el.offsetWidth);
+    return () => ro.disconnect();
+  }, []);
+
   function toggle() {
     if (!ref.current) return;
     if (playing) {
@@ -628,7 +639,9 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
         .slice(0, pageStart)
         .reduce((acc, c) => acc + c.length, 0);
 
-      const fixedSize = fontSize === "sm" ? "1.7rem" : fontSize === "md" ? "2.2rem" : "2.8rem";
+      // Scale font to match canvas (720px wide, 52px font) proportionally to preview width
+      const baseFs = fontSize === "sm" ? 44 : fontSize === "md" ? 52 : 64;
+      const fixedSize = `${Math.round((previewW / 720) * baseFs)}px`;
 
       return (
         <div key={page} style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "0.4em", width: "80%", margin: "0 auto" }}>
@@ -747,7 +760,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   }
 
   return (
-    <div onClick={toggle} style={{ borderRadius: 14, overflow: "hidden", position: "relative", aspectRatio: "9/16", background: "#000", maxWidth: 300, margin: "0 auto", cursor: "pointer" }}>
+    <div ref={containerRef2} onClick={toggle} style={{ borderRadius: 14, overflow: "hidden", position: "relative", aspectRatio: "9/16", background: "#000", maxWidth: 300, margin: "0 auto", cursor: "pointer" }}>
       <video ref={ref} src={src} muted playsInline loop preload="metadata"
         onLoadedMetadata={() => { if (ref.current) ref.current.currentTime = 0.5; }}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 1 - overlayOpacity }} />
