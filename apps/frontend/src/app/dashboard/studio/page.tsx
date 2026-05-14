@@ -377,23 +377,11 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     ),
   [safeLines]);
 
-  // All words grouped for TikTok style:
-  // words >5 chars get their own line, short words group up to 3 per line
+  // All words grouped for TikTok style: max 3 words per chunk
   const wordChunks = useMemo(() => {
     const chunks: string[][] = [];
-    let i = 0;
-    while (i < allWords.length) {
-      if (allWords[i].length > 5) {
-        chunks.push([allWords[i]]);
-        i++;
-      } else {
-        const chunk: string[] = [];
-        while (i < allWords.length && chunk.length < 3 && allWords[i].length <= 5) {
-          chunk.push(allWords[i]);
-          i++;
-        }
-        if (chunk.length > 0) chunks.push(chunk);
-      }
+    for (let i = 0; i < allWords.length; i += 3) {
+      chunks.push(allWords.slice(i, i + 3));
     }
     return chunks;
   }, [allWords]);
@@ -608,7 +596,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     if (lyricStyle === "tiktok") {
       if (activeGlobalWordIdx < 0) return null;
 
-      // Find which chunk index the current global word belongs to
+      // Find which chunk the active word is in
       let currentChunk = 0;
       let counted = 0;
       for (let ci = 0; ci < wordChunks.length; ci++) {
@@ -617,41 +605,41 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
         if (counted > activeGlobalWordIdx) break;
       }
 
-      // Pages of 3 chunks — when chunk 3 starts, page flips and everything restarts from top
-      const page = Math.floor(currentChunk / 3);
-      const pageStart = page * 3;                              // first chunk on this page
-      const posInPage = currentChunk - pageStart;             // 0, 1, or 2
-      const pageChunks = wordChunks.slice(pageStart, pageStart + 3);
-      const visibleChunks = pageChunks.slice(0, posInPage + 1); // only revealed rows
+      // 2 rows per page
+      const page = Math.floor(currentChunk / 2);
+      const pageStart = page * 2;
+      const posInPage = currentChunk - pageStart;
+      const visibleChunks = wordChunks.slice(pageStart, pageStart + 2).slice(0, posInPage + 1);
 
-      const fixedSize = fontSize === "sm" ? "1.7rem" : fontSize === "md" ? "2.2rem" : "2.8rem";
-
-      // Global word index of the first word on this page
       const pageFirstWordIdx = wordChunks
         .slice(0, pageStart)
         .reduce((acc, c) => acc + c.length, 0);
 
+      const fixedSize = fontSize === "sm" ? "1.7rem" : fontSize === "md" ? "2.2rem" : "2.8rem";
+
       return (
-        <div key={page} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.08em", width: "100%", overflow: "hidden" }}>
+        <div key={page} style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: "0.35em", width: "100%" }}>
           {visibleChunks.map((chunk, relIdx) => {
             const absChunkIdx = pageStart + relIdx;
             const chunkGlobalStart = pageFirstWordIdx +
               wordChunks.slice(pageStart, absChunkIdx).reduce((acc, c) => acc + c.length, 0);
             return (
-              <div key={absChunkIdx} style={{ display: "flex", justifyContent: "center", gap: "0.5em" }}>
+              <div key={absChunkIdx} style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "0 4px" }}>
                 {chunk.map((word, wi) => {
-                  const globalWi = chunkGlobalStart + wi;
-                  const revealed = globalWi <= activeGlobalWordIdx;
+                  const revealed = chunkGlobalStart + wi <= activeGlobalWordIdx;
                   return (
                     <span
-                      key={`${absChunkIdx}-${wi}`}
+                      key={wi}
                       style={{
-                        opacity: revealed ? 1 : 0,
                         fontFamily: "'Varela Round', sans-serif",
                         fontSize: fixedSize,
+                        fontWeight: 700,
                         color: textColor,
                         letterSpacing: "0.02em",
                         textShadow: "0 1px 12px rgba(0,0,0,0.55)",
+                        opacity: revealed ? 1 : 0,
+                        transform: revealed ? "translateX(0)" : "translateX(45px)",
+                        transition: "opacity 0.22s ease-out, transform 0.22s ease-out",
                       }}
                     >
                       {word}
@@ -1113,17 +1101,11 @@ export default function StudioPage() {
     const dur = trimEnd - trimStart;
     const fsPx = cfg.fontSize === "sm" ? 44 : cfg.fontSize === "md" ? 56 : 72;
 
-    // Build all words + tiktok chunks once
+    // Build all words + tiktok chunks: max 3 words per chunk
     const allWords = lines.flatMap((l) => l.split(" ").filter(Boolean));
     const wordChunksRender: string[][] = [];
-    let wci = 0;
-    while (wci < allWords.length) {
-      if (allWords[wci].length > 5) { wordChunksRender.push([allWords[wci]]); wci++; }
-      else {
-        const chunk: string[] = [];
-        while (wci < allWords.length && chunk.length < 3 && allWords[wci].length <= 5) { chunk.push(allWords[wci]); wci++; }
-        if (chunk.length > 0) wordChunksRender.push(chunk);
-      }
+    for (let wci = 0; wci < allWords.length; wci += 3) {
+      wordChunksRender.push(allWords.slice(wci, wci + 3));
     }
 
     // Per-line word offsets
@@ -1183,75 +1165,72 @@ export default function StudioPage() {
       if (cfg.lyricStyle === "tiktok") {
         const gwi = globalWordAt(t);
         if (gwi < 0) return;
-        const li = lineAt(t);
-        if (li < 0) return;
 
-        const fontSize = 52;
-        ctx.font = `700 ${fontSize}px 'Varela Round', sans-serif`;
+        // Find which chunk the active word belongs to
+        let accumulated = 0;
+        let currentChunk = 0;
+        for (let ci = 0; ci < wordChunksRender.length; ci++) {
+          accumulated += wordChunksRender[ci].length;
+          if (accumulated > gwi) { currentChunk = ci; break; }
+          currentChunk = ci;
+        }
+
+        // 2 rows per page
+        const page = Math.floor(currentChunk / 2);
+        const pageStart = page * 2;
+        const posInPage = currentChunk - pageStart;
+        const visibleChunks = wordChunksRender.slice(pageStart, pageStart + 2).slice(0, posInPage + 1);
+
+        const pageFirstWordIdx = wordChunksRender
+          .slice(0, pageStart)
+          .reduce((acc, c) => acc + c.length, 0);
+
+        ctx.font = `700 52px 'Varela Round', sans-serif`;
         ctx.fillStyle = "#FFFFFF";
-        ctx.shadowColor = "rgba(0,0,0,0.75)";
-        ctx.shadowBlur = 10;
-        ctx.textAlign = "left";
-        ctx.textBaseline = "middle";
-
+        ctx.shadowColor = "rgba(0,0,0,0.8)";
+        ctx.shadowBlur = 8;
+        const lh = 108;
+        const animDur = 0.22;
         const pad = 60;
         const maxW = W - pad * 2;
-        const lh = 108;
-        const animDur = 0.22; // seconds for slide-in
-
-        // Wrap current line's words into canvas rows
-        const lineWords = lines[li]?.split(" ").filter(Boolean) ?? [];
-        const lineOffset = lineWordOffsets[li];
-        type WRow = { words: string[]; startWi: number };
-        const rows: WRow[] = [];
-        let rowWords: string[] = [];
-        let rowStart = 0;
-        lineWords.forEach((word, wi) => {
-          const test = rowWords.length === 0 ? word : rowWords.join(" ") + " " + word;
-          if (ctx.measureText(test).width > maxW && rowWords.length > 0) {
-            rows.push({ words: rowWords, startWi: rowStart });
-            rowWords = [word]; rowStart = wi;
-          } else { rowWords.push(word); }
-        });
-        if (rowWords.length > 0) rows.push({ words: rowWords, startWi: rowStart });
-
-        // Only show rows that contain at least one revealed word
-        const activeInLine = gwi - lineOffset;
-        const visibleRows = rows.filter((r) => r.startWi <= activeInLine);
-
-        const totalH = visibleRows.length * lh;
+        const totalH = visibleChunks.length * lh;
         const yStart = H / 2 - totalH / 2;
 
-        visibleRows.forEach((row, rowIdx) => {
-          const y = yStart + rowIdx * lh + lh / 2;
-          const wordWidths = row.words.map((w) => ctx.measureText(w).width);
+        visibleChunks.forEach((chunk, idx) => {
+          const absChunkIdx = pageStart + idx;
+          const chunkGlobalStart = pageFirstWordIdx +
+            wordChunksRender.slice(pageStart, absChunkIdx).reduce((acc, c) => acc + c.length, 0);
+          const y = yStart + idx * lh + lh / 2;
+          const wordWidths = chunk.map((w) => ctx.measureText(w).width);
           const totalWordW = wordWidths.reduce((a, b) => a + b, 0);
-
           // Justify words across maxW; single word → center
-          let x: number;
-          let gap: number;
-          if (row.words.length === 1) {
-            x = W / 2 - wordWidths[0] / 2;
-            gap = 0;
-          } else {
-            gap = (maxW - totalWordW) / (row.words.length - 1);
-            x = pad;
-          }
+          const gap = chunk.length > 1 ? (maxW - totalWordW) / (chunk.length - 1) : 0;
+          let x = chunk.length === 1 ? W / 2 - wordWidths[0] / 2 : pad;
 
-          row.words.forEach((word, wi) => {
-            const globalWi = lineOffset + row.startWi + wi;
-            if (globalWi <= gwi) {
-              // Slide-in from right using word's actual start timestamp
-              const wordStart = wordTimestamps?.[li]?.[row.startWi + wi]?.start ?? t;
-              const elapsed = Math.max(0, t - wordStart);
+          chunk.forEach((word, wi) => {
+            if (chunkGlobalStart + wi <= gwi) {
+              // Find this word's reveal timestamp for slide animation
+              const globalWi2 = chunkGlobalStart + wi;
+              let wordStartT = t;
+              let g = 0;
+              outer: for (let li2 = 0; li2 < lines.length; li2++) {
+                const wts2 = wordTimestamps?.[li2] ?? [];
+                for (let w2 = 0; w2 < wts2.length; w2++) {
+                  if (g === globalWi2) { wordStartT = wts2[w2]?.start ?? t; break outer; }
+                  g++;
+                }
+              }
+              const elapsed = Math.max(0, t - wordStartT);
               const progress = Math.min(1, elapsed / animDur);
-              const slideX = (1 - progress) * 70; // 70px slide from right
-              ctx.globalAlpha = 0.3 + 0.7 * progress; // fade from 30%→100%
+              const slideX = (1 - progress) * 60;
+              ctx.globalAlpha = 0.3 + 0.7 * progress;
+              ctx.textAlign = "left";
               ctx.fillText(word, x + slideX, y);
               ctx.globalAlpha = 1;
             }
             x += wordWidths[wi] + gap;
           });
+          ctx.textAlign = "center";
         });
 
         ctx.shadowBlur = 0;
