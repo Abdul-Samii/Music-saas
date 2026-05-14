@@ -1398,8 +1398,7 @@ export default function StudioPage() {
 
       await document.fonts.ready;
       rec.start(100);
-      videoEl.play();
-      audioEl.play();
+      await Promise.all([videoEl.play(), audioEl.play()]);
       const t0 = performance.now();
 
       function frame() {
