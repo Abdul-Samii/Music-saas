@@ -112,6 +112,22 @@ export class MediaService {
     }
   }
 
+  private isWhisperHallucination(text: string): boolean {
+    const t = text.trim();
+    if (!t) return true;
+    // Whisper emits these when it hears music but no decodable speech
+    const patterns = [
+      /^[\s\p{Emoji_Presentation}\p{Extended_Pictographic}♪♫🎵🎶]+$/u,
+      /^\[?music\s*(playing)?\]?$/i,
+      /^\[?background\s*music\]?$/i,
+      /^\[?instrumental\]?$/i,
+      /^\[?no\s*speech\]?$/i,
+      /^\[?silence\]?$/i,
+      /^\[?applause\]?$/i,
+    ];
+    return patterns.some((p) => p.test(t));
+  }
+
   async transcribeAudio(
     filePath: string,
     mimetype: string,
@@ -175,20 +191,31 @@ export class MediaService {
           },
         );
         const allWords: WordTimestamp[] = r.words ?? [];
+        const text = r.text ?? '';
         console.log(
-          `[transcribeAudio] attempt=${attempt} segments=${r.segments?.length ?? 0} words=${allWords.length}`,
+          `[transcribeAudio] attempt=${attempt} segments=${r.segments?.length ?? 0} words=${allWords.length} text="${text.slice(0, 80)}"`,
         );
+
+        if (this.isWhisperHallucination(text)) {
+          console.warn(
+            `[transcribeAudio] hallucination detected, returning empty`,
+          );
+          return { text: '', segments: [] };
+        }
+
         return {
-          text: r.text ?? '',
+          text,
           segments:
-            r.segments?.map((s) => ({
-              text: s.text,
-              start: s.start,
-              end: s.end,
-              words: allWords.filter(
-                (w) => w.start >= s.start && w.start < s.end,
-              ),
-            })) ?? [],
+            r.segments
+              ?.filter((s) => !this.isWhisperHallucination(s.text))
+              .map((s) => ({
+                text: s.text,
+                start: s.start,
+                end: s.end,
+                words: allWords.filter(
+                  (w) => w.start >= s.start && w.start < s.end,
+                ),
+              })) ?? [],
         };
       } catch (err: unknown) {
         type AxiosLike = {
