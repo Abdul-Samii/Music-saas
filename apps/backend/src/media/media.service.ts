@@ -59,8 +59,9 @@ export class MediaService {
     const stem = path.basename(inputPath, path.extname(inputPath));
     const vocalsPath = path.join(outDir, 'htdemucs', stem, 'vocals.wav');
 
+    const demucs = process.env.DEMUCS_PATH ?? '/root/.local/bin/demucs';
     await execFileAsync(
-      'demucs',
+      demucs,
       ['--two-stems=vocals', '--out', outDir, inputPath],
       { timeout: 10 * 60 * 1000 },
     );
