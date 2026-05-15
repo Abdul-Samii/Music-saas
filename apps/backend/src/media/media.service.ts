@@ -55,31 +55,49 @@ export class MediaService {
   }
 
   async separateVocals(inputPath: string): Promise<string> {
-    const outDir = './uploads/separated';
-    const stem = path.basename(inputPath, path.extname(inputPath));
-    const rawVocals = path.join(outDir, 'htdemucs', stem, 'vocals.wav');
-    const cleanVocals = path.join(outDir, 'htdemucs', stem, 'vocals_16k.wav');
-
+    const model = 'htdemucs_ft';
     const demucs = process.env.DEMUCS_PATH ?? '/root/.local/bin/demucs';
+    const stem = path.basename(inputPath, path.extname(inputPath));
+
+    // Each request gets its own directory to avoid concurrent request collisions
+    const stemDir = path.resolve('./uploads/separated', stem);
+    fs.mkdirSync(stemDir, { recursive: true });
+
+    // Pass 1: separate vocals from original mixed audio
     await execFileAsync(
       demucs,
-      ['--two-stems=vocals', '--out', outDir, inputPath],
+      ['-n', model, '--two-stems=vocals', '--out', stemDir, inputPath],
       { timeout: 10 * 60 * 1000 },
     );
+    const pass1Vocals = path.join(stemDir, model, stem, 'vocals.wav');
 
-    // Normalize to 16kHz mono PCM — Whisper's native format.
-    // Demucs output with torchcodec can have non-standard encoding that Whisper misreads.
+    // Rename so pass 2 gets a unique stem name and doesn't collide
+    const pass1Renamed = path.join(stemDir, 'vocals_pass1.wav');
+    fs.renameSync(pass1Vocals, pass1Renamed);
+
+    // Pass 2: run Demucs again on the already-separated vocals to remove residual instrumental bleed
+    await execFileAsync(
+      demucs,
+      ['-n', model, '--two-stems=vocals', '--out', stemDir, pass1Renamed],
+      { timeout: 10 * 60 * 1000 },
+    );
+    const pass2Vocals = path.join(stemDir, model, 'vocals_pass1', 'vocals.wav');
+
+    // Normalize to 16kHz mono PCM with loudness normalization for Whisper
+    const cleanVocals = path.join(stemDir, 'vocals_16k.wav');
     await execFileAsync(
       'ffmpeg',
       [
         '-i',
-        rawVocals,
+        pass2Vocals,
         '-ar',
         '16000',
         '-ac',
         '1',
         '-sample_fmt',
         's16',
+        '-af',
+        'loudnorm',
         '-y',
         cleanVocals,
       ],
