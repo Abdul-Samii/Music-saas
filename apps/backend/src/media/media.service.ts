@@ -158,8 +158,6 @@ export class MediaService {
         fd.append('response_format', 'verbose_json');
         fd.append('timestamp_granularities[]', 'word');
         fd.append('timestamp_granularities[]', 'segment');
-        // Primes Whisper for sung lyrics, improving accuracy on music content
-        fd.append('prompt', 'Song lyrics:');
         if (language) fd.append('language', language);
 
         type WhisperResponse = {
@@ -172,7 +170,7 @@ export class MediaService {
           fd,
           {
             headers: { ...fd.getHeaders(), Authorization: `Bearer ${apiKey}` },
-            maxBodyLength: GROQ_MAX_BYTES,
+            maxBodyLength: Infinity,
             timeout: 120_000,
           },
         );
