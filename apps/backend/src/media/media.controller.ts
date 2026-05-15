@@ -78,7 +78,11 @@ export class MediaController {
       throw new BadRequestException('Vocal separation failed. Check that demucs is installed on the server.');
     }
 
-    const transcription = await this.media.transcribeAudio(vocalsPath, 'audio/wav', language);
+    const vocalsAbsPath = require('path').resolve(vocalsPath);
+    const vocalsStat = fs.statSync(vocalsAbsPath);
+    console.log(`[uploadAudio] vocals abs path=${vocalsAbsPath} size=${vocalsStat.size} exists=${fs.existsSync(vocalsAbsPath)}`);
+
+    const transcription = await this.media.transcribeAudio(vocalsAbsPath, 'audio/wav', language);
     console.log(`[uploadAudio] transcription done, text length=${transcription.text.length}`);
 
     // cleanup temporarily disabled — remove comment to re-enable
