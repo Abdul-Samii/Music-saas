@@ -112,31 +112,47 @@ export class MediaService {
     }
   }
 
-  // Extracts the center channel (vocals) from a stereo audio file.
-  // In commercial music, vocals are panned center (L+R), instruments are panned
-  // left/right — isolating the center dramatically reduces background noise for Whisper.
+  private async getChannelCount(filePath: string): Promise<number> {
+    const { stdout } = await execFileAsync('ffprobe', [
+      '-v',
+      'error',
+      '-select_streams',
+      'a:0',
+      '-show_entries',
+      'stream=channels',
+      '-of',
+      'default=noprint_wrappers=1:nokey=1',
+      filePath,
+    ]);
+    return parseInt(stdout.trim(), 10) || 1;
+  }
+
+  // Prepares audio for Whisper: isolates vocals from stereo files via center
+  // channel extraction, then applies frequency filtering and normalization.
+  // Mono files skip center extraction (no side channels to subtract) and go
+  // straight to filtering — avoids near-silence that causes Whisper hallucinations.
   private async extractVocals(filePath: string): Promise<string> {
     const outPath = filePath.replace(/\.[^.]+$/, '.vocals.mp3');
+    const channels = await this.getChannelCount(filePath);
+    const isStereo = channels >= 2;
+
+    const filters = [
+      ...(isStereo
+        ? ['pan=mono|c0=0.5*c0+0.5*c1']
+        : ['aformat=channel_layouts=mono']),
+      'highpass=f=150',
+      'lowpass=f=8000',
+      'dynaudnorm',
+    ];
+
     await execFileAsync(
       'ffmpeg',
-      [
-        '-i',
-        filePath,
-        '-af',
-        [
-          'pan=mono|c0=0.5*c0+0.5*c1', // center channel (vocals)
-          'highpass=f=150', // cut rumble / kick drum
-          'lowpass=f=8000', // cut hiss above vocal range
-          'dynaudnorm', // normalize volume
-        ].join(','),
-        '-ar',
-        '16000',
-        '-y',
-        outPath,
-      ],
+      ['-i', filePath, '-af', filters.join(','), '-ar', '16000', '-y', outPath],
       { timeout: 60_000 },
     );
-    console.log('[extractVocals] vocal track written to', outPath);
+    console.log(
+      `[extractVocals] ${isStereo ? 'stereo→center' : 'mono'} → ${outPath}`,
+    );
     return outPath;
   }
 
