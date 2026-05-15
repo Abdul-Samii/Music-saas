@@ -112,19 +112,50 @@ export class MediaService {
     }
   }
 
+  // Extracts the center channel (vocals) from a stereo audio file.
+  // In commercial music, vocals are panned center (L+R), instruments are panned
+  // left/right — isolating the center dramatically reduces background noise for Whisper.
+  private async extractVocals(filePath: string): Promise<string> {
+    const outPath = filePath.replace(/\.[^.]+$/, '.vocals.mp3');
+    await execFileAsync(
+      'ffmpeg',
+      [
+        '-i',
+        filePath,
+        '-af',
+        [
+          'pan=mono|c0=0.5*c0+0.5*c1', // center channel (vocals)
+          'highpass=f=150', // cut rumble / kick drum
+          'lowpass=f=8000', // cut hiss above vocal range
+          'dynaudnorm', // normalize volume
+        ].join(','),
+        '-ar',
+        '16000',
+        '-y',
+        outPath,
+      ],
+      { timeout: 60_000 },
+    );
+    console.log('[extractVocals] vocal track written to', outPath);
+    return outPath;
+  }
+
   async transcribeAudio(
     filePath: string,
-    mimetype: string,
+    _mimetype: string,
     language?: string,
   ): Promise<TranscriptionResult> {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return { text: '', segments: [] };
 
+    let vocalsPath: string | null = null;
     try {
+      vocalsPath = await this.extractVocals(filePath);
+
       const fd = new FormData();
-      fd.append('file', fs.createReadStream(filePath), {
-        filename: 'audio.wav',
-        contentType: mimetype,
+      fd.append('file', fs.createReadStream(vocalsPath), {
+        filename: 'audio.mp3',
+        contentType: 'audio/mpeg',
       });
       fd.append('model', 'whisper-large-v3');
       fd.append('response_format', 'verbose_json');
@@ -180,6 +211,8 @@ export class MediaService {
         JSON.stringify(e?.response?.data ?? err),
       );
       return { text: '', segments: [] };
+    } finally {
+      if (vocalsPath) fs.unlink(vocalsPath, () => {});
     }
   }
 
