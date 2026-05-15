@@ -25,7 +25,7 @@ async function bootstrap() {
     immutable: true,
   });
   const server = app.getHttpServer();
-  server.setTimeout(5 * 60 * 1000); // Demucs vocal separation can take up to 2 min on CPU
+  server.setTimeout(10 * 60 * 1000); // Demucs vocal separation can take ~1 min per minute of audio on CPU
 
   await app.listen(process.env.PORT ?? 3000);
 }
