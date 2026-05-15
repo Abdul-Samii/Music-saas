@@ -58,46 +58,32 @@ export class MediaService {
     const model = 'htdemucs_ft';
     const demucs = process.env.DEMUCS_PATH ?? '/root/.local/bin/demucs';
     const stem = path.basename(inputPath, path.extname(inputPath));
-
-    // Each request gets its own directory to avoid concurrent request collisions
     const stemDir = path.resolve('./uploads/separated', stem);
     fs.mkdirSync(stemDir, { recursive: true });
 
-    // Pass 1: separate vocals from original mixed audio
     await execFileAsync(
       demucs,
       ['-n', model, '--two-stems=vocals', '--out', stemDir, inputPath],
       { timeout: 10 * 60 * 1000 },
     );
-    const pass1Vocals = path.join(stemDir, model, stem, 'vocals.wav');
+    const rawVocals = path.join(stemDir, model, stem, 'vocals.wav');
 
-    // Rename so pass 2 gets a unique stem name and doesn't collide
-    const pass1Renamed = path.join(stemDir, 'vocals_pass1.wav');
-    fs.renameSync(pass1Vocals, pass1Renamed);
-
-    // Pass 2: run Demucs again on the already-separated vocals to remove residual instrumental bleed
-    await execFileAsync(
-      demucs,
-      ['-n', model, '--two-stems=vocals', '--out', stemDir, pass1Renamed],
-      { timeout: 10 * 60 * 1000 },
-    );
-    const pass2Vocals = path.join(stemDir, model, 'vocals_pass1', 'vocals.wav');
-
-    // Normalize to 16kHz mono PCM with loudness normalization for Whisper
-    const cleanVocals = path.join(stemDir, 'vocals_16k.wav');
+    // Convert Demucs WAV to 16kHz mono MP3.
+    // The WAV Demucs produces via torchcodec has non-standard headers that confuse
+    // Groq's Whisper API, causing it to return music hallucinations instead of lyrics.
+    // MP3 is a clean, universally safe format that Groq handles correctly.
+    const cleanVocals = path.join(stemDir, 'vocals_16k.mp3');
     await execFileAsync(
       'ffmpeg',
       [
         '-i',
-        pass2Vocals,
+        rawVocals,
         '-ar',
         '16000',
         '-ac',
         '1',
-        '-sample_fmt',
-        's16',
-        '-af',
-        'loudnorm',
+        '-b:a',
+        '192k',
         '-y',
         cleanVocals,
       ],
