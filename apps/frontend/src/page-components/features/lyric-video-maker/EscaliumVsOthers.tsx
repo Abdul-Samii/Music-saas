@@ -3,6 +3,7 @@ import TextAnimation from "@/components/animations/TextAnimation";
 import { cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
 import Image from "next/image";
+import SongUploader from "./SongUploader";
 
 const EscaliumVsOthers = () => {
 	const features = [
@@ -44,6 +45,21 @@ const EscaliumVsOthers = () => {
 			name: "veed",
 			price: 27,
 			values: [false, true, true, false, false, true],
+		},
+	];
+
+	const countData = [
+		{
+			value: "5.000",
+			label: "Videos generated",
+		},
+		{
+			value: "100.000.000",
+			label: "Streams",
+		},
+		{
+			value: "$200.000",
+			label: "Ad Spend for Artists",
 		},
 	];
 	return (
@@ -166,6 +182,26 @@ const EscaliumVsOthers = () => {
 							</tbody>
 						</table>
 					</div>
+				</div>
+
+				<div className="mt-20 mb-8 md:mb-12">
+					<SongUploader />
+				</div>
+
+				<div className="grid grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-8 mt-20">
+					{countData.map((item) => (
+						<div
+							key={item.label}
+							className="flex-center flex-col gap-2.5"
+						>
+							<p className="text-2xl md:text-5xl font-bold leading-none text-primary">
+								{item.value}+
+							</p>
+							<h4 className="text-center font-semibold text-text-primary">
+								{item.label}
+							</h4>
+						</div>
+					))}
 				</div>
 			</div>
 		</section>
