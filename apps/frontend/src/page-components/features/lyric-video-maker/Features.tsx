@@ -2,6 +2,7 @@ import FadeInUp from "@/components/animations/FadeInUp";
 import TextAnimation from "@/components/animations/TextAnimation";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { useState } from "react";
 
 const targetAudience = [
@@ -10,40 +11,41 @@ const targetAudience = [
 		header: "Singers",
 		description:
 			"Independent artists, vocalists, bands, and performers who want to turn their songs into viral videos for YouTube, Instagram & TikTok.",
-		img: "image of singers",
+		img: "/img/features/lyric-video-maker/singer.webp",
 	},
 	{
 		id: 2,
 		header: "Producers",
 		description:
 			"Music producers and beat makers who want videos to showcase their work, collaborations, and client projects without needing advanced editing skills.",
-		img: "image of producers",
+		img: "/img/features/lyric-video-maker/producer.webp",
 	},
 	{
 		id: 3,
 		header: "Content Creators",
 		description:
 			"YouTubers, streamers, influencers, and social media creators who post music videos and want lyric visuals to get more views and followers.",
-		img: "image of content creators",
+		img: "/img/features/lyric-video-maker/content-creator.webp",
 	},
 	{
 		id: 4,
 		header: "Video Editors",
 		description:
 			"Freelance editors, creative studios, marketing agencies, and post-production professionals who need a faster way to create lyric videos for clients.",
-		img: "image of video editors",
+		img: "/img/features/lyric-video-maker/video-editor.webp",
 	},
 	{
 		id: 5,
 		header: "Record Labels",
 		description:
 			"Independent and major labels managing multiple artists and releases that need scalable lyric video production for marketing campaigns, social media, releases, audience promotion and test songs.",
-		img: "image of record labels",
+		img: "/img/features/lyric-video-maker/record-labels.webp",
 	},
 ];
 
 const Features = () => {
 	const [currentItem, setCurrentItem] = useState<number>(targetAudience[0].id);
+	const { img } = targetAudience.find((item) => item.id === currentItem)!;
 
 	const container = {
 		hidden: { opacity: 0, y: 7 },
@@ -72,7 +74,14 @@ const Features = () => {
 
 				<div className="grid grid-cols-12 gap-5 md:gap-7.5">
 					<div className="col-span-12 md:col-span-7 order-1 md:order-2">
-						{targetAudience.find((item) => item.id === currentItem)?.img}
+						<Image
+							className="rounded-2xl aspect-215/121 object-cover"
+							src={img}
+							alt=""
+							width={1000}
+							height={1000}
+							loading="lazy"
+						/>
 					</div>
 					<div className="col-span-12 md:col-span-5 order-2 md:order-1 grid grid-cols-1 gap-4.5">
 						{targetAudience.map((item) => {
