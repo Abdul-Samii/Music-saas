@@ -55,7 +55,7 @@ export class MediaService {
   }
 
   async separateVocals(inputPath: string): Promise<string> {
-    const model = 'htdemucs_ft';
+    const model = 'htdemucs';
     const demucs = process.env.DEMUCS_PATH ?? '/root/.local/bin/demucs';
     const stem = path.basename(inputPath, path.extname(inputPath));
     const stemDir = path.resolve('./uploads/separated', stem);
