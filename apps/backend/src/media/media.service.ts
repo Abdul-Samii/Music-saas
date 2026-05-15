@@ -156,70 +156,85 @@ export class MediaService {
     return outPath;
   }
 
+  private isHallucination(text: string, wordCount: number): boolean {
+    const hallucinations = [
+      'music playing',
+      'thank you',
+      'subtitles by',
+      'transcribed by',
+    ];
+    const normalized = text.toLowerCase();
+    return wordCount <= 8 && hallucinations.some((h) => normalized.includes(h));
+  }
+
+  private async callGroq(
+    audioPath: string,
+    language?: string,
+  ): Promise<TranscriptionResult> {
+    const apiKey = process.env.GROQ_API_KEY!;
+    const fd = new FormData();
+    fd.append('file', fs.createReadStream(audioPath), {
+      filename: 'audio.mp3',
+      contentType: 'audio/mpeg',
+    });
+    fd.append('model', 'whisper-large-v3');
+    fd.append('response_format', 'verbose_json');
+    fd.append('timestamp_granularities[]', 'word');
+    fd.append('timestamp_granularities[]', 'segment');
+    if (language) fd.append('language', language);
+
+    const { data } = await axios.post(
+      'https://api.groq.com/openai/v1/audio/transcriptions',
+      fd,
+      {
+        headers: { ...fd.getHeaders(), Authorization: `Bearer ${apiKey}` },
+        maxBodyLength: 50 * 1024 * 1024,
+      },
+    );
+
+    type WhisperResponse = {
+      text: string;
+      words?: WordTimestamp[];
+      segments?: { text: string; start: number; end: number }[];
+    };
+    const r = data as WhisperResponse;
+    const allWords: WordTimestamp[] = r.words ?? [];
+    console.log(
+      `[groq] segments=${r.segments?.length ?? 0} words=${allWords.length}`,
+    );
+    return {
+      text: r.text ?? '',
+      segments:
+        r.segments?.map((s) => ({
+          text: s.text,
+          start: s.start,
+          end: s.end,
+          words: allWords.filter((w) => w.start >= s.start && w.start < s.end),
+        })) ?? [],
+    };
+  }
+
   async transcribeAudio(
     filePath: string,
     _mimetype: string,
     language?: string,
   ): Promise<TranscriptionResult> {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) return { text: '', segments: [] };
+    if (!process.env.GROQ_API_KEY) return { text: '', segments: [] };
 
     let vocalsPath: string | null = null;
     try {
       vocalsPath = await this.extractVocals(filePath);
+      const result = await this.callGroq(vocalsPath, language);
 
-      const fd = new FormData();
-      fd.append('file', fs.createReadStream(vocalsPath), {
-        filename: 'audio.mp3',
-        contentType: 'audio/mpeg',
-      });
-      fd.append('model', 'whisper-large-v3');
-      fd.append('response_format', 'verbose_json');
-      fd.append('timestamp_granularities[]', 'word');
-      fd.append('timestamp_granularities[]', 'segment');
-      if (language) fd.append('language', language);
-
-      const { data } = await axios.post(
-        'https://api.groq.com/openai/v1/audio/transcriptions',
-        fd,
-        {
-          headers: { ...fd.getHeaders(), Authorization: `Bearer ${apiKey}` },
-          maxBodyLength: 50 * 1024 * 1024,
-        },
-      );
-
-      // Whisper returns word timestamps as a flat top-level array, NOT nested inside segments.
-      type WhisperResponse = {
-        text: string;
-        words?: WordTimestamp[];
-        segments?: { text: string; start: number; end: number }[];
-      };
-      const r = data as WhisperResponse;
-      const allWords: WordTimestamp[] = r.words ?? [];
-      console.log(
-        `[transcribeAudio] segments=${r.segments?.length ?? 0} words=${allWords.length}`,
-      );
-      r.segments?.forEach((s, i) => {
-        const segWords = allWords.filter(
-          (w) => w.start >= s.start && w.start < s.end,
+      const wordCount = result.segments.reduce((n, s) => n + s.words.length, 0);
+      if (this.isHallucination(result.text, wordCount)) {
+        console.warn(
+          '[transcribeAudio] Hallucination detected — retrying with raw audio',
         );
-        console.log(
-          `  seg[${i}] start=${s.start.toFixed(2)} end=${s.end.toFixed(2)} words=${segWords.length} text="${s.text.trim()}"`,
-        );
-      });
-      return {
-        text: r.text ?? '',
-        segments:
-          r.segments?.map((s) => ({
-            text: s.text,
-            start: s.start,
-            end: s.end,
-            // Associate top-level word timestamps to this segment by time range
-            words: allWords.filter(
-              (w) => w.start >= s.start && w.start < s.end,
-            ),
-          })) ?? [],
-      };
+        return await this.callGroq(filePath, language);
+      }
+
+      return result;
     } catch (err: unknown) {
       const e = err as { response?: { data?: unknown } };
       console.error(
