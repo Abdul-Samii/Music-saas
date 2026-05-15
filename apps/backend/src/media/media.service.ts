@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import FormData from 'form-data';
 import * as fs from 'fs';
+import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import {
@@ -48,9 +49,23 @@ type TranscriptionResult = {
 @Injectable()
 export class MediaService {
   constructor(private readonly prisma: PrismaService) {
-    // Ensure upload directories exist on startup
     fs.mkdirSync('./uploads/audio', { recursive: true });
     fs.mkdirSync('./uploads/tmp', { recursive: true });
+    fs.mkdirSync('./uploads/separated', { recursive: true });
+  }
+
+  async separateVocals(inputPath: string): Promise<string> {
+    const outDir = './uploads/separated';
+    const stem = path.basename(inputPath, path.extname(inputPath));
+    const vocalsPath = path.join(outDir, 'htdemucs', stem, 'vocals.wav');
+
+    await execFileAsync(
+      'demucs',
+      ['--two-stems=vocals', '--out', outDir, inputPath],
+      { timeout: 10 * 60 * 1000 },
+    );
+
+    return vocalsPath;
   }
 
   async getVideoLibrary(): Promise<{ clips: VideoClip[] }> {
