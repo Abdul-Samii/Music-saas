@@ -81,7 +81,8 @@ export class MediaController {
     const transcription = await this.media.transcribeAudio(vocalsPath, 'audio/wav', language);
     console.log(`[uploadAudio] transcription done, text length=${transcription.text.length}`);
 
-    fs.rm(path.dirname(vocalsPath), { recursive: true, force: true }, () => {});
+    // cleanup temporarily disabled — remove comment to re-enable
+    // fs.rm(path.dirname(vocalsPath), { recursive: true, force: true }, () => {});
 
     return { audioUrl, filename: file.originalname, transcription };
   }
