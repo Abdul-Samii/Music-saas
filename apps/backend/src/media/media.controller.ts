@@ -16,6 +16,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import axios from 'axios';
 import * as fs from 'fs';
+import * as path from 'path';
 import type { Response } from 'express';
 import { MediaService } from './media.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -64,7 +65,13 @@ export class MediaController {
   ) {
     if (!file) throw new BadRequestException('No audio file uploaded');
     const audioUrl = `/uploads/audio/${file.filename}`;
-    const transcription = await this.media.transcribeAudio(file.path, file.mimetype, language);
+
+    const vocalsPath = await this.media.separateVocals(file.path);
+    const transcription = await this.media.transcribeAudio(vocalsPath, 'audio/wav', language);
+
+    // Clean up the demucs stem folder after transcription
+    fs.rm(path.dirname(vocalsPath), { recursive: true, force: true }, () => {});
+
     return { audioUrl, filename: file.originalname, transcription };
   }
 
