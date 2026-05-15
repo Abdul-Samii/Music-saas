@@ -120,57 +120,107 @@ export class MediaService {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return { text: '', segments: [] };
 
-    try {
-      const fd = new FormData();
-      fd.append('file', fs.createReadStream(filePath), {
-        filename: 'audio.wav',
-        contentType: mimetype,
-      });
-      fd.append('model', 'whisper-large-v3');
-      fd.append('response_format', 'verbose_json');
-      fd.append('timestamp_granularities[]', 'word');
-      fd.append('timestamp_granularities[]', 'segment');
-      if (language) fd.append('language', language);
-
-      const { data } = await axios.post(
-        'https://api.groq.com/openai/v1/audio/transcriptions',
-        fd,
-        {
-          headers: { ...fd.getHeaders(), Authorization: `Bearer ${apiKey}` },
-          maxBodyLength: 50 * 1024 * 1024,
-        },
-      );
-
-      type WhisperResponse = {
-        text: string;
-        words?: WordTimestamp[];
-        segments?: { text: string; start: number; end: number }[];
-      };
-      const r = data as WhisperResponse;
-      const allWords: WordTimestamp[] = r.words ?? [];
-      console.log(
-        `[transcribeAudio] segments=${r.segments?.length ?? 0} words=${allWords.length}`,
-      );
-      return {
-        text: r.text ?? '',
-        segments:
-          r.segments?.map((s) => ({
-            text: s.text,
-            start: s.start,
-            end: s.end,
-            words: allWords.filter(
-              (w) => w.start >= s.start && w.start < s.end,
-            ),
-          })) ?? [],
-      };
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: unknown } };
-      console.error(
-        '[transcribeAudio]',
-        JSON.stringify(e?.response?.data ?? err),
+    // Groq Whisper limit is 25 MB
+    const GROQ_MAX_BYTES = 25 * 1024 * 1024;
+    const stat = fs.statSync(filePath);
+    if (stat.size > GROQ_MAX_BYTES) {
+      console.warn(
+        `[transcribeAudio] file too large (${(stat.size / 1024 / 1024).toFixed(1)} MB > 25 MB limit), skipping`,
       );
       return { text: '', segments: [] };
     }
+
+    // Use the real extension so Whisper picks the correct decoder.
+    // Sending an MP3 named "audio.wav" causes complete parse failure.
+    const extMap: Record<string, string> = {
+      mp3: 'audio/mpeg',
+      mp4: 'audio/mp4',
+      m4a: 'audio/mp4',
+      wav: 'audio/wav',
+      webm: 'audio/webm',
+      ogg: 'audio/ogg',
+      flac: 'audio/flac',
+      aac: 'audio/aac',
+    };
+    const ext = filePath.split('.').pop()?.toLowerCase() ?? 'mp3';
+    const filename = `audio.${ext}`;
+    const contentType = extMap[ext] ?? mimetype;
+
+    const MAX_RETRIES = 3;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const fd = new FormData();
+        fd.append('file', fs.createReadStream(filePath), {
+          filename,
+          contentType,
+        });
+        fd.append('model', 'whisper-large-v3');
+        fd.append('response_format', 'verbose_json');
+        fd.append('timestamp_granularities[]', 'word');
+        fd.append('timestamp_granularities[]', 'segment');
+        // Primes Whisper for sung lyrics, improving accuracy on music content
+        fd.append('prompt', 'Song lyrics:');
+        if (language) fd.append('language', language);
+
+        type WhisperResponse = {
+          text: string;
+          words?: WordTimestamp[];
+          segments?: { text: string; start: number; end: number }[];
+        };
+        const { data: r } = await axios.post<WhisperResponse>(
+          'https://api.groq.com/openai/v1/audio/transcriptions',
+          fd,
+          {
+            headers: { ...fd.getHeaders(), Authorization: `Bearer ${apiKey}` },
+            maxBodyLength: GROQ_MAX_BYTES,
+            timeout: 120_000,
+          },
+        );
+        const allWords: WordTimestamp[] = r.words ?? [];
+        console.log(
+          `[transcribeAudio] attempt=${attempt} segments=${r.segments?.length ?? 0} words=${allWords.length}`,
+        );
+        return {
+          text: r.text ?? '',
+          segments:
+            r.segments?.map((s) => ({
+              text: s.text,
+              start: s.start,
+              end: s.end,
+              words: allWords.filter(
+                (w) => w.start >= s.start && w.start < s.end,
+              ),
+            })) ?? [],
+        };
+      } catch (err: unknown) {
+        type AxiosLike = {
+          response?: { data?: unknown; status?: number };
+          code?: string;
+        };
+        const e = err as AxiosLike;
+        const status = e?.response?.status ?? 0;
+        const isRetryable =
+          e?.code === 'ECONNRESET' ||
+          e?.code === 'ETIMEDOUT' ||
+          e?.code === 'ECONNABORTED' ||
+          status === 429 ||
+          status >= 500;
+
+        console.error(
+          `[transcribeAudio] attempt=${attempt}/${MAX_RETRIES} status=${status}`,
+          JSON.stringify(e?.response?.data ?? String(err)),
+        );
+
+        if (!isRetryable || attempt === MAX_RETRIES) {
+          return { text: '', segments: [] };
+        }
+        // Exponential backoff: 1 s, 2 s, 4 s
+        await new Promise((resolve) =>
+          setTimeout(resolve, 1000 * 2 ** (attempt - 1)),
+        );
+      }
+    }
+    return { text: '', segments: [] };
   }
 
   async createCreative(
