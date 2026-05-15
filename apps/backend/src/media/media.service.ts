@@ -112,129 +112,57 @@ export class MediaService {
     }
   }
 
-  private async getChannelCount(filePath: string): Promise<number> {
-    const { stdout } = await execFileAsync('ffprobe', [
-      '-v',
-      'error',
-      '-select_streams',
-      'a:0',
-      '-show_entries',
-      'stream=channels',
-      '-of',
-      'default=noprint_wrappers=1:nokey=1',
-      filePath,
-    ]);
-    return parseInt(stdout.trim(), 10) || 1;
-  }
-
-  // Prepares audio for Whisper: isolates vocals from stereo files via center
-  // channel extraction, then applies frequency filtering and normalization.
-  // Mono files skip center extraction (no side channels to subtract) and go
-  // straight to filtering — avoids near-silence that causes Whisper hallucinations.
-  private async extractVocals(filePath: string): Promise<string> {
-    const outPath = filePath.replace(/\.[^.]+$/, '.vocals.mp3');
-    const channels = await this.getChannelCount(filePath);
-    const isStereo = channels >= 2;
-
-    const filters = [
-      ...(isStereo
-        ? ['pan=mono|c0=0.5*c0+0.5*c1']
-        : ['aformat=channel_layouts=mono']),
-      'highpass=f=150',
-      'lowpass=f=8000',
-      'dynaudnorm',
-    ];
-
-    await execFileAsync(
-      'ffmpeg',
-      ['-i', filePath, '-af', filters.join(','), '-ar', '16000', '-y', outPath],
-      { timeout: 60_000 },
-    );
-    console.log(
-      `[extractVocals] ${isStereo ? 'stereo→center' : 'mono'} → ${outPath}`,
-    );
-    return outPath;
-  }
-
-  private isHallucination(text: string, wordCount: number): boolean {
-    const hallucinations = [
-      'music playing',
-      'thank you',
-      'subtitles by',
-      'transcribed by',
-    ];
-    const normalized = text.toLowerCase();
-    return wordCount <= 8 && hallucinations.some((h) => normalized.includes(h));
-  }
-
-  private async callGroq(
-    audioPath: string,
-    language?: string,
-  ): Promise<TranscriptionResult> {
-    const apiKey = process.env.GROQ_API_KEY!;
-    const fd = new FormData();
-    fd.append('file', fs.createReadStream(audioPath), {
-      filename: 'audio.mp3',
-      contentType: 'audio/mpeg',
-    });
-    fd.append('model', 'whisper-large-v3');
-    fd.append('response_format', 'verbose_json');
-    fd.append('timestamp_granularities[]', 'word');
-    fd.append('timestamp_granularities[]', 'segment');
-    if (language) fd.append('language', language);
-
-    const { data } = await axios.post(
-      'https://api.groq.com/openai/v1/audio/transcriptions',
-      fd,
-      {
-        headers: { ...fd.getHeaders(), Authorization: `Bearer ${apiKey}` },
-        maxBodyLength: 50 * 1024 * 1024,
-      },
-    );
-
-    type WhisperResponse = {
-      text: string;
-      words?: WordTimestamp[];
-      segments?: { text: string; start: number; end: number }[];
-    };
-    const r = data as WhisperResponse;
-    const allWords: WordTimestamp[] = r.words ?? [];
-    console.log(
-      `[groq] segments=${r.segments?.length ?? 0} words=${allWords.length}`,
-    );
-    return {
-      text: r.text ?? '',
-      segments:
-        r.segments?.map((s) => ({
-          text: s.text,
-          start: s.start,
-          end: s.end,
-          words: allWords.filter((w) => w.start >= s.start && w.start < s.end),
-        })) ?? [],
-    };
-  }
-
   async transcribeAudio(
     filePath: string,
-    _mimetype: string,
+    mimetype: string,
     language?: string,
   ): Promise<TranscriptionResult> {
-    if (!process.env.GROQ_API_KEY) return { text: '', segments: [] };
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) return { text: '', segments: [] };
 
-    let vocalsPath: string | null = null;
     try {
-      vocalsPath = await this.extractVocals(filePath);
-      const result = await this.callGroq(vocalsPath, language);
+      const fd = new FormData();
+      fd.append('file', fs.createReadStream(filePath), {
+        filename: 'audio.wav',
+        contentType: mimetype,
+      });
+      fd.append('model', 'whisper-large-v3');
+      fd.append('response_format', 'verbose_json');
+      fd.append('timestamp_granularities[]', 'word');
+      fd.append('timestamp_granularities[]', 'segment');
+      if (language) fd.append('language', language);
 
-      const wordCount = result.segments.reduce((n, s) => n + s.words.length, 0);
-      if (this.isHallucination(result.text, wordCount)) {
-        console.warn(
-          '[transcribeAudio] Hallucination detected — retrying with raw audio',
-        );
-        return await this.callGroq(filePath, language);
-      }
+      const { data } = await axios.post(
+        'https://api.groq.com/openai/v1/audio/transcriptions',
+        fd,
+        {
+          headers: { ...fd.getHeaders(), Authorization: `Bearer ${apiKey}` },
+          maxBodyLength: 50 * 1024 * 1024,
+        },
+      );
 
-      return result;
+      type WhisperResponse = {
+        text: string;
+        words?: WordTimestamp[];
+        segments?: { text: string; start: number; end: number }[];
+      };
+      const r = data as WhisperResponse;
+      const allWords: WordTimestamp[] = r.words ?? [];
+      console.log(
+        `[transcribeAudio] segments=${r.segments?.length ?? 0} words=${allWords.length}`,
+      );
+      return {
+        text: r.text ?? '',
+        segments:
+          r.segments?.map((s) => ({
+            text: s.text,
+            start: s.start,
+            end: s.end,
+            words: allWords.filter(
+              (w) => w.start >= s.start && w.start < s.end,
+            ),
+          })) ?? [],
+      };
     } catch (err: unknown) {
       const e = err as { response?: { data?: unknown } };
       console.error(
@@ -242,8 +170,6 @@ export class MediaService {
         JSON.stringify(e?.response?.data ?? err),
       );
       return { text: '', segments: [] };
-    } finally {
-      if (vocalsPath) fs.unlink(vocalsPath, () => {});
     }
   }
 
