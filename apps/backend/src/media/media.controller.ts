@@ -66,10 +66,21 @@ export class MediaController {
     if (!file) throw new BadRequestException('No audio file uploaded');
     const audioUrl = `/uploads/audio/${file.filename}`;
 
-    const vocalsPath = await this.media.separateVocals(file.path);
-    const transcription = await this.media.transcribeAudio(vocalsPath, 'audio/wav', language);
+    console.log(`[uploadAudio] received file=${file.originalname} size=${file.size} path=${file.path}`);
 
-    // Clean up the demucs stem folder after transcription
+    let vocalsPath: string;
+    try {
+      console.log('[uploadAudio] starting vocal separation...');
+      vocalsPath = await this.media.separateVocals(file.path);
+      console.log(`[uploadAudio] separation done, vocals at ${vocalsPath}`);
+    } catch (err) {
+      console.error('[uploadAudio] demucs failed:', err);
+      throw new BadRequestException('Vocal separation failed. Check that demucs is installed on the server.');
+    }
+
+    const transcription = await this.media.transcribeAudio(vocalsPath, 'audio/wav', language);
+    console.log(`[uploadAudio] transcription done, text length=${transcription.text.length}`);
+
     fs.rm(path.dirname(vocalsPath), { recursive: true, force: true }, () => {});
 
     return { audioUrl, filename: file.originalname, transcription };
