@@ -78,7 +78,7 @@ export class MediaController {
       throw new BadRequestException('Vocal separation failed. Check that demucs is installed on the server.');
     }
 
-    const transcription = await this.media.transcribeAudio(vocalsPath, 'audio/wav', language);
+    const transcription = await this.media.transcribeAudio(vocalsPath, 'audio/mpeg', language);
     console.log(`[uploadAudio] transcription done, text length=${transcription.text.length}`);
 
     fs.rm(path.dirname(vocalsPath), { recursive: true, force: true }, () => {});
