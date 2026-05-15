@@ -57,7 +57,8 @@ export class MediaService {
   async separateVocals(inputPath: string): Promise<string> {
     const outDir = './uploads/separated';
     const stem = path.basename(inputPath, path.extname(inputPath));
-    const vocalsPath = path.join(outDir, 'htdemucs', stem, 'vocals.wav');
+    const rawVocals = path.join(outDir, 'htdemucs', stem, 'vocals.wav');
+    const cleanVocals = path.join(outDir, 'htdemucs', stem, 'vocals_16k.wav');
 
     const demucs = process.env.DEMUCS_PATH ?? '/root/.local/bin/demucs';
     await execFileAsync(
@@ -66,7 +67,26 @@ export class MediaService {
       { timeout: 10 * 60 * 1000 },
     );
 
-    return vocalsPath;
+    // Normalize to 16kHz mono PCM — Whisper's native format.
+    // Demucs output with torchcodec can have non-standard encoding that Whisper misreads.
+    await execFileAsync(
+      'ffmpeg',
+      [
+        '-i',
+        rawVocals,
+        '-ar',
+        '16000',
+        '-ac',
+        '1',
+        '-sample_fmt',
+        's16',
+        '-y',
+        cleanVocals,
+      ],
+      { timeout: 2 * 60 * 1000 },
+    );
+
+    return cleanVocals;
   }
 
   async getVideoLibrary(): Promise<{ clips: VideoClip[] }> {
