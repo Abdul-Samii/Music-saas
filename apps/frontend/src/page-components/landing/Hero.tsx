@@ -8,7 +8,6 @@ import BuiltFor from "./BuiltFor";
 
 const Hero = () => {
   // const [daysRemaining, setDaysRemaining] = useState(0);
-
   // useEffect(() => {
   //   const launchDate = new Date("2026-05-11");
   //   const today = new Date();
