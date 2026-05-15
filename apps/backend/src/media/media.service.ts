@@ -117,7 +117,7 @@ export class MediaService {
     mimetype: string,
     language?: string,
   ): Promise<TranscriptionResult> {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return { text: '', segments: [] };
 
     try {
@@ -126,15 +126,14 @@ export class MediaService {
         filename: 'audio.wav',
         contentType: mimetype,
       });
-      fd.append('model', 'whisper-1');
+      fd.append('model', 'whisper-large-v3');
       fd.append('response_format', 'verbose_json');
       fd.append('timestamp_granularities[]', 'word');
       fd.append('timestamp_granularities[]', 'segment');
-      // Providing the language upfront skips auto-detection and improves accuracy
       if (language) fd.append('language', language);
 
       const { data } = await axios.post(
-        'https://api.openai.com/v1/audio/transcriptions',
+        'https://api.groq.com/openai/v1/audio/transcriptions',
         fd,
         {
           headers: { ...fd.getHeaders(), Authorization: `Bearer ${apiKey}` },
