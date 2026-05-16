@@ -2530,28 +2530,50 @@ export default function StudioPage() {
 
             {/* Per-creative cards */}
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(renderResults.length, 3)}, 1fr)`, gap: "0.75rem", marginBottom: "1.75rem" }}>
-              {renderResults.map((r, i) => (
-                <div key={r.id}>
-                  <VideoPreview
-                    src={selectedClips[i]?.url ?? selectedClips[0].url}
-                    audioSrc={uploadedAudioUrl || undefined}
-                    audioTrimStart={trimStart}
-                    audioTrimEnd={trimEnd}
-                    overlayOpacity={r.config.overlayOpacity}
-                    textColor={r.config.textColor}
-                    highlightColor={r.config.highlightColor}
-                    textPosition={r.config.textPosition}
-                    fontSize={r.config.fontSize}
-                    lyricStyle={r.config.lyricStyle}
-                    fontFamily={r.config.fontFamily}
-                    lines={lines.length > 0 ? lines : ["Your lyric line appears here"]}
-                    timestamps={timestamps}
-                    wordTimestamps={wordTimestamps}
-                    staticPreview
-                  />
-                  <p style={{ fontSize: "0.72rem", fontWeight: 700, color: NAVY, marginTop: "0.4rem", textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</p>
-                </div>
-              ))}
+              {renderResults.map((r, i) => {
+                const cfg = r.config;
+                const firstLine = lines[0] ?? "";
+                const firstWords = firstLine.split(" ").filter(Boolean);
+                const fSize = cfg.fontSize === "sm" ? "0.65rem" : cfg.fontSize === "md" ? "0.78rem" : "0.9rem";
+                const align = cfg.textPosition === "top" ? "flex-start" : cfg.textPosition === "center" ? "center" : "flex-end";
+
+                let lyricEl: React.ReactNode;
+                if (cfg.lyricStyle === "tiktok") {
+                  // Show first 1-2 words in TikTok style
+                  const chunk = firstWords.slice(0, firstWords[0]?.length > 8 ? 1 : 2);
+                  lyricEl = (
+                    <div style={{ display: "flex", justifyContent: "space-between", width: "80%", fontFamily: "'Varela Round', sans-serif", fontSize: fSize, fontWeight: 700, color: cfg.textColor }}>
+                      {chunk.map((w, wi) => <span key={wi}>{w}</span>)}
+                    </div>
+                  );
+                } else if (cfg.lyricStyle === "spotlight") {
+                  lyricEl = <p style={{ fontFamily: cfg.fontFamily, fontSize: fSize, fontWeight: 900, color: cfg.highlightColor, textAlign: "center", textShadow: `0 0 12px ${cfg.highlightColor}`, margin: 0 }}>{firstLine}</p>;
+                } else if (cfg.lyricStyle === "word-by-word") {
+                  lyricEl = (
+                    <p style={{ fontFamily: cfg.fontFamily, fontSize: fSize, fontWeight: 800, color: cfg.textColor, textAlign: "center", margin: 0 }}>
+                      {firstWords.map((w, wi) => (
+                        <span key={wi} style={{ color: wi === 0 ? cfg.highlightColor : cfg.textColor, opacity: wi === 0 ? 1 : 0.45 }}>{w} </span>
+                      ))}
+                    </p>
+                  );
+                } else {
+                  lyricEl = <p style={{ fontFamily: cfg.fontFamily, fontSize: fSize, fontWeight: 800, color: cfg.textColor, textAlign: "center", textShadow: "0 1px 4px rgba(0,0,0,0.8)", margin: 0, lineHeight: 1.3 }}>{firstLine}</p>;
+                }
+
+                return (
+                  <div key={r.id} style={{ borderRadius: 12, overflow: "hidden", position: "relative", aspectRatio: "9/16", background: "#111827" }}>
+                    <VideoThumb src={selectedClips[i]?.url ?? selectedClips[0].url} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 1 - cfg.overlayOpacity }} />
+                    <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${cfg.overlayOpacity})` }} />
+                    <div style={{ position: "absolute", inset: 0, display: "flex", padding: "0.75rem", alignItems: align, justifyContent: "center" }}>
+                      {lyricEl}
+                    </div>
+                    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0.5rem 0.625rem", background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)" }}>
+                      <p style={{ fontSize: "0.62rem", fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>{r.name}</p>
+                      <span style={{ fontSize: "0.55rem", fontWeight: 700, color: "rgba(255,255,255,0.6)" }}>{r.clipStyle}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Download buttons */}
