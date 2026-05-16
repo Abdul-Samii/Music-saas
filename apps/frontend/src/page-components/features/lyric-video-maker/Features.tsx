@@ -59,7 +59,7 @@ const Features = () => {
 	};
 	return (
 		<section className="relative z-10 py-20 lg:py-30">
-			<div className="container md:bg-bg md:rounded-xl md:px-100 lg:px-16 md:py-10 md:shadow-[0_10px_60px_rgba(0,0,0,.05)]">
+			<div className="container md:bg-bg md:rounded-xl md:px-100 lg:px-16 md:py-10 md:shadow-[0_10px_60px_rgba(0,0,0,.05)] max-w-6xl mx-auto">
 				<FadeInUp>
 					<div className="text-center mb-8 md:mb-12">
 						<span className="sectionLabel mb-4">Features</span>
@@ -72,14 +72,14 @@ const Features = () => {
 					</div>
 				</FadeInUp>
 
-				<div className="grid grid-cols-12 gap-5 md:gap-7.5">
+				<div className="grid grid-cols-12 gap-5 md:gap-20">
 					<div className="col-span-12 md:col-span-7 order-1 md:order-2">
 						<Image
 							className="rounded-2xl aspect-215/121 object-cover"
 							src={img}
 							alt=""
-							width={1000}
-							height={1000}
+							width={645}
+							height={363}
 							loading="lazy"
 						/>
 					</div>
