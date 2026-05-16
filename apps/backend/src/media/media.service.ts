@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import FormData from 'form-data';
 import * as fs from 'fs';
-import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import {
@@ -51,46 +50,6 @@ export class MediaService {
   constructor(private readonly prisma: PrismaService) {
     fs.mkdirSync('./uploads/audio', { recursive: true });
     fs.mkdirSync('./uploads/tmp', { recursive: true });
-    fs.mkdirSync('./uploads/separated', { recursive: true });
-  }
-
-  async separateVocals(inputPath: string): Promise<string> {
-    const model = 'htdemucs';
-    const demucs = process.env.DEMUCS_PATH ?? '/root/.local/bin/demucs';
-    const stem = path.basename(inputPath, path.extname(inputPath));
-    const stemDir = path.resolve('./uploads/separated', stem);
-    fs.mkdirSync(stemDir, { recursive: true });
-
-    await execFileAsync(
-      demucs,
-      ['-n', model, '--two-stems=vocals', '--out', stemDir, inputPath],
-      { timeout: 10 * 60 * 1000 },
-    );
-    const rawVocals = path.join(stemDir, model, stem, 'vocals.wav');
-
-    // Convert Demucs WAV to 16kHz mono MP3.
-    // The WAV Demucs produces via torchcodec has non-standard headers that confuse
-    // Groq's Whisper API, causing it to return music hallucinations instead of lyrics.
-    // MP3 is a clean, universally safe format that Groq handles correctly.
-    const cleanVocals = path.join(stemDir, 'vocals_16k.mp3');
-    await execFileAsync(
-      'ffmpeg',
-      [
-        '-i',
-        rawVocals,
-        '-ar',
-        '16000',
-        '-ac',
-        '1',
-        '-b:a',
-        '192k',
-        '-y',
-        cleanVocals,
-      ],
-      { timeout: 2 * 60 * 1000 },
-    );
-
-    return cleanVocals;
   }
 
   async getVideoLibrary(): Promise<{ clips: VideoClip[] }> {
