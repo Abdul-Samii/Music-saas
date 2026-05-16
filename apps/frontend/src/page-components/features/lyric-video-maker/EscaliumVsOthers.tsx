@@ -80,6 +80,7 @@ const EscaliumVsOthers = () => {
 					<div className="w-44 sm:w-52 absolute top-10 left-0 bg-bg shadow-2xl rounded-xl px-4 md:px-8 pb-3.5 z-10">
 						<div className="h-15 flex-center font-bold flex items-center gap-1">
 							<Image
+								className="size-6 md:size-10"
 								src={"/logo.png"}
 								alt={"Escalium"}
 								width={40}
@@ -117,7 +118,7 @@ const EscaliumVsOthers = () => {
 										<th key={plan.name}>
 											<div className="flex-center h-15 -z-10">
 												<Image
-													className="w-25 h-5"
+													className="h-3.5 w-18 object-contain md:w-25 md:h-5"
 													src={plan.img}
 													alt={plan.name}
 													width={100}
