@@ -2531,21 +2531,11 @@ export default function StudioPage() {
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(renderResults.length, 3)}, 1fr)`, gap: "0.75rem", marginBottom: "1.75rem" }}>
               {renderResults.map((r, i) => (
                 <div key={r.id}>
-                  <VideoPreview
-                    src={selectedClips[i]?.url ?? selectedClips[0].url}
-                    audioSrc={uploadedAudioUrl || undefined}
-                    audioTrimStart={trimStart}
-                    audioTrimEnd={trimEnd}
-                    overlayOpacity={r.config.overlayOpacity}
-                    textColor={r.config.textColor}
-                    highlightColor={r.config.highlightColor}
-                    textPosition={r.config.textPosition}
-                    fontSize={r.config.fontSize}
-                    lyricStyle={r.config.lyricStyle}
-                    fontFamily={r.config.fontFamily}
-                    lines={lines.length > 0 ? lines : ["Your lyric line appears here"]}
-                    timestamps={timestamps}
-                    wordTimestamps={wordTimestamps}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={(selectedClips[i] ?? selectedClips[0]).thumbnail}
+                    alt={r.name}
+                    style={{ width: "100%", aspectRatio: "9/16", objectFit: "cover", borderRadius: 14, display: "block" }}
                   />
                   <p style={{ fontSize: "0.72rem", fontWeight: 700, color: NAVY, marginTop: "0.4rem", textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</p>
                 </div>
