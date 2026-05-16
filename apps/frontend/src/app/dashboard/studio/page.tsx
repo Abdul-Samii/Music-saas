@@ -2530,14 +2530,22 @@ export default function StudioPage() {
             {/* Per-creative cards */}
             <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(renderResults.length, 3)}, 1fr)`, gap: "0.75rem", marginBottom: "1.75rem" }}>
               {renderResults.map((r, i) => (
-                <div key={r.id}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={(selectedClips[i] ?? selectedClips[0]).thumbnail}
-                    alt={r.name}
-                    style={{ width: "100%", aspectRatio: "9/16", objectFit: "cover", borderRadius: 14, display: "block" }}
-                  />
-                  <p style={{ fontSize: "0.72rem", fontWeight: 700, color: NAVY, marginTop: "0.4rem", textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</p>
+                <div key={r.id} style={{ borderRadius: 12, overflow: "hidden", position: "relative", aspectRatio: "9/16", background: "#111827" }}>
+                  <VideoThumb src={selectedClips[i]?.url ?? selectedClips[0].url} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 1 - r.config.overlayOpacity }} />
+                  <div style={{ position: "absolute", inset: 0, background: `rgba(0,0,0,${r.config.overlayOpacity})` }} />
+                  <div style={{ position: "absolute", inset: 0, display: "flex", padding: "0.75rem",
+                    alignItems: r.config.textPosition === "top" ? "flex-start" : r.config.textPosition === "center" ? "center" : "flex-end",
+                    justifyContent: "center" }}>
+                    <p style={{ color: r.config.textColor, fontWeight: 800, textAlign: "center", lineHeight: 1.3,
+                      fontSize: r.config.fontSize === "sm" ? "0.65rem" : r.config.fontSize === "md" ? "0.78rem" : "0.9rem",
+                      textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
+                      {lines[0] ?? ""}
+                    </p>
+                  </div>
+                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0.5rem 0.625rem", background: "linear-gradient(to top, rgba(0,0,0,0.8), transparent)" }}>
+                    <p style={{ fontSize: "0.62rem", fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.clipTitle}</p>
+                    <span style={{ fontSize: "0.55rem", fontWeight: 700, color: "rgba(255,255,255,0.6)" }}>{r.clipStyle}</span>
+                  </div>
                 </div>
               ))}
             </div>
