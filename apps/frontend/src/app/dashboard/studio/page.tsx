@@ -349,21 +349,22 @@ function VideoThumb({ src, style }: { src: string; style?: React.CSSProperties }
 // ── Interactive preview video with animated lyrics ────────────────────────────
 type WordTs = { word: string; start: number; end: number };
 
-function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpacity, textColor, highlightColor, textPosition, fontSize, lyricStyle, fontFamily, lines, timestamps, wordTimestamps }: {
+function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpacity, textColor, highlightColor, textPosition, fontSize, lyricStyle, fontFamily, lines, timestamps, wordTimestamps, staticPreview }: {
   src: string; audioSrc?: string; audioTrimStart?: number; audioTrimEnd?: number;
   overlayOpacity: number; textColor: string; highlightColor: string;
   textPosition: "top" | "center" | "bottom"; fontSize: "sm" | "md" | "lg";
   lyricStyle: LyricStyle; fontFamily: string; lines: string[];
   timestamps?: (number | null)[];
   wordTimestamps?: WordTs[][];
+  staticPreview?: boolean;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
-  const [activeLineIndex, setActiveLineIndex] = useState(-1);
+  const [activeLineIndex, setActiveLineIndex] = useState(staticPreview ? 0 : -1);
   const [activeWordIdx, setActiveWordIdx] = useState(0);
-  const [activeGlobalWordIdx, setActiveGlobalWordIdx] = useState(-1);
+  const [activeGlobalWordIdx, setActiveGlobalWordIdx] = useState(staticPreview ? 0 : -1);
   const [animKey, setAnimKey] = useState(0);
   const [previewWidth, setPreviewWidth] = useState(280);
   const prevLineRef = useRef(-1);
@@ -2546,6 +2547,7 @@ export default function StudioPage() {
                     lines={lines.length > 0 ? lines : ["Your lyric line appears here"]}
                     timestamps={timestamps}
                     wordTimestamps={wordTimestamps}
+                    staticPreview
                   />
                   <p style={{ fontSize: "0.72rem", fontWeight: 700, color: NAVY, marginTop: "0.4rem", textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</p>
                 </div>
