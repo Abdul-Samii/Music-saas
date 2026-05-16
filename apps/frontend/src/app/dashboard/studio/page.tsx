@@ -622,7 +622,25 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   function renderLyric() {
     // ── TikTok Reveal style ──────────────────────────────────────────────────
     if (lyricStyle === "tiktok") {
-      if (activeGlobalWordIdx < 0) return null;
+      if (activeGlobalWordIdx < 0) {
+        // Static preview: show first word chunk in selected style
+        if (wordChunks.length === 0) return null;
+        const chunk = wordChunks[0];
+        const CANVAS_W = 720;
+        const tiktokFontPx = Math.max(10, Math.round(52 * previewWidth / CANVAS_W));
+        const tiktokRowGapPx = Math.max(4, Math.round((108 - 52) * previewWidth / CANVAS_W));
+        return (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch", gap: `${tiktokRowGapPx}px`, width: "80%", margin: "0 auto" }}>
+            <div style={{ display: "flex", justifyContent: chunk.length === 1 ? "flex-start" : "space-between", width: "100%" }}>
+              {chunk.map((word, wi) => (
+                <span key={wi} style={{ fontFamily: "'Varela Round', sans-serif", fontSize: `${tiktokFontPx}px`, fontWeight: 700, color: textColor, letterSpacing: "0.02em", whiteSpace: "nowrap" }}>
+                  {word}
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      }
 
       // Find which chunk the active word is in
       let currentChunk = 0;
@@ -690,7 +708,48 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
       );
     }
 
-    if (activeLineIndex < 0) return null; // before first lyric — show nothing
+    if (activeLineIndex < 0) {
+      // Static preview: show first lyric line in selected style without animations
+      const staticLine = safeLines[0] || "";
+      if (!staticLine) return null;
+      const staticWords = staticLine.split(" ").filter(Boolean);
+
+      if (lyricStyle === "word-by-word") {
+        return (
+          <p style={{ ...textStyle, lineHeight: 1.55 }}>
+            {staticWords.map((word, i) => (
+              <span key={i} style={{ color: textColor, fontWeight: 700, display: "inline" }}>
+                {word}{i < staticWords.length - 1 ? " " : ""}
+              </span>
+            ))}
+          </p>
+        );
+      }
+      if (lyricStyle === "spotlight") {
+        return (
+          <p style={{ ...textStyle, fontSize: fontSize === "sm" ? "1.5rem" : fontSize === "md" ? "2rem" : "2.6rem", color: textColor }}>
+            {staticWords[0] || staticLine}
+          </p>
+        );
+      }
+      if (lyricStyle === "echo") {
+        return (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <p style={{ ...textStyle, margin: 0 }}>{staticLine}</p>
+            <p style={{ ...textStyle, margin: "-0.35em 0 0 0", opacity: 0.28, filter: "blur(2.5px)", transform: "scaleY(-1) scaleX(0.97)", fontSize: `calc(${fSize} * 0.85)` }}>{staticLine}</p>
+          </div>
+        );
+      }
+      if (lyricStyle === "glow") {
+        return (
+          <p style={{ ...textStyle }}>
+            <span style={{ filter: "drop-shadow(0 0 10px currentColor)" }}>{staticLine}</span>
+          </p>
+        );
+      }
+      return <p style={{ ...textStyle }}>{staticLine}</p>;
+    }
+
     const curLine = safeLines[activeLineIndex] || "";
     const curWords = curLine.split(" ").filter(Boolean);
 
