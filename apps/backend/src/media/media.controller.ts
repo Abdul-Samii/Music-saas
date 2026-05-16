@@ -16,7 +16,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import axios from 'axios';
 import * as fs from 'fs';
-import * as path from 'path';
 import type { Response } from 'express';
 import { MediaService } from './media.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -65,24 +64,7 @@ export class MediaController {
   ) {
     if (!file) throw new BadRequestException('No audio file uploaded');
     const audioUrl = `/uploads/audio/${file.filename}`;
-
-    console.log(`[uploadAudio] received file=${file.originalname} size=${file.size} path=${file.path}`);
-
-    let vocalsPath: string;
-    try {
-      console.log('[uploadAudio] starting vocal separation...');
-      vocalsPath = await this.media.separateVocals(file.path);
-      console.log(`[uploadAudio] separation done, vocals at ${vocalsPath}`);
-    } catch (err) {
-      console.error('[uploadAudio] demucs failed:', err);
-      throw new BadRequestException('Vocal separation failed. Check that demucs is installed on the server.');
-    }
-
-    const transcription = await this.media.transcribeAudio(vocalsPath, 'audio/mpeg', language);
-    console.log(`[uploadAudio] transcription done, text length=${transcription.text.length}`);
-
-    fs.rm(path.dirname(vocalsPath), { recursive: true, force: true }, () => {});
-
+    const transcription = await this.media.transcribeAudio(file.path, file.mimetype, language);
     return { audioUrl, filename: file.originalname, transcription };
   }
 
