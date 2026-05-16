@@ -1,3 +1,4 @@
+import Counter from "@/components/animations/Counter";
 import FadeInUp from "@/components/animations/FadeInUp";
 import TextAnimation from "@/components/animations/TextAnimation";
 import { cn } from "@/lib/utils";
@@ -50,16 +51,17 @@ const EscaliumVsOthers = () => {
 
 	const countData = [
 		{
-			value: "5.000",
+			value: 5000,
 			label: "Videos generated",
 		},
 		{
-			value: "100.000.000",
+			value: 100000000,
 			label: "Streams",
 		},
 		{
-			value: "$200.000",
+			value: 200000,
 			label: "Ad Spend for Artists",
+			prefix: "$",
 		},
 	];
 	return (
@@ -189,16 +191,21 @@ const EscaliumVsOthers = () => {
 					<SongUploader />
 				</div>
 
-				<div className="grid grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-8 mt-20">
+				<div className="grid grid-cols-1 md:grid-cols-3 gap-x-5 gap-y-8 mt-20 mx-auto w-[calc(100%-3rem)] max-w-4xl p-5 sm:px-8 sm:py-5 items-center justify-between rounded-xl md:rounded-full bg-white/85 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.1)] ">
 					{countData.map((item) => (
 						<div
 							key={item.label}
 							className="flex-center flex-col gap-2.5"
 						>
-							<p className="text-2xl md:text-5xl font-bold leading-none text-primary">
-								{item.value}+
+							<p className="text-3xl font-bold leading-none text-primary">
+								<Counter
+									to={item.value}
+									suffix="+"
+									separator="."
+									prefix={item?.prefix}
+								/>
 							</p>
-							<h4 className="text-center font-semibold text-text-primary">
+							<h4 className="text-center font-semibold text-text-primary text-sm">
 								{item.label}
 							</h4>
 						</div>
