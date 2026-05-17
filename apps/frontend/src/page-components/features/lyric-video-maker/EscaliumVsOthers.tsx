@@ -115,12 +115,9 @@ const EscaliumVsOthers = () => {
                     <th key={plan.name}>
                       <div className="flex-center h-15 -z-10">
                         <Image
-                          className={cn(
-                            "h-3.5 w-18 object-contain md:w-25 md:h-5",
-                            {
-                              invert: plan.name === "Kashie",
-                            },
-                          )}
+                          className={cn("h-3.5 w-18 object-contain", {
+                            invert: plan.name === "Kashie",
+                          })}
                           src={plan.img}
                           alt={plan.name}
                           width={100}
