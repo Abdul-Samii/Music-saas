@@ -417,7 +417,7 @@ export class MediaService {
             `:x=(w-text_w)/2` +
             `:y=h*${yFrac}-text_h/2` +
             `:shadowx=2:shadowy=2:shadowcolor=black@0.8` +
-            `:enable='(t>=${enableStart})*(t<=${enableEnd})'`,
+            `:enable='between(t,${enableStart},${enableEnd})'`,
         );
       }
 
