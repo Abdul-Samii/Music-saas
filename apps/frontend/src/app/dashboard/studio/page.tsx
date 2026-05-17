@@ -1956,7 +1956,7 @@ export default function StudioPage() {
     const cleanups: (() => void)[] = [];
     try {
       const [videoBlob, audioBlob] = await Promise.all([
-        fetch(proxiedClipUrl, { headers: authHeader }).then((r) => r.blob()),
+        fetch(proxiedClipUrl, { headers: clipUrl.includes("amazonaws.com") ? authHeader : {} }).then((r) => r.blob()),
         fetch(fullAudioUrl, { headers: authHeader }).then((r) => r.blob()),
       ]);
       const videoObjUrl = URL.createObjectURL(videoBlob);
@@ -2004,9 +2004,7 @@ export default function StudioPage() {
             headers: authHeader,
             body: fd,
           });
-          if (!resp.ok) throw new Error(`Server ${resp.status}`);
-          const contentType = resp.headers.get("content-type") ?? "";
-          if (!contentType.includes("video") && !contentType.includes("octet-stream")) throw new Error(`Bad content-type: ${contentType}`);
+          if (!resp.ok) throw new Error(`convert-mp4 ${resp.status}`);
           const mp4Blob = await resp.blob();
           const url = URL.createObjectURL(mp4Blob);
           const a = document.createElement("a");
