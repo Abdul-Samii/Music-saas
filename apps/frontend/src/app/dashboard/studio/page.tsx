@@ -803,7 +803,7 @@ const tlBtn: CSSProperties = {
 
 function LyricTimeline({
   audioBuffer, trimStart, trimEnd, lines, timestamps, onTimestampsChange,
-  currentTime, onSeek, isPlaying, onPlayPause, syncActive,
+  currentTime, onSeek, isPlaying, onPlayPause, syncActive, wordSyncActive,
   wordTimestamps, onWordTimestampsChange,
 }: {
   audioBuffer: AudioBuffer;
@@ -816,6 +816,7 @@ function LyricTimeline({
   isPlaying: boolean;
   onPlayPause: () => void;
   syncActive: boolean;
+  wordSyncActive: boolean;
   wordTimestamps: WordTs[][];
   onWordTimestampsChange: (wts: WordTs[][]) => void;
 }) {
@@ -1029,7 +1030,7 @@ function LyricTimeline({
   // Keyboard shortcuts
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (syncActive) return;
+      if (syncActive || wordSyncActive) return;
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
 
@@ -1126,8 +1127,14 @@ function LyricTimeline({
       : trimEnd)
     : trimEnd;
   const lineWordsDur = Math.max(0.1, lineEnd - lineStart);
-  const lineWords = selectedLine !== null ? (lines[selectedLine] ?? "").trim().split(/\s+/).filter(Boolean) : [];
-  const lineWordTs = selectedLine !== null ? (wordTimestamps[selectedLine] ?? []) : [];
+  const lineWords = useMemo(
+    () => selectedLine !== null ? (lines[selectedLine] ?? "").trim().split(/\s+/).filter(Boolean) : [],
+    [selectedLine, lines]
+  );
+  const lineWordTs = useMemo(
+    () => selectedLine !== null ? (wordTimestamps[selectedLine] ?? []) : [],
+    [selectedLine, wordTimestamps]
+  );
 
   function wordGetW() { return wordWrapRef.current?.clientWidth ?? 600; }
   function wordTimeToX(t: number) { return ((t - lineStart) / lineWordsDur) * wordGetW(); }
@@ -2989,6 +2996,7 @@ export default function StudioPage() {
                   isPlaying={isPlaying}
                   onPlayPause={togglePlay}
                   syncActive={syncActive}
+                  wordSyncActive={wordSyncActive}
                   wordTimestamps={wordTimestamps}
                   onWordTimestampsChange={setWordTimestamps}
                 />
