@@ -1051,7 +1051,7 @@ function LyricTimeline({
   // Keyboard shortcuts
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (syncActive || wordSyncActive) return;
+      if (syncActive) return;
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
 
@@ -1331,16 +1331,7 @@ export default function StudioPage() {
   const [timestamps, setTimestamps] = useState<(number | null)[]>([]);
   const [syncIndex, setSyncIndex] = useState(0);
   const [syncActive, setSyncActive] = useState(false);
-  const [wordSyncActive, setWordSyncActive] = useState(false);
-  const [wordSyncIdx, setWordSyncIdx] = useState(0);
   const syncLineRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-  const allWordsFlat = useMemo(
-    () => lines.flatMap((l, li) =>
-      l.trim().split(/\s+/).filter(Boolean).map((w, wi) => ({ word: w, lineIdx: li, wordIdx: wi }))
-    ),
-    [lines]
-  );
 
   // ── Phase 4: Style ──
   const [clips, setClips] = useState<VideoClip[]>([]);
@@ -1548,7 +1539,7 @@ export default function StudioPage() {
 
   // ── Spacebar line-sync handler ──
   useEffect(() => {
-    if (step !== 2 || !syncActive || wordSyncActive) return;
+    if (step !== 2 || !syncActive) return;
 
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
@@ -1571,44 +1562,7 @@ export default function StudioPage() {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [step, syncActive, wordSyncActive, syncIndex, isPlaying, lines.length]);
-
-  // ── Spacebar word-sync handler ──
-  useEffect(() => {
-    if (step !== 2 || !wordSyncActive) return;
-
-    function onKey(e: KeyboardEvent) {
-      const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
-      if (e.code !== "Space") return;
-      e.preventDefault();
-      if (!isPlaying) return;
-
-      const idx = wordSyncIdx;
-      if (idx >= allWordsFlat.length) return;
-
-      const t = currentTimeRef.current;
-      const { word, lineIdx, wordIdx } = allWordsFlat[idx];
-
-      setWordTimestamps((prev) => {
-        const next = lines.map((_, li) => [...(prev[li] ?? [])]);
-        if (!next[lineIdx]) next[lineIdx] = [];
-        next[lineIdx][wordIdx] = { word, start: t, end: t };
-        // Fix up end times: each word's end = next word's start
-        for (let li = 0; li < next.length; li++) {
-          for (let wi = 0; wi < next[li].length; wi++) {
-            const nxt = next[li][wi + 1] ?? next[li + 1]?.[0];
-            if (nxt && next[li][wi]) next[li][wi] = { ...next[li][wi], end: nxt.start };
-          }
-        }
-        return next;
-      });
-      setWordSyncIdx(idx + 1);
-    }
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [step, wordSyncActive, wordSyncIdx, isPlaying, allWordsFlat, lines]);
+  }, [step, syncActive, syncIndex, isPlaying, lines.length]);
 
   // Auto-scroll current sync line into view
   useEffect(() => {
@@ -2654,121 +2608,7 @@ export default function StudioPage() {
                 isPlaying={isPlaying}
                 onPlayPause={togglePlay}
                 syncActive={syncActive}
-                wordSyncActive={wordSyncActive}
-                wordTimestamps={wordTimestamps}
-                onWordTimestampsChange={setWordTimestamps}
-                mode="lines"
                 onAddLine={handleAddLine}
-              />
-            </div>
-          </div>
-
-          {/* Mutual exclusivity notice */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.6rem 1rem", borderRadius: 10, background: "#FFF7ED", border: "1px solid #FED7AA" }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <p style={{ fontSize: "0.72rem", color: "#9A3412", margin: 0 }}>
-              <strong>One method at a time</strong> — starting Line Sync resets Word-level Sync, and vice versa.
-            </p>
-          </div>
-
-          {/* Word sync card — contains keyboard hint + Timeline Editor */}
-          <div style={{
-            background: wordSyncActive ? "#1E1B4B" : "#F8F9FC",
-            borderRadius: 16,
-            border: `1.5px solid ${wordSyncActive ? "#6366F1" : "#E2E6F0"}`,
-            padding: "1rem 1.25rem",
-            display: "flex", flexDirection: "column", gap: "0.75rem",
-            transition: "all 0.2s",
-          }}>
-            {/* Header row */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
-              <div>
-                <p style={{ fontWeight: 700, fontSize: "0.875rem", color: wordSyncActive ? "#A5B4FC" : NAVY }}>
-                  Word-level Sync
-                </p>
-                <p style={{ fontSize: "0.75rem", color: wordSyncActive ? "#818CF8" : "#64748b", marginTop: "0.2rem" }}>
-                  {wordSyncActive
-                    ? wordSyncIdx >= allWordsFlat.length
-                      ? `All ${allWordsFlat.length} words stamped!`
-                      : `Press SPACE at each word · "${allWordsFlat[wordSyncIdx]?.word}" · ${wordSyncIdx}/${allWordsFlat.length}`
-                    : "Press SPACE once per word as audio plays for sub-line accuracy"}
-                </p>
-              </div>
-              <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
-                {wordSyncActive ? (
-                  <button
-                    onClick={() => { setWordSyncActive(false); if (isPlaying) pause(); }}
-                    style={{ padding: "0.45rem 1rem", borderRadius: 10, border: "none", cursor: "pointer", background: "#FEE2E2", color: "#DC2626", fontWeight: 700, fontSize: "0.78rem" }}
-                  >
-                    Stop
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setSyncActive(false);
-                      setTimestamps(Array(lines.length).fill(null));
-                      setSyncIndex(0);
-                      setWordSyncActive(true);
-                      setWordSyncIdx(0);
-                      if (!isPlaying) {
-                        pausedAtRef.current = trimStart;
-                        setCurrentTime(trimStart);
-                        startPlayback();
-                      }
-                    }}
-                    style={{ padding: "0.45rem 1rem", borderRadius: 10, border: "none", cursor: "pointer", background: "#6366F1", color: "#fff", fontWeight: 700, fontSize: "0.78rem" }}
-                  >
-                    {wordSyncIdx === 0 ? "Start Word Sync" : "Resume"}
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    setWordTimestamps([]);
-                    setWordSyncIdx(0);
-                    setWordSyncActive(false);
-                  }}
-                  style={{ padding: "0.45rem 0.875rem", borderRadius: 10, border: `1px solid ${wordSyncActive ? "#4338CA" : "#E2E6F0"}`, cursor: "pointer", background: "transparent", color: wordSyncActive ? "#818CF8" : "#64748b", fontWeight: 600, fontSize: "0.78rem" }}
-                >
-                  Reset
-                </button>
-              </div>
-            </div>
-
-            {/* Keyboard hint */}
-            {wordSyncActive && wordSyncIdx < allWordsFlat.length && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.625rem" }}>
-                <div style={{ background: "#EEF2FF", border: "1px solid #C7D2FE", borderRadius: 8, padding: "0.25rem 0.75rem", fontFamily: "monospace", fontSize: "0.8rem", fontWeight: 700, color: "#4338CA", boxShadow: "0 2px 0 #A5B4FC" }}>
-                  SPACE
-                </div>
-                <span style={{ fontSize: "0.78rem", color: "#4338CA", fontWeight: 600 }}>
-                  &ldquo;{allWordsFlat[wordSyncIdx]?.word}&rdquo;
-                </span>
-                <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                  (line {allWordsFlat[wordSyncIdx]?.lineIdx + 1}, word {allWordsFlat[wordSyncIdx]?.wordIdx + 1})
-                </span>
-              </div>
-            )}
-
-            {/* Timeline — always visible */}
-            <div style={{ borderTop: `1px solid ${wordSyncActive ? "#312E81" : "#E2E6F0"}`, paddingTop: "0.75rem" }}>
-              <LyricTimeline
-                audioBuffer={audioBuffer}
-                trimStart={trimStart}
-                trimEnd={trimEnd}
-                lines={lines}
-                timestamps={timestamps}
-                onTimestampsChange={setTimestamps}
-                currentTime={currentTime}
-                onSeek={handleSeek}
-                isPlaying={isPlaying}
-                onPlayPause={togglePlay}
-                syncActive={syncActive}
-                wordSyncActive={wordSyncActive}
-                wordTimestamps={wordTimestamps}
-                onWordTimestampsChange={setWordTimestamps}
-                mode="words"
               />
             </div>
           </div>
