@@ -836,7 +836,7 @@ function LyricTimeline({
   const [selectedLine, setSelectedLine] = useState<number | null>(null);
   const [snap, setSnap] = useState(true);
   const [fineTuneValue, setFineTuneValue] = useState("");
-  const dragging = useRef<{ line: number; startX: number; origTs: number } | null>(null);
+  const dragging = useRef<{ line: number; targetLine: number; startX: number; origTs: number } | null>(null);
   const waveCache = useRef<Float32Array | null>(null);
 
   // Word track state (second timeline, same zoom/scroll)
@@ -1008,24 +1008,34 @@ function LyricTimeline({
     }
   }
 
-  // Block drag
+  // Block drag (body) — moves the block's own start timestamp
   function onBlockMouseDown(e: React.MouseEvent, idx: number) {
     e.stopPropagation();
     e.preventDefault();
     setSelectedLine(idx);
-    dragging.current = { line: idx, startX: e.clientX, origTs: timestamps[idx] ?? currentTime };
+    dragging.current = { line: idx, targetLine: idx, startX: e.clientX, origTs: timestamps[idx] ?? currentTime };
+  }
+
+  // Resize handle mousedown — left edge moves this block's start, right edge moves next block's start
+  function onResizeMouseDown(e: React.MouseEvent, idx: number, edge: "left" | "right") {
+    e.stopPropagation();
+    e.preventDefault();
+    setSelectedLine(idx);
+    const targetLine = edge === "right" ? idx + 1 : idx;
+    const origTs = timestamps[targetLine] ?? currentTime;
+    dragging.current = { line: idx, targetLine, startX: e.clientX, origTs };
   }
 
   useEffect(() => {
     function onMove(e: MouseEvent) {
       if (!dragging.current) return;
-      const { line, startX, origTs } = dragging.current;
+      const { targetLine, startX, origTs } = dragging.current;
       const dt = ((e.clientX - startX) / getW()) * visibleDur;
       let newTs = origTs + dt;
       if (snap) newTs = Math.round(newTs * 10) / 10;
       newTs = Math.max(trimStart, Math.min(newTs, trimEnd));
       const next = [...timestamps];
-      next[line] = newTs;
+      next[targetLine] = newTs;
       onTimestampsChange(next);
     }
     function onUp() { dragging.current = null; }
@@ -1101,7 +1111,10 @@ function LyricTimeline({
     const ts = timestamps[i];
     if (ts === null) return null;
     const x = ((ts - viewStart) / visibleDur) * W;
-    if (x < -140 || x > W + 10) return null;
+    const nextTs = timestamps[i + 1] ?? trimEnd;
+    const xEnd = ((nextTs - viewStart) / visibleDur) * W;
+    const blockW = Math.max(28, xEnd - x);
+    if (x > W + 10 || x + blockW < -10) return null;
     const color = BLOCK_COLORS[i % BLOCK_COLORS.length];
     const isSelected = i === selectedLine;
     return (
@@ -1109,20 +1122,36 @@ function LyricTimeline({
         key={i}
         onMouseDown={(e) => onBlockMouseDown(e, i)}
         style={{
-          position: "absolute", left: x, top: 30,
-          transform: "translateX(-50%)",
+          position: "absolute", left: x, top: 28,
+          width: blockW,
           background: color, color: "#fff",
-          fontSize: "0.62rem", fontWeight: 700,
-          padding: "0 6px", height: 22, borderRadius: 4,
-          display: "flex", alignItems: "center", gap: 4,
-          cursor: "grab", whiteSpace: "nowrap",
-          maxWidth: 130, overflow: "hidden",
+          fontSize: "0.65rem", fontWeight: 700,
+          height: 26, borderRadius: 4,
+          display: "flex", alignItems: "center",
+          cursor: "grab", overflow: "hidden",
           boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${color}` : "0 1px 4px rgba(0,0,0,0.5)",
           zIndex: isSelected ? 10 : 5, userSelect: "none",
         }}
       >
-        <span style={{ fontFamily: "monospace", opacity: 0.75, flexShrink: 0 }}>{i + 1}</span>
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{line}</span>
+        {/* Left resize handle */}
+        <div
+          onMouseDown={(e) => onResizeMouseDown(e, i, "left")}
+          style={{ width: 7, height: "100%", cursor: "ew-resize", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.2)" }}
+        >
+          <div style={{ width: 2, height: 12, background: "rgba(255,255,255,0.6)", borderRadius: 1 }} />
+        </div>
+        {/* Label */}
+        <div style={{ flex: 1, overflow: "hidden", display: "flex", alignItems: "center", gap: 3, padding: "0 4px", minWidth: 0 }}>
+          <span style={{ fontFamily: "monospace", opacity: 0.75, flexShrink: 0 }}>{i + 1}</span>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{line}</span>
+        </div>
+        {/* Right resize handle */}
+        <div
+          onMouseDown={(e) => onResizeMouseDown(e, i, "right")}
+          style={{ width: 7, height: "100%", cursor: "ew-resize", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.2)" }}
+        >
+          <div style={{ width: 2, height: 12, background: "rgba(255,255,255,0.6)", borderRadius: 1 }} />
+        </div>
       </div>
     );
   });
@@ -1138,7 +1167,7 @@ function LyricTimeline({
     if (!ctx) return;
     const dpr = window.devicePixelRatio || 1;
     const W = wrap.clientWidth;
-    const H = 72;
+    const H = 90;
     if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
       canvas.width = W * dpr; canvas.height = H * dpr;
     }
@@ -1390,7 +1419,7 @@ function LyricTimeline({
       {mode !== "words" && (
       <div
         ref={wrapRef}
-        style={{ position: "relative", height: 140, overflow: "hidden", cursor: "crosshair" }}
+        style={{ position: "relative", height: 165, overflow: "hidden", cursor: "crosshair" }}
         onWheel={onWheel}
         onClick={onCanvasClick}
       >
@@ -1473,7 +1502,7 @@ function LyricTimeline({
         {/* Word track canvas + draggable word blocks */}
         <div
           ref={wordWrapRef}
-          style={{ position: "relative", height: 72, overflow: "hidden", cursor: "crosshair" }}
+          style={{ position: "relative", height: 90, overflow: "hidden", cursor: "crosshair" }}
           onWheel={onWheel}
           onClick={onWordTrackClick}
         >
@@ -1598,8 +1627,6 @@ export default function StudioPage() {
   const [timestamps, setTimestamps] = useState<(number | null)[]>([]);
   const [syncIndex, setSyncIndex] = useState(0);
   const [syncActive, setSyncActive] = useState(false);
-  const [showLineTimeline, setShowLineTimeline] = useState(false);
-  const [showWordTimeline, setShowWordTimeline] = useState(false);
   const [wordSyncActive, setWordSyncActive] = useState(false);
   const [wordSyncIdx, setWordSyncIdx] = useState(0);
   const syncLineRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -2884,55 +2911,25 @@ export default function StudioPage() {
               </div>
             )}
 
-            {/* Timeline Editor — scoped to line sync */}
+            {/* Timeline — always visible */}
             <div style={{ borderTop: `1px solid ${syncActive ? "#C7D2FE" : "#E2E6F0"}`, paddingTop: "0.75rem" }}>
-              <button
-                onClick={() => setShowLineTimeline((v) => !v)}
-                style={{
-                  display: "flex", alignItems: "center", gap: "0.5rem",
-                  padding: "0.5rem 0.875rem", borderRadius: 10,
-                  border: `1.5px solid ${showLineTimeline ? (syncActive ? BLUE : BLUE) : (syncActive ? "#C7D2FE" : "#E2E6F0")}`,
-                  background: showLineTimeline ? "#EEF2FF" : "transparent",
-                  color: showLineTimeline ? BLUE : (syncActive ? "#4338CA" : "#475569"),
-                  cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", width: "100%",
-                  justifyContent: "space-between",
-                }}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
-                  </svg>
-                  Timeline Editor
-                  <span style={{ fontSize: "0.65rem", fontWeight: 500, opacity: 0.7 }}>
-                    — drag line blocks, zoom, fine-tune
-                  </span>
-                </span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                  style={{ transform: showLineTimeline ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
-              </button>
-              {showLineTimeline && (
-                <div style={{ marginTop: "0.75rem" }}>
-                  <LyricTimeline
-                    audioBuffer={audioBuffer}
-                    trimStart={trimStart}
-                    trimEnd={trimEnd}
-                    lines={lines}
-                    timestamps={timestamps}
-                    onTimestampsChange={setTimestamps}
-                    currentTime={currentTime}
-                    onSeek={handleSeek}
-                    isPlaying={isPlaying}
-                    onPlayPause={togglePlay}
-                    syncActive={syncActive}
-                    wordSyncActive={wordSyncActive}
-                    wordTimestamps={wordTimestamps}
-                    onWordTimestampsChange={setWordTimestamps}
-                    mode="lines"
-                  />
-                </div>
-              )}
+              <LyricTimeline
+                audioBuffer={audioBuffer}
+                trimStart={trimStart}
+                trimEnd={trimEnd}
+                lines={lines}
+                timestamps={timestamps}
+                onTimestampsChange={setTimestamps}
+                currentTime={currentTime}
+                onSeek={handleSeek}
+                isPlaying={isPlaying}
+                onPlayPause={togglePlay}
+                syncActive={syncActive}
+                wordSyncActive={wordSyncActive}
+                wordTimestamps={wordTimestamps}
+                onWordTimestampsChange={setWordTimestamps}
+                mode="lines"
+              />
             </div>
           </div>
 
@@ -3024,55 +3021,25 @@ export default function StudioPage() {
               </div>
             )}
 
-            {/* Timeline Editor — scoped to word-level sync */}
+            {/* Timeline — always visible */}
             <div style={{ borderTop: `1px solid ${wordSyncActive ? "#312E81" : "#E2E6F0"}`, paddingTop: "0.75rem" }}>
-              <button
-                onClick={() => setShowWordTimeline((v) => !v)}
-                style={{
-                  display: "flex", alignItems: "center", gap: "0.5rem",
-                  padding: "0.5rem 0.875rem", borderRadius: 10,
-                  border: `1.5px solid ${showWordTimeline ? (wordSyncActive ? "#6366F1" : BLUE) : (wordSyncActive ? "#312E81" : "#E2E6F0")}`,
-                  background: showWordTimeline ? (wordSyncActive ? "#312E81" : "#EEF2FF") : "transparent",
-                  color: showWordTimeline ? (wordSyncActive ? "#A5B4FC" : BLUE) : (wordSyncActive ? "#818CF8" : "#475569"),
-                  cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", width: "100%",
-                  justifyContent: "space-between",
-                }}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
-                  </svg>
-                  Timeline Editor
-                  <span style={{ fontSize: "0.65rem", fontWeight: 500, opacity: 0.7 }}>
-                    — drag word blocks, zoom, fine-tune
-                  </span>
-                </span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                  style={{ transform: showWordTimeline ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
-              </button>
-              {showWordTimeline && (
-                <div style={{ marginTop: "0.75rem" }}>
-                  <LyricTimeline
-                    audioBuffer={audioBuffer}
-                    trimStart={trimStart}
-                    trimEnd={trimEnd}
-                    lines={lines}
-                    timestamps={timestamps}
-                    onTimestampsChange={setTimestamps}
-                    currentTime={currentTime}
-                    onSeek={handleSeek}
-                    isPlaying={isPlaying}
-                    onPlayPause={togglePlay}
-                    syncActive={syncActive}
-                    wordSyncActive={wordSyncActive}
-                    wordTimestamps={wordTimestamps}
-                    onWordTimestampsChange={setWordTimestamps}
-                    mode="words"
-                  />
-                </div>
-              )}
+              <LyricTimeline
+                audioBuffer={audioBuffer}
+                trimStart={trimStart}
+                trimEnd={trimEnd}
+                lines={lines}
+                timestamps={timestamps}
+                onTimestampsChange={setTimestamps}
+                currentTime={currentTime}
+                onSeek={handleSeek}
+                isPlaying={isPlaying}
+                onPlayPause={togglePlay}
+                syncActive={syncActive}
+                wordSyncActive={wordSyncActive}
+                wordTimestamps={wordTimestamps}
+                onWordTimestampsChange={setWordTimestamps}
+                mode="words"
+              />
             </div>
           </div>
 
