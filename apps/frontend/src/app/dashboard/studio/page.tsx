@@ -1619,6 +1619,7 @@ export default function StudioPage() {
   const [clipPage, setClipPage] = useState(0);
   // ── Transcription ──
   const [transcribing, setTranscribing] = useState(false);
+  const [transcriptionFailed, setTranscriptionFailed] = useState(false);
   const [audioLanguage, setAudioLanguage] = useState("");
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState("");
   const [autoTranscribed, setAutoTranscribed] = useState(false);
@@ -2582,6 +2583,7 @@ export default function StudioPage() {
                     if (audioBuffer) {
                       setTranscribing(true);
                       setAutoTranscribed(false);
+                      setTranscriptionFailed(false);
                       setUploadedAudioUrl("");
                       creativeApi.uploadAudio(audioFileRef.current!, () => {}, audioLanguage || undefined)
                         .then((res: { audioUrl: string; transcription?: { segments?: { text: string; start: number; end: number; words?: WordTs[] }[] } }) => {
@@ -2597,14 +2599,20 @@ export default function StudioPage() {
                             const newLines = relevant.map((s) => s.text.trim()).filter(Boolean);
                             console.log("[Whisper] final lines:", newLines);
                             console.log("[Whisper] final timestamps:", relevant.map((s) => s.start));
-                            setLyricsText(newLines.join("\n"));
-                            setTimestamps(relevant.map((s) => s.start));
-                            setWordTimestamps(relevant.map((s) => s.words ?? []));
-                            setSyncIndex(newLines.length);
-                            setAutoTranscribed(true);
+                            if (newLines.length > 0) {
+                              setLyricsText(newLines.join("\n"));
+                              setTimestamps(relevant.map((s) => s.start));
+                              setWordTimestamps(relevant.map((s) => s.words ?? []));
+                              setSyncIndex(newLines.length);
+                              setAutoTranscribed(true);
+                            } else {
+                              setTranscriptionFailed(true);
+                            }
+                          } else {
+                            setTranscriptionFailed(true);
                           }
                         })
-                        .catch(() => {})
+                        .catch(() => { setTranscriptionFailed(true); })
                         .finally(() => setTranscribing(false));
                     }
                   }}
@@ -2632,19 +2640,13 @@ export default function StudioPage() {
               <div>
                 <p style={{ fontWeight: 700, fontSize: "0.875rem", color: NAVY }}>Song Lyrics</p>
                 <p style={{ fontSize: "0.78rem", color: "#64748b", marginTop: "0.25rem" }}>
-                  {autoTranscribed ? "AI-transcribed · edit freely" : "One lyric line per line · blank lines are ignored during sync"}
+                  One lyric line per line · blank lines are ignored during sync
                 </p>
               </div>
               {transcribing && (
                 <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.3rem 0.75rem", borderRadius: 99, background: "#EEF2FF", border: "1px solid #BFD0FB", fontSize: "0.72rem", fontWeight: 700, color: BLUE }}>
                   <div style={{ width: 10, height: 10, border: `2px solid ${BLUE}`, borderTop: "2px solid transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
                   Transcribing…
-                </div>
-              )}
-              {autoTranscribed && !transcribing && (
-                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.3rem 0.75rem", borderRadius: 99, background: "#F0FDF4", border: "1px solid #86EFAC", fontSize: "0.72rem", fontWeight: 700, color: "#16A34A" }}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  AI Transcribed
                 </div>
               )}
             </div>
@@ -2664,6 +2666,21 @@ export default function StudioPage() {
               onFocus={(e) => { e.target.style.borderColor = BLUE; }}
               onBlur={(e) => { e.target.style.borderColor = "#E2E6F0"; }}
             />
+
+            {/* Transcription failed notice */}
+            {transcriptionFailed && !transcribing && (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.625rem", padding: "0.875rem 1rem", borderRadius: 12, background: "#FFFBEB", border: "1.5px solid #FCD34D" }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <div>
+                  <p style={{ fontWeight: 700, fontSize: "0.8rem", color: "#92400E", margin: 0 }}>Couldn&apos;t detect lyrics automatically</p>
+                  <p style={{ fontSize: "0.75rem", color: "#B45309", margin: 0, marginTop: "0.2rem" }}>
+                    Whisper may not have picked up any audio or the result was unclear. Please type your lyrics manually in the box above.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Line count */}
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -2734,28 +2751,6 @@ export default function StudioPage() {
       ══════════════════════════════════════════════════════════════ */}
       {step === 2 && audioBuffer && (
         <>
-          {/* Whisper auto-sync banner */}
-          {autoTranscribed && (
-            <div style={{ background: "linear-gradient(135deg, #ECFDF5, #D1FAE5)", border: "1.5px solid #6EE7B7", borderRadius: 16, padding: "1.25rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#10B981", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-                <div>
-                  <p style={{ fontWeight: 700, fontSize: "0.9rem", color: "#065F46", margin: 0 }}>Auto-synced by Whisper AI</p>
-                  <p style={{ fontSize: "0.78rem", color: "#047857", margin: 0, marginTop: "0.15rem" }}>All {lines.length} lines have exact timestamps — no manual sync needed</p>
-                </div>
-              </div>
-              <button
-                onClick={() => { stopPlayback(true); setSyncActive(false); setStep(3); }}
-                style={{ padding: "0.625rem 1.25rem", borderRadius: 10, border: "none", cursor: "pointer", background: "#10B981", color: "#fff", fontWeight: 700, fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}
-              >
-                Skip to Style
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-              </button>
-            </div>
-          )}
-
           {/* Compact playback bar */}
           <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E2E6F0", padding: "1rem 1.25rem", display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
             {/* Restart */}
@@ -2878,16 +2873,6 @@ export default function StudioPage() {
                 </button>
               </div>
             </div>
-
-            {/* AI auto-synced notice */}
-            {autoTranscribed && allSynced && (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", padding: "0.75rem 1rem", borderRadius: 10, background: "#F0FDF4", border: "1px solid #86EFAC" }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                <p style={{ fontSize: "0.75rem", color: "#16A34A", fontWeight: 600, margin: 0 }}>
-                  Auto-synced by Whisper AI · you can still adjust manually
-                </p>
-              </div>
-            )}
 
             {/* Keyboard hint */}
             {syncActive && !allSynced && (
