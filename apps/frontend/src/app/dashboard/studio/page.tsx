@@ -830,13 +830,12 @@ function LyricTimeline({
   const dragging = useRef<{ line: number; startX: number; origTs: number } | null>(null);
   const waveCache = useRef<Float32Array | null>(null);
 
-  // Word editor state
-  const [wordEditorOpen, setWordEditorOpen] = useState(false);
-  const [selectedWord, setSelectedWord] = useState<number | null>(null);
+  // Word track state (second timeline, same zoom/scroll)
+  const [selectedWord, setSelectedWord] = useState<{ li: number; wi: number } | null>(null);
   const [wordFineTune, setWordFineTune] = useState("");
   const wordCanvasRef = useRef<HTMLCanvasElement>(null);
   const wordWrapRef = useRef<HTMLDivElement>(null);
-  const wordDragging = useRef<{ wi: number; startX: number; origStart: number } | null>(null);
+  const wordDragging = useRef<{ li: number; wi: number; startX: number; origStart: number } | null>(null);
 
   const totalDur = trimEnd - trimStart;
   const visibleDur = totalDur / Math.max(1, zoom);
@@ -1119,144 +1118,143 @@ function LyricTimeline({
     );
   });
 
-  // ── Word editor derived values ──
-  const lineStart = selectedLine !== null ? (timestamps[selectedLine] ?? trimStart) : trimStart;
-  const lineEnd = selectedLine !== null
-    ? (selectedLine + 1 < timestamps.length && timestamps[selectedLine + 1] !== null
-      ? timestamps[selectedLine + 1]!
-      : trimEnd)
-    : trimEnd;
-  const lineWordsDur = Math.max(0.1, lineEnd - lineStart);
-  const lineWords = useMemo(
-    () => selectedLine !== null ? (lines[selectedLine] ?? "").trim().split(/\s+/).filter(Boolean) : [],
-    [selectedLine, lines]
-  );
-  const lineWordTs = useMemo(
-    () => selectedLine !== null ? (wordTimestamps[selectedLine] ?? []) : [],
-    [selectedLine, wordTimestamps]
-  );
+  // ── Word track (same zoom/scroll as main timeline) ──
 
-  function wordGetW() { return wordWrapRef.current?.clientWidth ?? 600; }
-  function wordTimeToX(t: number) { return ((t - lineStart) / lineWordsDur) * wordGetW(); }
-  function wordXToTime(x: number) { return lineStart + (x / wordGetW()) * lineWordsDur; }
-
-  const drawWord = useCallback(() => {
+  // Draw word track canvas
+  const drawWordTrack = useCallback(() => {
     const canvas = wordCanvasRef.current;
     const wrap = wordWrapRef.current;
-    if (!canvas || !wrap || selectedLine === null) return;
+    if (!canvas || !wrap) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const dpr = window.devicePixelRatio || 1;
     const W = wrap.clientWidth;
-    const H = 80;
+    const H = 72;
     if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
       canvas.width = W * dpr; canvas.height = H * dpr;
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = "#0A0F1E"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#080D1A"; ctx.fillRect(0, 0, W, H);
 
-    // Waveform (zoomed into line range)
+    // Waveform (shared view window, purple tint)
     const peaks = waveCache.current;
     if (peaks) {
       const fullDur = audioBuffer.duration;
       for (let i = 0; i < W; i++) {
-        const t = lineStart + (i / W) * lineWordsDur;
+        const t = viewStart + (i / W) * visibleDur;
         const idx = Math.floor((t / fullDur) * peaks.length);
         const peak = peaks[Math.max(0, Math.min(idx, peaks.length - 1))] || 0;
-        const barH = Math.max(2, peak * H * 0.8);
-        ctx.fillStyle = `rgba(99,102,241,${0.25 + peak * 0.75})`;
+        const barH = Math.max(2, peak * H * 0.7);
+        ctx.fillStyle = `rgba(99,102,241,${0.18 + peak * 0.55})`;
         ctx.fillRect(i, (H - barH) / 2, 1, barH);
       }
     }
 
-    // Word region shading + labels
-    const wds = lineWordTs.length > 0 ? lineWordTs : lineWords.map((w, wi) => ({
-      word: w,
-      start: lineStart + (wi / lineWords.length) * lineWordsDur,
-      end: lineStart + ((wi + 1) / lineWords.length) * lineWordsDur,
-    }));
-    for (let wi = 0; wi < wds.length; wi++) {
-      const ws = wds[wi];
-      if (!ws) continue;
-      const x1 = wordTimeToX(ws.start);
-      const x2 = wi + 1 < wds.length ? wordTimeToX(wds[wi + 1].start) : W;
-      const isSelWord = wi === selectedWord;
-      ctx.fillStyle = isSelWord ? "rgba(99,102,241,0.25)" : "rgba(99,102,241,0.08)";
-      ctx.fillRect(x1, 0, x2 - x1, H);
-      ctx.strokeStyle = isSelWord ? "#818CF8" : "#4338CA";
-      ctx.lineWidth = isSelWord ? 2 : 1;
-      ctx.setLineDash([]);
-      ctx.beginPath(); ctx.moveTo(x1, 0); ctx.lineTo(x1, H); ctx.stroke();
-      ctx.fillStyle = isSelWord ? "#C7D2FE" : "#818CF8";
-      ctx.font = `bold ${11}px sans-serif`;
-      ctx.textAlign = "left";
-      const label = ws.word.length > 10 ? ws.word.slice(0, 9) + "…" : ws.word;
-      ctx.fillText(label, x1 + 4, 14);
-      ctx.font = `${9}px monospace`;
-      ctx.fillStyle = "#475569";
-      ctx.fillText(ws.start.toFixed(2) + "s", x1 + 4, H - 4);
+    // Word cells: boundary line + label per word
+    for (let li = 0; li < lines.length; li++) {
+      const wts = wordTimestamps[li] ?? [];
+      if (wts.length === 0) continue;
+      const color = BLOCK_COLORS[li % BLOCK_COLORS.length];
+      for (let wi = 0; wi < wts.length; wi++) {
+        const ws = wts[wi];
+        if (!ws || ws.start > viewEnd + 1 || ws.start < viewStart - 1) continue;
+        const x = ((ws.start - viewStart) / visibleDur) * W;
+        const nextX = wi + 1 < wts.length
+          ? ((wts[wi + 1].start - viewStart) / visibleDur) * W
+          : W;
+        const cellW = nextX - x;
+        const isSel = selectedWord?.li === li && selectedWord?.wi === wi;
+
+        // Cell background for selected
+        if (isSel) { ctx.fillStyle = "rgba(99,102,241,0.2)"; ctx.fillRect(x, 0, cellW, H); }
+
+        // Left boundary
+        ctx.strokeStyle = isSel ? "#A5B4FC" : color;
+        ctx.lineWidth = isSel ? 2 : 1;
+        ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+
+        // Word label (clipped to cell)
+        if (cellW > 14) {
+          ctx.save();
+          ctx.beginPath(); ctx.rect(x + 2, 2, Math.max(0, cellW - 4), H - 4); ctx.clip();
+          ctx.fillStyle = isSel ? "#C7D2FE" : color;
+          ctx.font = `bold 10px sans-serif`;
+          ctx.textAlign = "left";
+          ctx.fillText(ws.word, x + 4, 14);
+          ctx.font = `9px monospace`;
+          ctx.fillStyle = "#475569";
+          ctx.fillText(ws.start.toFixed(2) + "s", x + 4, H - 5);
+          ctx.restore();
+        }
+      }
     }
 
     // Playhead
-    if (currentTime >= lineStart && currentTime <= lineEnd) {
-      const px = wordTimeToX(currentTime);
-      ctx.strokeStyle = "#F43F5E"; ctx.lineWidth = 2; ctx.setLineDash([]);
-      ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
-    }
+    const px = ((currentTime - viewStart) / visibleDur) * W;
+    ctx.strokeStyle = "#F43F5E"; ctx.lineWidth = 2; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLine, lineStart, lineEnd, lineWordsDur, lineWords, lineWordTs, currentTime, selectedWord, waveCache, audioBuffer]);
+  }, [audioBuffer, viewStart, viewEnd, visibleDur, wordTimestamps, lines, currentTime, selectedWord, waveCache]);
 
-  useEffect(() => { if (wordEditorOpen) drawWord(); }, [drawWord, wordEditorOpen]);
+  useEffect(() => { drawWordTrack(); }, [drawWordTrack]);
 
   useEffect(() => {
-    if (!wordEditorOpen) return;
-    const ro = new ResizeObserver(() => drawWord());
+    const ro = new ResizeObserver(() => drawWordTrack());
     if (wordWrapRef.current) ro.observe(wordWrapRef.current);
     return () => ro.disconnect();
-  }, [drawWord, wordEditorOpen]);
+  }, [drawWordTrack]);
 
-  // Word canvas click: seek + select word
-  function onWordCanvasClick(e: React.MouseEvent) {
+  // Word canvas click → seek + select word
+  function onWordTrackClick(e: React.MouseEvent) {
     if (wordDragging.current) return;
-    const rect = wordCanvasRef.current?.getBoundingClientRect();
-    if (!rect || selectedLine === null) return;
-    const t = wordXToTime(e.clientX - rect.left);
+    const rect = wordWrapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const t = viewStart + ((e.clientX - rect.left) / rect.width) * visibleDur;
     onSeek(Math.max(trimStart, Math.min(t, trimEnd)));
-    // Select the word under the click
-    const wds = lineWordTs.length > 0 ? lineWordTs : null;
-    if (!wds) return;
-    for (let wi = wds.length - 1; wi >= 0; wi--) {
-      if (wds[wi] && t >= wds[wi].start) { setSelectedWord(wi); setWordFineTune(wds[wi].start.toFixed(2)); break; }
+    // Select closest word
+    let best: { li: number; wi: number } | null = null;
+    let bestDiff = Infinity;
+    for (let li = 0; li < lines.length; li++) {
+      const wts = wordTimestamps[li] ?? [];
+      for (let wi = 0; wi < wts.length; wi++) {
+        const ws = wts[wi];
+        if (ws && t >= ws.start) { const d = t - ws.start; if (d < bestDiff) { bestDiff = d; best = { li, wi }; } }
+      }
     }
+    if (best) { setSelectedWord(best); setWordFineTune((wordTimestamps[best.li]?.[best.wi]?.start ?? 0).toFixed(2)); }
   }
 
-  // Word block drag
-  function onWordBlockMouseDown(e: React.MouseEvent, wi: number) {
+  // Word block drag (positions use main timeline coordinates)
+  function onWordBlockMouseDown(e: React.MouseEvent, li: number, wi: number) {
     e.stopPropagation(); e.preventDefault();
-    setSelectedWord(wi);
-    const wds = lineWordTs[wi];
-    wordDragging.current = { wi, startX: e.clientX, origStart: wds?.start ?? lineStart };
-    if (wds) setWordFineTune(wds.start.toFixed(2));
+    setSelectedWord({ li, wi });
+    const ts = wordTimestamps[li]?.[wi];
+    wordDragging.current = { li, wi, startX: e.clientX, origStart: ts?.start ?? currentTime };
+    if (ts) setWordFineTune(ts.start.toFixed(2));
   }
 
   useEffect(() => {
     function onMove(e: MouseEvent) {
-      if (!wordDragging.current || selectedLine === null) return;
-      const { wi, startX, origStart } = wordDragging.current;
-      const dt = ((e.clientX - startX) / wordGetW()) * lineWordsDur;
+      if (!wordDragging.current) return;
+      const { li, wi, startX, origStart } = wordDragging.current;
+      const W = wordWrapRef.current?.clientWidth ?? getW();
+      const dt = ((e.clientX - startX) / W) * visibleDur;
       let newStart = origStart + dt;
-      if (snap) newStart = Math.round(newStart * 100) / 100;
-      newStart = Math.max(lineStart, Math.min(newStart, lineEnd - 0.01));
-      const lineWords2 = (lines[selectedLine] ?? "").trim().split(/\s+/).filter(Boolean);
+      if (snap) newStart = Math.round(newStart * 10) / 10;
+      // Clamp within line bounds
+      const lStart = timestamps[li] ?? trimStart;
+      const lEnd = (li + 1 < timestamps.length && timestamps[li + 1] !== null)
+        ? timestamps[li + 1]! : trimEnd;
+      newStart = Math.max(lStart, Math.min(newStart, lEnd - 0.01));
       const next = wordTimestamps.map((arr) => [...arr]);
-      while (next.length <= selectedLine) next.push([]);
-      const arr = [...(next[selectedLine] ?? [])];
-      while (arr.length < lineWords2.length) arr.push({ word: lineWords2[arr.length] ?? "", start: lineStart, end: lineEnd });
-      arr[wi] = { ...arr[wi], start: newStart, end: arr[wi + 1]?.start ?? lineEnd };
+      while (next.length <= li) next.push([]);
+      const arr = [...(next[li] ?? [])];
+      arr[wi] = { ...arr[wi], start: newStart };
       if (wi > 0 && arr[wi - 1]) arr[wi - 1] = { ...arr[wi - 1], end: newStart };
-      next[selectedLine] = arr;
+      if (arr[wi + 1]) arr[wi] = { ...arr[wi], end: arr[wi + 1].start };
+      next[li] = arr;
       onWordTimestampsChange(next);
       setWordFineTune(newStart.toFixed(2));
     }
@@ -1265,72 +1263,71 @@ function LyricTimeline({
     window.addEventListener("mouseup", onUp);
     return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLine, lineStart, lineEnd, lineWordsDur, lineWords, lineWordTs, snap, wordTimestamps, onWordTimestampsChange, lines]);
+  }, [visibleDur, snap, timestamps, trimStart, trimEnd, wordTimestamps, onWordTimestampsChange]);
 
-  // Sync word fine-tune input
+  // Sync word fine-tune with selectedWord
   useEffect(() => {
-    if (selectedWord !== null && lineWordTs[selectedWord]) {
-      setWordFineTune(lineWordTs[selectedWord].start.toFixed(2));
-    }
-  }, [selectedWord, lineWordTs]);
+    if (!selectedWord) return;
+    const ts = wordTimestamps[selectedWord.li]?.[selectedWord.wi];
+    if (ts) setWordFineTune(ts.start.toFixed(2));
+  }, [selectedWord, wordTimestamps]);
 
   function applyWordFineTune() {
-    if (selectedWord === null || selectedLine === null) return;
+    if (!selectedWord) return;
+    const { li, wi } = selectedWord;
     const val = parseFloat(wordFineTune);
     if (isNaN(val)) return;
-    const lineWords2 = (lines[selectedLine] ?? "").trim().split(/\s+/).filter(Boolean);
+    const lStart = timestamps[li] ?? trimStart;
+    const lEnd = (li + 1 < timestamps.length && timestamps[li + 1] !== null) ? timestamps[li + 1]! : trimEnd;
+    const newStart = Math.max(lStart, Math.min(val, lEnd - 0.01));
     const next = wordTimestamps.map((arr) => [...arr]);
-    while (next.length <= selectedLine) next.push([]);
-    const arr = [...(next[selectedLine] ?? [])];
-    while (arr.length < lineWords2.length) arr.push({ word: lineWords2[arr.length] ?? "", start: lineStart, end: lineEnd });
-    const newStart = Math.max(lineStart, Math.min(val, lineEnd - 0.01));
-    arr[selectedWord] = { ...arr[selectedWord], start: newStart };
-    if (selectedWord > 0 && arr[selectedWord - 1]) arr[selectedWord - 1] = { ...arr[selectedWord - 1], end: newStart };
-    next[selectedLine] = arr;
+    while (next.length <= li) next.push([]);
+    const arr = [...(next[li] ?? [])];
+    arr[wi] = { ...arr[wi], start: newStart };
+    if (wi > 0 && arr[wi - 1]) arr[wi - 1] = { ...arr[wi - 1], end: newStart };
+    next[li] = arr;
     onWordTimestampsChange(next);
   }
 
-  function initWordsEvenly() {
-    if (selectedLine === null) return;
-    const ws = (lines[selectedLine] ?? "").trim().split(/\s+/).filter(Boolean);
-    const step = lineWordsDur / ws.length;
-    const arr: WordTs[] = ws.map((w, wi) => ({
-      word: w,
-      start: lineStart + wi * step,
-      end: lineStart + (wi + 1) * step,
-    }));
+  function initLineWordsEvenly(li: number) {
+    const ws = (lines[li] ?? "").trim().split(/\s+/).filter(Boolean);
+    if (ws.length === 0) return;
+    const lStart = timestamps[li] ?? trimStart;
+    const lEnd = (li + 1 < timestamps.length && timestamps[li + 1] !== null) ? timestamps[li + 1]! : trimEnd;
+    const step = (lEnd - lStart) / ws.length;
+    const arr: WordTs[] = ws.map((w, i) => ({ word: w, start: lStart + i * step, end: lStart + (i + 1) * step }));
     const next = wordTimestamps.map((a) => [...a]);
-    while (next.length <= selectedLine) next.push([]);
-    next[selectedLine] = arr;
+    while (next.length <= li) next.push([]);
+    next[li] = arr;
     onWordTimestampsChange(next);
-    setSelectedWord(0);
+    setSelectedWord({ li, wi: 0 });
     setWordFineTune(arr[0].start.toFixed(2));
   }
 
-  // Word block DOM elements for the word editor
-  const wordBlocks = selectedLine !== null && wordEditorOpen ? (() => {
-    const wds = lineWordTs.length > 0 ? lineWordTs : null;
-    if (!wds) return null;
-    const WW = wordGetW();
-    return wds.map((ws, wi) => {
+  // Word block DOM divs (positioned using main timeline coordinates)
+  const WW = wordWrapRef.current?.clientWidth ?? getW();
+  const wordBlockDivs = lines.flatMap((_, li) => {
+    const wts = wordTimestamps[li] ?? [];
+    return wts.map((ws, wi) => {
       if (!ws) return null;
-      const x = ((ws.start - lineStart) / lineWordsDur) * WW;
-      if (x < -120 || x > WW + 10) return null;
-      const isSel = wi === selectedWord;
+      const x = ((ws.start - viewStart) / visibleDur) * WW;
+      if (x < -110 || x > WW + 10) return null;
+      const color = BLOCK_COLORS[li % BLOCK_COLORS.length];
+      const isSel = selectedWord?.li === li && selectedWord?.wi === wi;
       return (
         <div
-          key={wi}
-          onMouseDown={(e) => onWordBlockMouseDown(e, wi)}
+          key={`${li}-${wi}`}
+          onMouseDown={(e) => onWordBlockMouseDown(e, li, wi)}
           style={{
-            position: "absolute", left: x, top: 18,
-            transform: "translateX(-50%)",
-            background: isSel ? "#6366F1" : "#4338CA",
+            position: "absolute", left: x, top: 16,
+            transform: "translateX(-2px)",
+            background: isSel ? "#6366F1" : color,
             color: "#fff", fontSize: "0.6rem", fontWeight: 700,
             padding: "0 5px", height: 20, borderRadius: 4,
             display: "flex", alignItems: "center",
             cursor: "ew-resize", whiteSpace: "nowrap",
-            maxWidth: 100, overflow: "hidden",
-            boxShadow: isSel ? "0 0 0 2px #fff, 0 0 0 4px #6366F1" : "0 1px 3px rgba(0,0,0,0.5)",
+            maxWidth: 120, overflow: "hidden",
+            boxShadow: isSel ? `0 0 0 2px #fff, 0 0 0 4px #6366F1` : "0 1px 3px rgba(0,0,0,0.5)",
             zIndex: isSel ? 10 : 5, userSelect: "none",
           }}
         >
@@ -1338,7 +1335,7 @@ function LyricTimeline({
         </div>
       );
     });
-  })() : null;
+  }).filter(Boolean);
 
   return (
     <div style={{ background: "#0F172A", borderRadius: 16, overflow: "hidden", border: "1px solid #1E293B" }}>
@@ -1411,19 +1408,13 @@ function LyricTimeline({
         </div>
       )}
 
-      {/* Selected line fine-tune bar */}
+      {/* Line fine-tune bar */}
       {selectedLine !== null && (
         <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", padding: "0.5rem 0.875rem", background: "#1E293B", borderTop: "1px solid #0F172A", flexWrap: "wrap" }}>
           <div style={{ width: 9, height: 9, borderRadius: "50%", background: BLOCK_COLORS[selectedLine % BLOCK_COLORS.length], flexShrink: 0 }} />
-          <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#E2E8F0", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {lines[selectedLine]}
+          <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#E2E8F0", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            Line {selectedLine + 1}: {lines[selectedLine]}
           </span>
-          <button
-            onClick={() => { setWordEditorOpen((v) => !v); setSelectedWord(null); }}
-            style={{ ...tlBtn, background: wordEditorOpen ? "#6366F1" : "#334155", color: wordEditorOpen ? "#fff" : "#94A3B8", fontSize: "0.65rem", padding: "0.2rem 0.5rem" }}
-          >
-            Words {wordEditorOpen ? "▲" : "▼"}
-          </button>
           <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginLeft: "auto", flexWrap: "wrap" }}>
             <span style={{ fontSize: "0.68rem", color: "#64748B" }}>t =</span>
             <input
@@ -1446,79 +1437,89 @@ function LyricTimeline({
         </div>
       )}
 
-      {/* Word editor — zoomed waveform for selected line */}
-      {selectedLine !== null && wordEditorOpen && (
-        <div style={{ borderTop: "1px solid #0F172A" }}>
-          {/* Word editor toolbar */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.375rem 0.875rem", background: "#0A0F1E", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#818CF8" }}>
-              Word Editor — {lines[selectedLine]}
-            </span>
-            <span style={{ fontSize: "0.63rem", color: "#475569" }}>
-              {fmt(lineStart)} → {fmt(lineEnd)}
-            </span>
-            {lineWordTs.length === 0 && (
-              <button
-                onClick={initWordsEvenly}
-                style={{ padding: "0.2rem 0.625rem", borderRadius: 6, border: "none", cursor: "pointer", background: "#6366F1", color: "#fff", fontSize: "0.65rem", fontWeight: 700, marginLeft: "auto" }}
-              >
-                Initialize evenly
-              </button>
-            )}
-            {lineWordTs.length > 0 && selectedWord !== null && (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginLeft: "auto" }}>
-                <span style={{ fontSize: "0.65rem", color: "#818CF8", fontWeight: 700 }}>
-                  &ldquo;{lineWordTs[selectedWord]?.word}&rdquo;
-                </span>
-                <span style={{ fontSize: "0.63rem", color: "#64748B" }}>t =</span>
-                <input
-                  type="number" step="0.01" value={wordFineTune}
-                  onChange={(e) => setWordFineTune(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") applyWordFineTune(); }}
-                  onBlur={applyWordFineTune}
-                  style={{ width: 60, fontFamily: "monospace", fontSize: "0.72rem", background: "#0F172A", color: "#E2E8F0", border: "1px solid #4338CA", borderRadius: 6, padding: "0.15rem 0.375rem" }}
-                />
-                <span style={{ fontSize: "0.63rem", color: "#64748B" }}>s</span>
+      {/* ── Word Track (second row, same zoom/scroll as line track) ── */}
+      <div style={{ borderTop: "2px solid #0F172A" }}>
+        {/* Word track label row */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.3rem 0.875rem", background: "#111827", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#6366F1", letterSpacing: "0.05em" }}>WORDS</span>
+          <span style={{ fontSize: "0.6rem", color: "#374151" }}>drag to move · click to seek · Spacebar syncs</span>
+          {/* Init buttons for lines with no word timestamps */}
+          <div style={{ display: "flex", gap: "0.375rem", flexWrap: "wrap", marginLeft: "auto" }}>
+            {lines.map((_, li) =>
+              (wordTimestamps[li]?.length ?? 0) === 0 ? (
                 <button
-                  onClick={() => {
-                    if (selectedLine === null || selectedWord === null) return;
-                    const arr = [...(lineWordTs ?? [])];
-                    arr[selectedWord] = { ...arr[selectedWord], start: currentTime };
-                    if (selectedWord > 0 && arr[selectedWord - 1]) arr[selectedWord - 1] = { ...arr[selectedWord - 1], end: currentTime };
-                    const next = wordTimestamps.map((a) => [...a]);
-                    while (next.length <= selectedLine) next.push([]);
-                    next[selectedLine] = arr;
-                    onWordTimestampsChange(next);
-                    setWordFineTune(currentTime.toFixed(2));
-                  }}
-                  style={{ padding: "0.2rem 0.5rem", borderRadius: 6, border: "none", cursor: "pointer", background: "#6366F1", color: "#fff", fontSize: "0.63rem", fontWeight: 700 }}
+                  key={li}
+                  onClick={() => initLineWordsEvenly(li)}
+                  style={{ padding: "0.15rem 0.5rem", borderRadius: 5, border: "1px solid #4338CA", cursor: "pointer", background: "transparent", color: "#818CF8", fontSize: "0.6rem", fontWeight: 700 }}
                 >
-                  Set to Playhead
+                  Init L{li + 1}
                 </button>
-              </div>
-            )}
-          </div>
-
-          {/* Word waveform canvas */}
-          <div
-            ref={wordWrapRef}
-            style={{ position: "relative", height: 80, overflow: "hidden", cursor: "crosshair" }}
-            onClick={onWordCanvasClick}
-          >
-            <canvas ref={wordCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
-            {wordBlocks}
-            {lineWordTs.length === 0 && (
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
-                <span style={{ fontSize: "0.75rem", color: "#475569" }}>No word timestamps yet —</span>
-                <button onClick={initWordsEvenly} style={{ padding: "0.25rem 0.625rem", borderRadius: 6, border: "none", cursor: "pointer", background: "#6366F1", color: "#fff", fontSize: "0.72rem", fontWeight: 700 }}>
-                  Initialize evenly
-                </button>
-                <span style={{ fontSize: "0.72rem", color: "#475569" }}>then drag each word</span>
-              </div>
+              ) : null
             )}
           </div>
         </div>
-      )}
+
+        {/* Word track canvas + draggable word blocks */}
+        <div
+          ref={wordWrapRef}
+          style={{ position: "relative", height: 72, overflow: "hidden", cursor: "crosshair" }}
+          onWheel={onWheel}
+          onClick={onWordTrackClick}
+        >
+          <canvas ref={wordCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+          {wordBlockDivs}
+          {lines.every((_, li) => (wordTimestamps[li]?.length ?? 0) === 0) && (
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", pointerEvents: "none" }}>
+              <span style={{ fontSize: "0.72rem", color: "#374151" }}>No word timestamps — use Word Sync (SPACE) or click Init above</span>
+            </div>
+          )}
+        </div>
+
+        {/* Word fine-tune bar (shown when a word is selected) */}
+        {selectedWord !== null && (
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.375rem 0.875rem", background: "#0F172A", borderTop: "1px solid #1E293B", flexWrap: "wrap" }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: BLOCK_COLORS[selectedWord.li % BLOCK_COLORS.length], flexShrink: 0 }} />
+            <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#A5B4FC" }}>
+              &ldquo;{wordTimestamps[selectedWord.li]?.[selectedWord.wi]?.word}&rdquo;
+            </span>
+            <span style={{ fontSize: "0.65rem", color: "#4B5563" }}>line {selectedWord.li + 1}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginLeft: "auto" }}>
+              <span style={{ fontSize: "0.65rem", color: "#64748B" }}>t =</span>
+              <input
+                type="number" step="0.01" value={wordFineTune}
+                onChange={(e) => setWordFineTune(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") applyWordFineTune(); }}
+                onBlur={applyWordFineTune}
+                style={{ width: 62, fontFamily: "monospace", fontSize: "0.72rem", background: "#080D1A", color: "#E2E8F0", border: "1px solid #4338CA", borderRadius: 6, padding: "0.2rem 0.375rem" }}
+              />
+              <span style={{ fontSize: "0.65rem", color: "#64748B" }}>s</span>
+              <button
+                onClick={() => {
+                  const { li, wi } = selectedWord;
+                  const next = wordTimestamps.map((a) => [...a]);
+                  while (next.length <= li) next.push([]);
+                  const arr = [...(next[li] ?? [])];
+                  arr[wi] = { ...arr[wi], start: currentTime };
+                  if (wi > 0 && arr[wi - 1]) arr[wi - 1] = { ...arr[wi - 1], end: currentTime };
+                  next[li] = arr;
+                  onWordTimestampsChange(next);
+                  setWordFineTune(currentTime.toFixed(2));
+                }}
+                style={{ padding: "0.2rem 0.5rem", borderRadius: 6, border: "none", cursor: "pointer", background: "#6366F1", color: "#fff", fontSize: "0.65rem", fontWeight: 700 }}
+              >
+                Set to Playhead
+              </button>
+              <button
+                onClick={() => { if (selectedWord) initLineWordsEvenly(selectedWord.li); }}
+                style={{ ...tlBtn, fontSize: "0.62rem", color: "#818CF8" }}
+                title="Re-distribute this line's words evenly"
+              >
+                Reset line
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
