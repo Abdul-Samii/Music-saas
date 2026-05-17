@@ -2551,9 +2551,6 @@ export default function StudioPage() {
                 ) : (
                   <button
                     onClick={() => {
-                      setWordSyncActive(false);
-                      setWordTimestamps([]);
-                      setWordSyncIdx(0);
                       setSyncActive(true);
                       if (!isPlaying) {
                         if (pausedAtRef.current >= trimEnd) {
