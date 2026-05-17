@@ -811,7 +811,7 @@ const tlBtn: CSSProperties = {
 
 function LyricTimeline({
   audioBuffer, trimStart, trimEnd, lines, timestamps, onTimestampsChange,
-  currentTime, onSeek, isPlaying, onPlayPause, syncActive, onAddLine,
+  currentTime, onSeek, isPlaying, onPlayPause, syncActive, onAddLine, onDeleteLine,
 }: {
   audioBuffer: AudioBuffer;
   trimStart: number; trimEnd: number;
@@ -824,6 +824,7 @@ function LyricTimeline({
   onPlayPause: () => void;
   syncActive: boolean;
   onAddLine?: (atTime: number) => void;
+  onDeleteLine?: (idx: number) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -1085,12 +1086,18 @@ function LyricTimeline({
           if (s === null) return 0;
           return e.shiftKey ? Math.max(0, s - 1) : Math.min(lines.length - 1, s + 1);
         });
+        return;
+      }
+      if ((e.code === "Delete" || e.code === "Backspace") && onDeleteLine) {
+        e.preventDefault();
+        onDeleteLine(selectedLine);
+        setSelectedLine((s) => s !== null ? Math.max(0, s - 1) : null);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLine, timestamps, onTimestampsChange, onPlayPause, currentTime, trimStart, trimEnd, snap, lines.length, syncActive]);
+  }, [selectedLine, timestamps, onTimestampsChange, onPlayPause, currentTime, trimStart, trimEnd, snap, lines.length, syncActive, onDeleteLine]);
 
   // Sync fine-tune input with selected line
   useEffect(() => {
@@ -1260,6 +1267,17 @@ function LyricTimeline({
             </button>
             <button onClick={() => setSelectedLine((s) => s !== null ? Math.max(0, s - 1) : null)} disabled={selectedLine === 0} style={{ ...tlBtn, opacity: selectedLine === 0 ? 0.35 : 1 }}>↑</button>
             <button onClick={() => setSelectedLine((s) => s !== null ? Math.min(lines.length - 1, s + 1) : null)} disabled={selectedLine === lines.length - 1} style={{ ...tlBtn, opacity: selectedLine === lines.length - 1 ? 0.35 : 1 }}>↓</button>
+            {onDeleteLine && (
+              <button
+                onClick={() => { onDeleteLine(selectedLine); setSelectedLine((s) => s !== null ? Math.max(0, s - 1) : null); }}
+                title="Delete this line (Delete key)"
+                style={{ ...tlBtn, background: "#FEE2E2", color: "#DC2626", border: "none", padding: "0.25rem 0.5rem" }}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1571,6 +1589,16 @@ export default function StudioPage() {
       syncLineRefs.current[syncIndex]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }, [syncIndex, step]);
+
+  // ── Delete a lyric line by index ──
+  function handleDeleteLine(idx: number) {
+    if (lines.length <= 1) return;
+    const newLines = lines.filter((_, i) => i !== idx);
+    setLyricsText(newLines.join("\n"));
+    setTimestamps((prev) => prev.filter((_, i) => i !== idx));
+    setWordTimestamps((prev) => prev.filter((_, i) => i !== idx));
+    setSyncIndex((prev) => Math.min(prev, newLines.length));
+  }
 
   // ── Add new lyric line at a given time (from timeline double-click or Add button) ──
   function handleAddLine(atTime: number) {
@@ -2632,6 +2660,7 @@ export default function StudioPage() {
                 onPlayPause={togglePlay}
                 syncActive={syncActive}
                 onAddLine={handleAddLine}
+                onDeleteLine={handleDeleteLine}
               />
             </div>
           </div>
