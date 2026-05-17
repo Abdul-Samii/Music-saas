@@ -127,7 +127,7 @@ const WhoIsItFor = () => {
           {targetAudience.map((item, index) => (
             <SlideDown key={index}>
               <div className="card flex flex-col gap-4 bg-white! shadow-none! duration-300 transition-all hover:-translate-y-2 h-full border! border-border-light!">
-                <span className="size-12 rounded-[14px] flex-center shrink-0 bg-bg">
+                <span className="size-12 rounded-[14px] flex-center shrink-0 bg-bg-card">
                   <item.icon className="size-6 text-primary" />
                 </span>
                 <h3 className="font-bold text-base text-text-primary mb-2">
