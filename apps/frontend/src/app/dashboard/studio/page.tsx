@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, type CSSProperties } from "react";
 import { getSession } from "next-auth/react";
 import { creativeApi } from "@/lib/api";
 
@@ -789,6 +789,427 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
   );
 }
 
+// ── Lyric Timeline Editor ──────────────────────────────────────────────────────
+const BLOCK_COLORS = [
+  "#3A60E7","#10B981","#F59E0B","#EF4444","#8B5CF6",
+  "#06B6D4","#EC4899","#14B8A6","#F97316","#6366F1",
+];
+
+const tlBtn: CSSProperties = {
+  background: "#334155", border: "none", color: "#94A3B8",
+  cursor: "pointer", borderRadius: 6, padding: "0.25rem 0.5rem",
+  fontSize: "0.75rem", display: "flex", alignItems: "center", justifyContent: "center",
+};
+
+function LyricTimeline({
+  audioBuffer, trimStart, trimEnd, lines, timestamps, onTimestampsChange,
+  currentTime, onSeek, isPlaying, onPlayPause, syncActive,
+}: {
+  audioBuffer: AudioBuffer;
+  trimStart: number; trimEnd: number;
+  lines: string[];
+  timestamps: (number | null)[];
+  onTimestampsChange: (ts: (number | null)[]) => void;
+  currentTime: number;
+  onSeek: (t: number) => void;
+  isPlaying: boolean;
+  onPlayPause: () => void;
+  syncActive: boolean;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+  const [scrollSec, setScrollSec] = useState(0);
+  const [selectedLine, setSelectedLine] = useState<number | null>(null);
+  const [snap, setSnap] = useState(true);
+  const [fineTuneValue, setFineTuneValue] = useState("");
+  const dragging = useRef<{ line: number; startX: number; origTs: number } | null>(null);
+  const waveCache = useRef<Float32Array | null>(null);
+
+  const totalDur = trimEnd - trimStart;
+  const visibleDur = totalDur / Math.max(1, zoom);
+  const maxScroll = Math.max(0, totalDur - visibleDur);
+  const clampedScroll = Math.min(scrollSec, maxScroll);
+  const viewStart = trimStart + clampedScroll;
+  const viewEnd = viewStart + visibleDur;
+
+  useEffect(() => {
+    setScrollSec((s) => Math.min(s, Math.max(0, totalDur - totalDur / zoom)));
+  }, [zoom, totalDur]);
+
+  // Build waveform peak cache
+  useEffect(() => {
+    if (!audioBuffer) return;
+    const data = audioBuffer.getChannelData(0);
+    const bins = 2000;
+    const peaks = new Float32Array(bins);
+    const step = Math.ceil(data.length / bins);
+    for (let i = 0; i < bins; i++) {
+      let peak = 0;
+      for (let j = 0; j < step; j++) {
+        const v = Math.abs(data[i * step + j] || 0);
+        if (v > peak) peak = v;
+      }
+      peaks[i] = peak;
+    }
+    waveCache.current = peaks;
+  }, [audioBuffer]);
+
+  function getW() { return wrapRef.current?.clientWidth ?? 800; }
+  function timeToX(t: number) { return ((t - viewStart) / visibleDur) * getW(); }
+  function xToTime(x: number) { return viewStart + (x / getW()) * visibleDur; }
+
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    const wrap = wrapRef.current;
+    if (!canvas || !wrap) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const W = wrap.clientWidth;
+    const H = 140;
+    if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const RULER_H = 26;
+    const WAVE_H = H - RULER_H;
+
+    ctx.fillStyle = "#0F172A";
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#1E293B";
+    ctx.fillRect(0, 0, W, RULER_H);
+
+    // Ruler ticks
+    const pxPerSec = W / visibleDur;
+    const tickIntervals = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30];
+    const tickInterval = tickIntervals.find((t) => t * pxPerSec >= 60) ?? 30;
+    ctx.font = `10px monospace`;
+    ctx.textAlign = "center";
+    const firstTick = Math.ceil(viewStart / tickInterval) * tickInterval;
+    for (let t = firstTick; t <= viewEnd + 0.001; t += tickInterval) {
+      const x = ((t - viewStart) / visibleDur) * W;
+      const isMajor = Math.abs(Math.round(t) - t) < 0.001 || tickInterval >= 1;
+      ctx.fillStyle = isMajor ? "#94A3B8" : "#475569";
+      ctx.fillRect(x, RULER_H - (isMajor ? 12 : 5), 1, isMajor ? 12 : 5);
+      if (isMajor) {
+        ctx.fillStyle = "#94A3B8";
+        ctx.fillText(fmtShort(t), x, 12);
+      }
+    }
+
+    // Waveform
+    const peaks = waveCache.current;
+    if (peaks) {
+      const fullDur = audioBuffer.duration;
+      for (let i = 0; i < W; i++) {
+        const t = viewStart + (i / W) * visibleDur;
+        const idx = Math.floor((t / fullDur) * peaks.length);
+        const peak = peaks[Math.max(0, Math.min(idx, peaks.length - 1))] || 0;
+        const barH = Math.max(2, peak * WAVE_H * 0.85);
+        ctx.fillStyle = `rgba(58,96,231,${0.3 + peak * 0.7})`;
+        ctx.fillRect(i, RULER_H + (WAVE_H - barH) / 2, 1, barH);
+      }
+    }
+
+    // Timestamp vertical markers
+    for (let i = 0; i < timestamps.length; i++) {
+      const ts = timestamps[i];
+      if (ts === null || ts < viewStart - 1 || ts > viewEnd + 1) continue;
+      const x = ((ts - viewStart) / visibleDur) * W;
+      const color = BLOCK_COLORS[i % BLOCK_COLORS.length];
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(x, RULER_H); ctx.lineTo(x, H); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Playhead
+    const px = ((currentTime - viewStart) / visibleDur) * W;
+    ctx.strokeStyle = "#F43F5E";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+    ctx.fillStyle = "#F43F5E";
+    ctx.beginPath(); ctx.moveTo(px - 5, 0); ctx.lineTo(px + 5, 0); ctx.lineTo(px, 9); ctx.fill();
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }, [audioBuffer, trimStart, trimEnd, timestamps, currentTime, zoom, clampedScroll, viewStart, viewEnd, visibleDur]);
+
+  useEffect(() => { draw(); }, [draw]);
+
+  useEffect(() => {
+    const ro = new ResizeObserver(() => draw());
+    if (wrapRef.current) ro.observe(wrapRef.current);
+    return () => ro.disconnect();
+  }, [draw]);
+
+  // Auto-scroll to keep playhead visible during playback
+  useEffect(() => {
+    if (!isPlaying) return;
+    if (currentTime < viewStart || currentTime > viewEnd - visibleDur * 0.05) {
+      setScrollSec((s) => {
+        const ideal = currentTime - trimStart - visibleDur * 0.1;
+        return Math.max(0, Math.min(ideal, maxScroll));
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTime, isPlaying]);
+
+  // Canvas click → seek
+  function onCanvasClick(e: React.MouseEvent) {
+    if (dragging.current) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const t = xToTime(e.clientX - rect.left);
+    onSeek(Math.max(trimStart, Math.min(t, trimEnd)));
+  }
+
+  // Wheel: Ctrl = zoom, else scroll
+  function onWheel(e: React.WheelEvent) {
+    e.preventDefault();
+    if (e.ctrlKey || e.metaKey) {
+      const rect = wrapRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const frac = (e.clientX - rect.left) / rect.width;
+      const mouseTime = viewStart + frac * visibleDur;
+      const factor = e.deltaY < 0 ? 1.25 : 0.8;
+      const newZoom = Math.max(1, Math.min(20, zoom * factor));
+      const newVis = totalDur / newZoom;
+      const newScroll = Math.max(0, Math.min(mouseTime - trimStart - frac * newVis, totalDur - newVis));
+      setZoom(newZoom);
+      setScrollSec(newScroll);
+    } else {
+      const delta = ((e.deltaY || e.deltaX) / getW()) * visibleDur;
+      setScrollSec((s) => Math.max(0, Math.min(s + delta, maxScroll)));
+    }
+  }
+
+  // Block drag
+  function onBlockMouseDown(e: React.MouseEvent, idx: number) {
+    e.stopPropagation();
+    e.preventDefault();
+    setSelectedLine(idx);
+    dragging.current = { line: idx, startX: e.clientX, origTs: timestamps[idx] ?? currentTime };
+  }
+
+  useEffect(() => {
+    function onMove(e: MouseEvent) {
+      if (!dragging.current) return;
+      const { line, startX, origTs } = dragging.current;
+      const dt = ((e.clientX - startX) / getW()) * visibleDur;
+      let newTs = origTs + dt;
+      if (snap) newTs = Math.round(newTs * 10) / 10;
+      newTs = Math.max(trimStart, Math.min(newTs, trimEnd));
+      const next = [...timestamps];
+      next[line] = newTs;
+      onTimestampsChange(next);
+    }
+    function onUp() { dragging.current = null; }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timestamps, onTimestampsChange, visibleDur, snap, trimStart, trimEnd]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (syncActive) return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+
+      if (e.code === "Space") { e.preventDefault(); onPlayPause(); return; }
+
+      if (selectedLine === null) return;
+      const nudge = e.shiftKey ? 0.01 : 0.1;
+
+      if (e.code === "ArrowLeft" || e.code === "ArrowRight") {
+        e.preventDefault();
+        const ts = timestamps[selectedLine] ?? 0;
+        const dir = e.code === "ArrowLeft" ? -1 : 1;
+        const next = [...timestamps];
+        let newTs = ts + dir * nudge;
+        if (snap) newTs = Math.round(newTs * 100) / 100;
+        next[selectedLine] = Math.max(trimStart, Math.min(newTs, trimEnd));
+        onTimestampsChange(next);
+        return;
+      }
+      if (e.code === "Enter") {
+        e.preventDefault();
+        const next = [...timestamps];
+        next[selectedLine] = currentTime;
+        onTimestampsChange(next);
+        setFineTuneValue(currentTime.toFixed(2));
+        return;
+      }
+      if (e.code === "Tab") {
+        e.preventDefault();
+        setSelectedLine((s) => {
+          if (s === null) return 0;
+          return e.shiftKey ? Math.max(0, s - 1) : Math.min(lines.length - 1, s + 1);
+        });
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLine, timestamps, onTimestampsChange, onPlayPause, currentTime, trimStart, trimEnd, snap, lines.length, syncActive]);
+
+  // Sync fine-tune input with selected line
+  useEffect(() => {
+    if (selectedLine !== null && timestamps[selectedLine] !== null) {
+      setFineTuneValue((timestamps[selectedLine]!).toFixed(2));
+    }
+  }, [selectedLine, timestamps]);
+
+  function applyFineTune() {
+    if (selectedLine === null) return;
+    const val = parseFloat(fineTuneValue);
+    if (isNaN(val)) return;
+    const next = [...timestamps];
+    next[selectedLine] = Math.max(trimStart, Math.min(val, trimEnd));
+    onTimestampsChange(next);
+  }
+
+  // Block layer (absolutely positioned over canvas)
+  const W = getW();
+  const blocks = lines.map((line, i) => {
+    const ts = timestamps[i];
+    if (ts === null) return null;
+    const x = ((ts - viewStart) / visibleDur) * W;
+    if (x < -140 || x > W + 10) return null;
+    const color = BLOCK_COLORS[i % BLOCK_COLORS.length];
+    const isSelected = i === selectedLine;
+    return (
+      <div
+        key={i}
+        onMouseDown={(e) => onBlockMouseDown(e, i)}
+        style={{
+          position: "absolute", left: x, top: 30,
+          transform: "translateX(-50%)",
+          background: color, color: "#fff",
+          fontSize: "0.62rem", fontWeight: 700,
+          padding: "0 6px", height: 22, borderRadius: 4,
+          display: "flex", alignItems: "center", gap: 4,
+          cursor: "grab", whiteSpace: "nowrap",
+          maxWidth: 130, overflow: "hidden",
+          boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${color}` : "0 1px 4px rgba(0,0,0,0.5)",
+          zIndex: isSelected ? 10 : 5, userSelect: "none",
+        }}
+      >
+        <span style={{ fontFamily: "monospace", opacity: 0.75, flexShrink: 0 }}>{i + 1}</span>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{line}</span>
+      </div>
+    );
+  });
+
+  return (
+    <div style={{ background: "#0F172A", borderRadius: 16, overflow: "hidden", border: "1px solid #1E293B" }}>
+      {/* Toolbar */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0.875rem", background: "#1E293B", flexWrap: "wrap" }}>
+        <button onClick={onPlayPause} style={{ ...tlBtn, width: 30, height: 30, borderRadius: "50%", background: BLUE, color: "#fff", padding: 0, flexShrink: 0 }}>
+          {isPlaying
+            ? <svg width="9" height="9" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            : <svg width="9" height="9" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>}
+        </button>
+        <span style={{ fontFamily: "monospace", fontSize: "0.78rem", fontWeight: 700, color: "#F43F5E", flexShrink: 0 }}>{fmt(currentTime)}</span>
+        <div style={{ width: 1, height: 18, background: "#334155" }} />
+        <span style={{ fontSize: "0.68rem", color: "#64748B" }}>Zoom</span>
+        <button onClick={() => setZoom((z) => Math.max(1, z / 1.5))} style={tlBtn}>−</button>
+        <input type="range" min={1} max={20} step={0.1} value={zoom}
+          onChange={(e) => setZoom(parseFloat(e.target.value))}
+          style={{ width: 70, accentColor: BLUE }} />
+        <button onClick={() => setZoom((z) => Math.min(20, z * 1.5))} style={tlBtn}>+</button>
+        <span style={{ fontSize: "0.68rem", fontFamily: "monospace", color: "#94A3B8", minWidth: 30 }}>{zoom.toFixed(1)}x</span>
+        <button onClick={() => { setZoom(1); setScrollSec(0); }} style={tlBtn} title="Fit all">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+            <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+          </svg>
+        </button>
+        <div style={{ width: 1, height: 18, background: "#334155" }} />
+        <button
+          onClick={() => setSnap((s) => !s)}
+          style={{ ...tlBtn, background: snap ? BLUE : "#334155", color: snap ? "#fff" : "#94A3B8", fontSize: "0.68rem" }}
+        >
+          Snap {snap ? "0.1s ✓" : "Off"}
+        </button>
+        <div style={{ width: 1, height: 18, background: "#334155" }} />
+        <span style={{ fontSize: "0.63rem", color: "#475569" }}>←/→ nudge · Shift+←/→ fine · Enter=set · Tab=next</span>
+        {selectedLine !== null && (
+          <span style={{ marginLeft: "auto", fontSize: "0.68rem", color: BLOCK_COLORS[selectedLine % BLOCK_COLORS.length], fontWeight: 700 }}>
+            Line {selectedLine + 1} selected
+          </span>
+        )}
+      </div>
+
+      {/* Canvas + block layer */}
+      <div
+        ref={wrapRef}
+        style={{ position: "relative", height: 140, overflow: "hidden", cursor: "crosshair" }}
+        onWheel={onWheel}
+        onClick={onCanvasClick}
+      >
+        <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+        {blocks}
+      </div>
+
+      {/* Scrollbar */}
+      {zoom > 1.05 && (
+        <div style={{ height: 10, background: "#1E293B", padding: "3px 6px" }}>
+          <div
+            style={{ height: 4, background: "#334155", borderRadius: 99, position: "relative", cursor: "pointer" }}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setScrollSec(((e.clientX - rect.left) / rect.width) * maxScroll);
+            }}
+          >
+            <div style={{
+              position: "absolute", height: "100%",
+              left: `${(clampedScroll / Math.max(totalDur, 0.01)) * 100}%`,
+              width: `${(visibleDur / Math.max(totalDur, 0.01)) * 100}%`,
+              background: BLUE, borderRadius: 99,
+            }} />
+          </div>
+        </div>
+      )}
+
+      {/* Selected line fine-tune bar */}
+      {selectedLine !== null && (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", padding: "0.5rem 0.875rem", background: "#1E293B", borderTop: "1px solid #0F172A", flexWrap: "wrap" }}>
+          <div style={{ width: 9, height: 9, borderRadius: "50%", background: BLOCK_COLORS[selectedLine % BLOCK_COLORS.length], flexShrink: 0 }} />
+          <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#E2E8F0", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {lines[selectedLine]}
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginLeft: "auto", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "0.68rem", color: "#64748B" }}>t =</span>
+            <input
+              type="number" step="0.01" value={fineTuneValue}
+              onChange={(e) => setFineTuneValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") applyFineTune(); }}
+              onBlur={applyFineTune}
+              style={{ width: 68, fontFamily: "monospace", fontSize: "0.78rem", background: "#0F172A", color: "#E2E8F0", border: "1px solid #334155", borderRadius: 6, padding: "0.2rem 0.4rem" }}
+            />
+            <span style={{ fontSize: "0.68rem", color: "#64748B" }}>s</span>
+            <button
+              onClick={() => { const next = [...timestamps]; next[selectedLine] = currentTime; onTimestampsChange(next); setFineTuneValue(currentTime.toFixed(2)); }}
+              style={{ padding: "0.25rem 0.625rem", borderRadius: 6, border: "none", cursor: "pointer", background: BLUE, color: "#fff", fontSize: "0.68rem", fontWeight: 700 }}
+            >
+              Set to Playhead
+            </button>
+            <button onClick={() => setSelectedLine((s) => s !== null ? Math.max(0, s - 1) : null)} disabled={selectedLine === 0} style={{ ...tlBtn, opacity: selectedLine === 0 ? 0.35 : 1 }}>↑</button>
+            <button onClick={() => setSelectedLine((s) => s !== null ? Math.min(lines.length - 1, s + 1) : null)} disabled={selectedLine === lines.length - 1} style={{ ...tlBtn, opacity: selectedLine === lines.length - 1 ? 0.35 : 1 }}>↓</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Smart pagination page numbers ─────────────────────────────────────────────
 function getPageNums(current: number, total: number): (number | "…")[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i);
@@ -852,6 +1273,7 @@ export default function StudioPage() {
   const [timestamps, setTimestamps] = useState<(number | null)[]>([]);
   const [syncIndex, setSyncIndex] = useState(0);
   const [syncActive, setSyncActive] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
   const syncLineRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // ── Phase 4: Style ──
@@ -2100,6 +2522,51 @@ export default function StudioPage() {
               <span style={{ fontSize: "0.78rem", color: "#64748b" }}>to timestamp the highlighted line</span>
             </div>
           )}
+
+          {/* Timeline editor */}
+          <div>
+            <button
+              onClick={() => setShowTimeline((v) => !v)}
+              style={{
+                display: "flex", alignItems: "center", gap: "0.5rem",
+                padding: "0.6rem 1rem", borderRadius: 12, border: `1.5px solid ${showTimeline ? BLUE : "#E2E6F0"}`,
+                background: showTimeline ? "#EEF2FF" : "#fff", color: showTimeline ? BLUE : "#475569",
+                cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", width: "100%",
+                justifyContent: "space-between", boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+                Timeline Editor
+                <span style={{ fontSize: "0.68rem", fontWeight: 500, color: showTimeline ? BLUE : "#94a3b8" }}>
+                  — drag blocks, zoom, fine-tune timestamps
+                </span>
+              </span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: showTimeline ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            {showTimeline && (
+              <div style={{ marginTop: "0.75rem" }}>
+                <LyricTimeline
+                  audioBuffer={audioBuffer}
+                  trimStart={trimStart}
+                  trimEnd={trimEnd}
+                  lines={lines}
+                  timestamps={timestamps}
+                  onTimestampsChange={setTimestamps}
+                  currentTime={currentTime}
+                  onSeek={handleSeek}
+                  isPlaying={isPlaying}
+                  onPlayPause={togglePlay}
+                  syncActive={syncActive}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Lyrics sync list */}
           <div style={{ background: "#fff", borderRadius: 20, border: "1px solid #E2E6F0", padding: "1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
