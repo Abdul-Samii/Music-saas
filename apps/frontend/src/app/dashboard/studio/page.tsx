@@ -804,6 +804,7 @@ const tlBtn: CSSProperties = {
 function LyricTimeline({
   audioBuffer, trimStart, trimEnd, lines, timestamps, onTimestampsChange,
   currentTime, onSeek, isPlaying, onPlayPause, syncActive,
+  wordTimestamps, onWordTimestampsChange,
 }: {
   audioBuffer: AudioBuffer;
   trimStart: number; trimEnd: number;
@@ -815,6 +816,8 @@ function LyricTimeline({
   isPlaying: boolean;
   onPlayPause: () => void;
   syncActive: boolean;
+  wordTimestamps: WordTs[][];
+  onWordTimestampsChange: (wts: WordTs[][]) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -825,6 +828,14 @@ function LyricTimeline({
   const [fineTuneValue, setFineTuneValue] = useState("");
   const dragging = useRef<{ line: number; startX: number; origTs: number } | null>(null);
   const waveCache = useRef<Float32Array | null>(null);
+
+  // Word editor state
+  const [wordEditorOpen, setWordEditorOpen] = useState(false);
+  const [selectedWord, setSelectedWord] = useState<number | null>(null);
+  const [wordFineTune, setWordFineTune] = useState("");
+  const wordCanvasRef = useRef<HTMLCanvasElement>(null);
+  const wordWrapRef = useRef<HTMLDivElement>(null);
+  const wordDragging = useRef<{ wi: number; startX: number; origStart: number } | null>(null);
 
   const totalDur = trimEnd - trimStart;
   const visibleDur = totalDur / Math.max(1, zoom);
@@ -1107,6 +1118,221 @@ function LyricTimeline({
     );
   });
 
+  // ── Word editor derived values ──
+  const lineStart = selectedLine !== null ? (timestamps[selectedLine] ?? trimStart) : trimStart;
+  const lineEnd = selectedLine !== null
+    ? (selectedLine + 1 < timestamps.length && timestamps[selectedLine + 1] !== null
+      ? timestamps[selectedLine + 1]!
+      : trimEnd)
+    : trimEnd;
+  const lineWordsDur = Math.max(0.1, lineEnd - lineStart);
+  const lineWords = selectedLine !== null ? (lines[selectedLine] ?? "").trim().split(/\s+/).filter(Boolean) : [];
+  const lineWordTs = selectedLine !== null ? (wordTimestamps[selectedLine] ?? []) : [];
+
+  function wordGetW() { return wordWrapRef.current?.clientWidth ?? 600; }
+  function wordTimeToX(t: number) { return ((t - lineStart) / lineWordsDur) * wordGetW(); }
+  function wordXToTime(x: number) { return lineStart + (x / wordGetW()) * lineWordsDur; }
+
+  const drawWord = useCallback(() => {
+    const canvas = wordCanvasRef.current;
+    const wrap = wordWrapRef.current;
+    if (!canvas || !wrap || selectedLine === null) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const W = wrap.clientWidth;
+    const H = 80;
+    if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
+      canvas.width = W * dpr; canvas.height = H * dpr;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = "#0A0F1E"; ctx.fillRect(0, 0, W, H);
+
+    // Waveform (zoomed into line range)
+    const peaks = waveCache.current;
+    if (peaks) {
+      const fullDur = audioBuffer.duration;
+      for (let i = 0; i < W; i++) {
+        const t = lineStart + (i / W) * lineWordsDur;
+        const idx = Math.floor((t / fullDur) * peaks.length);
+        const peak = peaks[Math.max(0, Math.min(idx, peaks.length - 1))] || 0;
+        const barH = Math.max(2, peak * H * 0.8);
+        ctx.fillStyle = `rgba(99,102,241,${0.25 + peak * 0.75})`;
+        ctx.fillRect(i, (H - barH) / 2, 1, barH);
+      }
+    }
+
+    // Word region shading + labels
+    const wds = lineWordTs.length > 0 ? lineWordTs : lineWords.map((w, wi) => ({
+      word: w,
+      start: lineStart + (wi / lineWords.length) * lineWordsDur,
+      end: lineStart + ((wi + 1) / lineWords.length) * lineWordsDur,
+    }));
+    for (let wi = 0; wi < wds.length; wi++) {
+      const ws = wds[wi];
+      if (!ws) continue;
+      const x1 = wordTimeToX(ws.start);
+      const x2 = wi + 1 < wds.length ? wordTimeToX(wds[wi + 1].start) : W;
+      const isSelWord = wi === selectedWord;
+      ctx.fillStyle = isSelWord ? "rgba(99,102,241,0.25)" : "rgba(99,102,241,0.08)";
+      ctx.fillRect(x1, 0, x2 - x1, H);
+      ctx.strokeStyle = isSelWord ? "#818CF8" : "#4338CA";
+      ctx.lineWidth = isSelWord ? 2 : 1;
+      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(x1, 0); ctx.lineTo(x1, H); ctx.stroke();
+      ctx.fillStyle = isSelWord ? "#C7D2FE" : "#818CF8";
+      ctx.font = `bold ${11}px sans-serif`;
+      ctx.textAlign = "left";
+      const label = ws.word.length > 10 ? ws.word.slice(0, 9) + "…" : ws.word;
+      ctx.fillText(label, x1 + 4, 14);
+      ctx.font = `${9}px monospace`;
+      ctx.fillStyle = "#475569";
+      ctx.fillText(ws.start.toFixed(2) + "s", x1 + 4, H - 4);
+    }
+
+    // Playhead
+    if (currentTime >= lineStart && currentTime <= lineEnd) {
+      const px = wordTimeToX(currentTime);
+      ctx.strokeStyle = "#F43F5E"; ctx.lineWidth = 2; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+    }
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLine, lineStart, lineEnd, lineWordsDur, lineWords, lineWordTs, currentTime, selectedWord, waveCache, audioBuffer]);
+
+  useEffect(() => { if (wordEditorOpen) drawWord(); }, [drawWord, wordEditorOpen]);
+
+  useEffect(() => {
+    if (!wordEditorOpen) return;
+    const ro = new ResizeObserver(() => drawWord());
+    if (wordWrapRef.current) ro.observe(wordWrapRef.current);
+    return () => ro.disconnect();
+  }, [drawWord, wordEditorOpen]);
+
+  // Word canvas click: seek + select word
+  function onWordCanvasClick(e: React.MouseEvent) {
+    if (wordDragging.current) return;
+    const rect = wordCanvasRef.current?.getBoundingClientRect();
+    if (!rect || selectedLine === null) return;
+    const t = wordXToTime(e.clientX - rect.left);
+    onSeek(Math.max(trimStart, Math.min(t, trimEnd)));
+    // Select the word under the click
+    const wds = lineWordTs.length > 0 ? lineWordTs : null;
+    if (!wds) return;
+    for (let wi = wds.length - 1; wi >= 0; wi--) {
+      if (wds[wi] && t >= wds[wi].start) { setSelectedWord(wi); setWordFineTune(wds[wi].start.toFixed(2)); break; }
+    }
+  }
+
+  // Word block drag
+  function onWordBlockMouseDown(e: React.MouseEvent, wi: number) {
+    e.stopPropagation(); e.preventDefault();
+    setSelectedWord(wi);
+    const wds = lineWordTs[wi];
+    wordDragging.current = { wi, startX: e.clientX, origStart: wds?.start ?? lineStart };
+    if (wds) setWordFineTune(wds.start.toFixed(2));
+  }
+
+  useEffect(() => {
+    function onMove(e: MouseEvent) {
+      if (!wordDragging.current || selectedLine === null) return;
+      const { wi, startX, origStart } = wordDragging.current;
+      const dt = ((e.clientX - startX) / wordGetW()) * lineWordsDur;
+      let newStart = origStart + dt;
+      if (snap) newStart = Math.round(newStart * 100) / 100;
+      newStart = Math.max(lineStart, Math.min(newStart, lineEnd - 0.01));
+      const lineWords2 = (lines[selectedLine] ?? "").trim().split(/\s+/).filter(Boolean);
+      const next = wordTimestamps.map((arr) => [...arr]);
+      while (next.length <= selectedLine) next.push([]);
+      const arr = [...(next[selectedLine] ?? [])];
+      while (arr.length < lineWords2.length) arr.push({ word: lineWords2[arr.length] ?? "", start: lineStart, end: lineEnd });
+      arr[wi] = { ...arr[wi], start: newStart, end: arr[wi + 1]?.start ?? lineEnd };
+      if (wi > 0 && arr[wi - 1]) arr[wi - 1] = { ...arr[wi - 1], end: newStart };
+      next[selectedLine] = arr;
+      onWordTimestampsChange(next);
+      setWordFineTune(newStart.toFixed(2));
+    }
+    function onUp() { wordDragging.current = null; }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLine, lineStart, lineEnd, lineWordsDur, lineWords, lineWordTs, snap, wordTimestamps, onWordTimestampsChange, lines]);
+
+  // Sync word fine-tune input
+  useEffect(() => {
+    if (selectedWord !== null && lineWordTs[selectedWord]) {
+      setWordFineTune(lineWordTs[selectedWord].start.toFixed(2));
+    }
+  }, [selectedWord, lineWordTs]);
+
+  function applyWordFineTune() {
+    if (selectedWord === null || selectedLine === null) return;
+    const val = parseFloat(wordFineTune);
+    if (isNaN(val)) return;
+    const lineWords2 = (lines[selectedLine] ?? "").trim().split(/\s+/).filter(Boolean);
+    const next = wordTimestamps.map((arr) => [...arr]);
+    while (next.length <= selectedLine) next.push([]);
+    const arr = [...(next[selectedLine] ?? [])];
+    while (arr.length < lineWords2.length) arr.push({ word: lineWords2[arr.length] ?? "", start: lineStart, end: lineEnd });
+    const newStart = Math.max(lineStart, Math.min(val, lineEnd - 0.01));
+    arr[selectedWord] = { ...arr[selectedWord], start: newStart };
+    if (selectedWord > 0 && arr[selectedWord - 1]) arr[selectedWord - 1] = { ...arr[selectedWord - 1], end: newStart };
+    next[selectedLine] = arr;
+    onWordTimestampsChange(next);
+  }
+
+  function initWordsEvenly() {
+    if (selectedLine === null) return;
+    const ws = (lines[selectedLine] ?? "").trim().split(/\s+/).filter(Boolean);
+    const step = lineWordsDur / ws.length;
+    const arr: WordTs[] = ws.map((w, wi) => ({
+      word: w,
+      start: lineStart + wi * step,
+      end: lineStart + (wi + 1) * step,
+    }));
+    const next = wordTimestamps.map((a) => [...a]);
+    while (next.length <= selectedLine) next.push([]);
+    next[selectedLine] = arr;
+    onWordTimestampsChange(next);
+    setSelectedWord(0);
+    setWordFineTune(arr[0].start.toFixed(2));
+  }
+
+  // Word block DOM elements for the word editor
+  const wordBlocks = selectedLine !== null && wordEditorOpen ? (() => {
+    const wds = lineWordTs.length > 0 ? lineWordTs : null;
+    if (!wds) return null;
+    const WW = wordGetW();
+    return wds.map((ws, wi) => {
+      if (!ws) return null;
+      const x = ((ws.start - lineStart) / lineWordsDur) * WW;
+      if (x < -120 || x > WW + 10) return null;
+      const isSel = wi === selectedWord;
+      return (
+        <div
+          key={wi}
+          onMouseDown={(e) => onWordBlockMouseDown(e, wi)}
+          style={{
+            position: "absolute", left: x, top: 18,
+            transform: "translateX(-50%)",
+            background: isSel ? "#6366F1" : "#4338CA",
+            color: "#fff", fontSize: "0.6rem", fontWeight: 700,
+            padding: "0 5px", height: 20, borderRadius: 4,
+            display: "flex", alignItems: "center",
+            cursor: "ew-resize", whiteSpace: "nowrap",
+            maxWidth: 100, overflow: "hidden",
+            boxShadow: isSel ? "0 0 0 2px #fff, 0 0 0 4px #6366F1" : "0 1px 3px rgba(0,0,0,0.5)",
+            zIndex: isSel ? 10 : 5, userSelect: "none",
+          }}
+        >
+          {ws.word}
+        </div>
+      );
+    });
+  })() : null;
+
   return (
     <div style={{ background: "#0F172A", borderRadius: 16, overflow: "hidden", border: "1px solid #1E293B" }}>
       {/* Toolbar */}
@@ -1182,9 +1408,15 @@ function LyricTimeline({
       {selectedLine !== null && (
         <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", padding: "0.5rem 0.875rem", background: "#1E293B", borderTop: "1px solid #0F172A", flexWrap: "wrap" }}>
           <div style={{ width: 9, height: 9, borderRadius: "50%", background: BLOCK_COLORS[selectedLine % BLOCK_COLORS.length], flexShrink: 0 }} />
-          <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#E2E8F0", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#E2E8F0", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {lines[selectedLine]}
           </span>
+          <button
+            onClick={() => { setWordEditorOpen((v) => !v); setSelectedWord(null); }}
+            style={{ ...tlBtn, background: wordEditorOpen ? "#6366F1" : "#334155", color: wordEditorOpen ? "#fff" : "#94A3B8", fontSize: "0.65rem", padding: "0.2rem 0.5rem" }}
+          >
+            Words {wordEditorOpen ? "▲" : "▼"}
+          </button>
           <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginLeft: "auto", flexWrap: "wrap" }}>
             <span style={{ fontSize: "0.68rem", color: "#64748B" }}>t =</span>
             <input
@@ -1203,6 +1435,80 @@ function LyricTimeline({
             </button>
             <button onClick={() => setSelectedLine((s) => s !== null ? Math.max(0, s - 1) : null)} disabled={selectedLine === 0} style={{ ...tlBtn, opacity: selectedLine === 0 ? 0.35 : 1 }}>↑</button>
             <button onClick={() => setSelectedLine((s) => s !== null ? Math.min(lines.length - 1, s + 1) : null)} disabled={selectedLine === lines.length - 1} style={{ ...tlBtn, opacity: selectedLine === lines.length - 1 ? 0.35 : 1 }}>↓</button>
+          </div>
+        </div>
+      )}
+
+      {/* Word editor — zoomed waveform for selected line */}
+      {selectedLine !== null && wordEditorOpen && (
+        <div style={{ borderTop: "1px solid #0F172A" }}>
+          {/* Word editor toolbar */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.375rem 0.875rem", background: "#0A0F1E", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#818CF8" }}>
+              Word Editor — {lines[selectedLine]}
+            </span>
+            <span style={{ fontSize: "0.63rem", color: "#475569" }}>
+              {fmt(lineStart)} → {fmt(lineEnd)}
+            </span>
+            {lineWordTs.length === 0 && (
+              <button
+                onClick={initWordsEvenly}
+                style={{ padding: "0.2rem 0.625rem", borderRadius: 6, border: "none", cursor: "pointer", background: "#6366F1", color: "#fff", fontSize: "0.65rem", fontWeight: 700, marginLeft: "auto" }}
+              >
+                Initialize evenly
+              </button>
+            )}
+            {lineWordTs.length > 0 && selectedWord !== null && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginLeft: "auto" }}>
+                <span style={{ fontSize: "0.65rem", color: "#818CF8", fontWeight: 700 }}>
+                  &ldquo;{lineWordTs[selectedWord]?.word}&rdquo;
+                </span>
+                <span style={{ fontSize: "0.63rem", color: "#64748B" }}>t =</span>
+                <input
+                  type="number" step="0.01" value={wordFineTune}
+                  onChange={(e) => setWordFineTune(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") applyWordFineTune(); }}
+                  onBlur={applyWordFineTune}
+                  style={{ width: 60, fontFamily: "monospace", fontSize: "0.72rem", background: "#0F172A", color: "#E2E8F0", border: "1px solid #4338CA", borderRadius: 6, padding: "0.15rem 0.375rem" }}
+                />
+                <span style={{ fontSize: "0.63rem", color: "#64748B" }}>s</span>
+                <button
+                  onClick={() => {
+                    if (selectedLine === null || selectedWord === null) return;
+                    const arr = [...(lineWordTs ?? [])];
+                    arr[selectedWord] = { ...arr[selectedWord], start: currentTime };
+                    if (selectedWord > 0 && arr[selectedWord - 1]) arr[selectedWord - 1] = { ...arr[selectedWord - 1], end: currentTime };
+                    const next = wordTimestamps.map((a) => [...a]);
+                    while (next.length <= selectedLine) next.push([]);
+                    next[selectedLine] = arr;
+                    onWordTimestampsChange(next);
+                    setWordFineTune(currentTime.toFixed(2));
+                  }}
+                  style={{ padding: "0.2rem 0.5rem", borderRadius: 6, border: "none", cursor: "pointer", background: "#6366F1", color: "#fff", fontSize: "0.63rem", fontWeight: 700 }}
+                >
+                  Set to Playhead
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Word waveform canvas */}
+          <div
+            ref={wordWrapRef}
+            style={{ position: "relative", height: 80, overflow: "hidden", cursor: "crosshair" }}
+            onClick={onWordCanvasClick}
+          >
+            <canvas ref={wordCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+            {wordBlocks}
+            {lineWordTs.length === 0 && (
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+                <span style={{ fontSize: "0.75rem", color: "#475569" }}>No word timestamps yet —</span>
+                <button onClick={initWordsEvenly} style={{ padding: "0.25rem 0.625rem", borderRadius: 6, border: "none", cursor: "pointer", background: "#6366F1", color: "#fff", fontSize: "0.72rem", fontWeight: 700 }}>
+                  Initialize evenly
+                </button>
+                <span style={{ fontSize: "0.72rem", color: "#475569" }}>then drag each word</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1274,7 +1580,16 @@ export default function StudioPage() {
   const [syncIndex, setSyncIndex] = useState(0);
   const [syncActive, setSyncActive] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [wordSyncActive, setWordSyncActive] = useState(false);
+  const [wordSyncIdx, setWordSyncIdx] = useState(0);
   const syncLineRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  const allWordsFlat = useMemo(
+    () => lines.flatMap((l, li) =>
+      l.trim().split(/\s+/).filter(Boolean).map((w, wi) => ({ word: w, lineIdx: li, wordIdx: wi }))
+    ),
+    [lines]
+  );
 
   // ── Phase 4: Style ──
   const [clips, setClips] = useState<VideoClip[]>([]);
@@ -1479,9 +1794,9 @@ export default function StudioPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Spacebar sync handler ──
+  // ── Spacebar line-sync handler ──
   useEffect(() => {
-    if (step !== 2 || !syncActive) return;
+    if (step !== 2 || !syncActive || wordSyncActive) return;
 
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
@@ -1504,7 +1819,44 @@ export default function StudioPage() {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [step, syncActive, syncIndex, isPlaying, lines.length]);
+  }, [step, syncActive, wordSyncActive, syncIndex, isPlaying, lines.length]);
+
+  // ── Spacebar word-sync handler ──
+  useEffect(() => {
+    if (step !== 2 || !wordSyncActive) return;
+
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+      if (e.code !== "Space") return;
+      e.preventDefault();
+      if (!isPlaying) return;
+
+      const idx = wordSyncIdx;
+      if (idx >= allWordsFlat.length) return;
+
+      const t = currentTimeRef.current;
+      const { word, lineIdx, wordIdx } = allWordsFlat[idx];
+
+      setWordTimestamps((prev) => {
+        const next = lines.map((_, li) => [...(prev[li] ?? [])]);
+        if (!next[lineIdx]) next[lineIdx] = [];
+        next[lineIdx][wordIdx] = { word, start: t, end: t };
+        // Fix up end times: each word's end = next word's start
+        for (let li = 0; li < next.length; li++) {
+          for (let wi = 0; wi < next[li].length; wi++) {
+            const nxt = next[li][wi + 1] ?? next[li + 1]?.[0];
+            if (nxt && next[li][wi]) next[li][wi] = { ...next[li][wi], end: nxt.start };
+          }
+        }
+        return next;
+      });
+      setWordSyncIdx(idx + 1);
+    }
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [step, wordSyncActive, wordSyncIdx, isPlaying, allWordsFlat, lines]);
 
   // Auto-scroll current sync line into view
   useEffect(() => {
@@ -2523,6 +2875,80 @@ export default function StudioPage() {
             </div>
           )}
 
+          {/* Word sync banner */}
+          <div style={{
+            background: wordSyncActive ? "#1E1B4B" : "#F8F9FC",
+            borderRadius: 16,
+            border: `1.5px solid ${wordSyncActive ? "#6366F1" : "#E2E6F0"}`,
+            padding: "1rem 1.25rem",
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap",
+            transition: "all 0.2s",
+          }}>
+            <div>
+              <p style={{ fontWeight: 700, fontSize: "0.875rem", color: wordSyncActive ? "#A5B4FC" : NAVY }}>
+                Word-level Sync
+              </p>
+              <p style={{ fontSize: "0.75rem", color: wordSyncActive ? "#818CF8" : "#64748b", marginTop: "0.2rem" }}>
+                {wordSyncActive
+                  ? wordSyncIdx >= allWordsFlat.length
+                    ? `All ${allWordsFlat.length} words stamped!`
+                    : `Press SPACE at each word · "${allWordsFlat[wordSyncIdx]?.word}" · ${wordSyncIdx}/${allWordsFlat.length}`
+                  : "Press SPACE once per word as audio plays for sub-line accuracy"}
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
+              {wordSyncActive ? (
+                <button
+                  onClick={() => { setWordSyncActive(false); if (isPlaying) pause(); }}
+                  style={{ padding: "0.45rem 1rem", borderRadius: 10, border: "none", cursor: "pointer", background: "#FEE2E2", color: "#DC2626", fontWeight: 700, fontSize: "0.78rem" }}
+                >
+                  Stop
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setSyncActive(false);
+                    setWordSyncActive(true);
+                    setWordSyncIdx(0);
+                    if (!isPlaying) {
+                      pausedAtRef.current = trimStart;
+                      setCurrentTime(trimStart);
+                      startPlayback();
+                    }
+                  }}
+                  style={{ padding: "0.45rem 1rem", borderRadius: 10, border: "none", cursor: "pointer", background: "#6366F1", color: "#fff", fontWeight: 700, fontSize: "0.78rem" }}
+                >
+                  {wordSyncIdx === 0 ? "Start Word Sync" : "Resume"}
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setWordTimestamps([]);
+                  setWordSyncIdx(0);
+                  setWordSyncActive(false);
+                }}
+                style={{ padding: "0.45rem 0.875rem", borderRadius: 10, border: `1px solid ${wordSyncActive ? "#4338CA" : "#E2E6F0"}`, cursor: "pointer", background: "transparent", color: wordSyncActive ? "#818CF8" : "#64748b", fontWeight: 600, fontSize: "0.78rem" }}
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
+          {/* Word sync keyboard hint */}
+          {wordSyncActive && wordSyncIdx < allWordsFlat.length && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.625rem" }}>
+              <div style={{ background: "#EEF2FF", border: "1px solid #C7D2FE", borderRadius: 8, padding: "0.25rem 0.75rem", fontFamily: "monospace", fontSize: "0.8rem", fontWeight: 700, color: "#4338CA", boxShadow: "0 2px 0 #A5B4FC" }}>
+                SPACE
+              </div>
+              <span style={{ fontSize: "0.78rem", color: "#4338CA", fontWeight: 600 }}>
+                &ldquo;{allWordsFlat[wordSyncIdx]?.word}&rdquo;
+              </span>
+              <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                (line {allWordsFlat[wordSyncIdx]?.lineIdx + 1}, word {allWordsFlat[wordSyncIdx]?.wordIdx + 1})
+              </span>
+            </div>
+          )}
+
           {/* Timeline editor */}
           <div>
             <button
@@ -2563,6 +2989,8 @@ export default function StudioPage() {
                   isPlaying={isPlaying}
                   onPlayPause={togglePlay}
                   syncActive={syncActive}
+                  wordTimestamps={wordTimestamps}
+                  onWordTimestampsChange={setWordTimestamps}
                 />
               </div>
             )}
