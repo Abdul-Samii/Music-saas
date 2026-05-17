@@ -812,7 +812,7 @@ const tlBtn: CSSProperties = {
 function LyricTimeline({
   audioBuffer, trimStart, trimEnd, lines, timestamps, onTimestampsChange,
   currentTime, onSeek, isPlaying, onPlayPause, syncActive, wordSyncActive,
-  wordTimestamps, onWordTimestampsChange,
+  wordTimestamps, onWordTimestampsChange, mode = "both",
 }: {
   audioBuffer: AudioBuffer;
   trimStart: number; trimEnd: number;
@@ -827,6 +827,7 @@ function LyricTimeline({
   wordSyncActive: boolean;
   wordTimestamps: WordTs[][];
   onWordTimestampsChange: (wts: WordTs[][]) => void;
+  mode?: "lines" | "words" | "both";
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -1385,7 +1386,8 @@ function LyricTimeline({
         )}
       </div>
 
-      {/* Canvas + block layer */}
+      {/* Canvas + block layer — line track */}
+      {mode !== "words" && (
       <div
         ref={wrapRef}
         style={{ position: "relative", height: 140, overflow: "hidden", cursor: "crosshair" }}
@@ -1395,6 +1397,7 @@ function LyricTimeline({
         <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
         {blocks}
       </div>
+      )}
 
       {/* Scrollbar */}
       {zoom > 1.05 && (
@@ -1417,7 +1420,7 @@ function LyricTimeline({
       )}
 
       {/* Line fine-tune bar */}
-      {selectedLine !== null && (
+      {mode !== "words" && selectedLine !== null && (
         <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", padding: "0.5rem 0.875rem", background: "#1E293B", borderTop: "1px solid #0F172A", flexWrap: "wrap" }}>
           <div style={{ width: 9, height: 9, borderRadius: "50%", background: BLOCK_COLORS[selectedLine % BLOCK_COLORS.length], flexShrink: 0 }} />
           <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#E2E8F0", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1446,7 +1449,7 @@ function LyricTimeline({
       )}
 
       {/* ── Word Track (second row, same zoom/scroll as line track) ── */}
-      <div style={{ borderTop: "2px solid #0F172A" }}>
+      {mode !== "lines" && <div style={{ borderTop: "2px solid #0F172A" }}>
         {/* Word track label row */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.3rem 0.875rem", background: "#111827", flexWrap: "wrap" }}>
           <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#6366F1", letterSpacing: "0.05em" }}>WORDS</span>
@@ -1527,7 +1530,7 @@ function LyricTimeline({
             </div>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -1595,7 +1598,8 @@ export default function StudioPage() {
   const [timestamps, setTimestamps] = useState<(number | null)[]>([]);
   const [syncIndex, setSyncIndex] = useState(0);
   const [syncActive, setSyncActive] = useState(false);
-  const [showTimeline, setShowTimeline] = useState(false);
+  const [showLineTimeline, setShowLineTimeline] = useState(false);
+  const [showWordTimeline, setShowWordTimeline] = useState(false);
   const [wordSyncActive, setWordSyncActive] = useState(false);
   const [wordSyncIdx, setWordSyncIdx] = useState(0);
   const syncLineRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -2894,6 +2898,57 @@ export default function StudioPage() {
             </div>
           )}
 
+          {/* Line timeline toggle */}
+          <div>
+            <button
+              onClick={() => setShowLineTimeline((v) => !v)}
+              style={{
+                display: "flex", alignItems: "center", gap: "0.5rem",
+                padding: "0.6rem 1rem", borderRadius: 12,
+                border: `1.5px solid ${showLineTimeline ? BLUE : "#E2E6F0"}`,
+                background: showLineTimeline ? "#EEF2FF" : "#fff",
+                color: showLineTimeline ? BLUE : "#475569",
+                cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", width: "100%",
+                justifyContent: "space-between", boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+                Timeline Editor
+                <span style={{ fontSize: "0.68rem", fontWeight: 500, color: showLineTimeline ? BLUE : "#94a3b8" }}>
+                  — drag line blocks, zoom, fine-tune
+                </span>
+              </span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: showLineTimeline ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            {showLineTimeline && (
+              <div style={{ marginTop: "0.75rem" }}>
+                <LyricTimeline
+                  audioBuffer={audioBuffer}
+                  trimStart={trimStart}
+                  trimEnd={trimEnd}
+                  lines={lines}
+                  timestamps={timestamps}
+                  onTimestampsChange={setTimestamps}
+                  currentTime={currentTime}
+                  onSeek={handleSeek}
+                  isPlaying={isPlaying}
+                  onPlayPause={togglePlay}
+                  syncActive={syncActive}
+                  wordSyncActive={wordSyncActive}
+                  wordTimestamps={wordTimestamps}
+                  onWordTimestampsChange={setWordTimestamps}
+                  mode="lines"
+                />
+              </div>
+            )}
+          </div>
+
           {/* Word sync card — contains keyboard hint + Timeline Editor */}
           <div style={{
             background: wordSyncActive ? "#1E1B4B" : "#F8F9FC",
@@ -2975,13 +3030,13 @@ export default function StudioPage() {
             {/* Timeline Editor — scoped to word-level sync */}
             <div style={{ borderTop: `1px solid ${wordSyncActive ? "#312E81" : "#E2E6F0"}`, paddingTop: "0.75rem" }}>
               <button
-                onClick={() => setShowTimeline((v) => !v)}
+                onClick={() => setShowWordTimeline((v) => !v)}
                 style={{
                   display: "flex", alignItems: "center", gap: "0.5rem",
                   padding: "0.5rem 0.875rem", borderRadius: 10,
-                  border: `1.5px solid ${showTimeline ? (wordSyncActive ? "#6366F1" : BLUE) : (wordSyncActive ? "#312E81" : "#E2E6F0")}`,
-                  background: showTimeline ? (wordSyncActive ? "#312E81" : "#EEF2FF") : "transparent",
-                  color: showTimeline ? (wordSyncActive ? "#A5B4FC" : BLUE) : (wordSyncActive ? "#818CF8" : "#475569"),
+                  border: `1.5px solid ${showWordTimeline ? (wordSyncActive ? "#6366F1" : BLUE) : (wordSyncActive ? "#312E81" : "#E2E6F0")}`,
+                  background: showWordTimeline ? (wordSyncActive ? "#312E81" : "#EEF2FF") : "transparent",
+                  color: showWordTimeline ? (wordSyncActive ? "#A5B4FC" : BLUE) : (wordSyncActive ? "#818CF8" : "#475569"),
                   cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", width: "100%",
                   justifyContent: "space-between",
                 }}
@@ -2996,11 +3051,11 @@ export default function StudioPage() {
                   </span>
                 </span>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                  style={{ transform: showTimeline ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+                  style={{ transform: showWordTimeline ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
                   <polyline points="6 9 12 15 18 9"/>
                 </svg>
               </button>
-              {showTimeline && (
+              {showWordTimeline && (
                 <div style={{ marginTop: "0.75rem" }}>
                   <LyricTimeline
                     audioBuffer={audioBuffer}
@@ -3017,6 +3072,7 @@ export default function StudioPage() {
                     wordSyncActive={wordSyncActive}
                     wordTimestamps={wordTimestamps}
                     onWordTimestampsChange={setWordTimestamps}
+                    mode="words"
                   />
                 </div>
               )}
