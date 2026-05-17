@@ -1,9 +1,31 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import type { ChangeEvent } from "react";
 import AudioWave from "./AudioWave";
 
 const SongUploader = () => {
+  const router = useRouter();
+  const { data: session } = useSession();
+
+  const handleUploadChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const token = (session as { accessToken?: string } | null)?.accessToken;
+    router.push(token ? "/dashboard/creative" : "/signup");
+  };
+
   return (
     <div className="max-w-162.5 mx-auto">
-      <input type="file" className="hidden" id="audio" />
+      <input
+        type="file"
+        className="hidden"
+        id="audio"
+        accept="audio/*"
+        onChange={handleUploadChange}
+      />
       <label
         className="border border-border bg-white shadow-card p-10 rounded-xl cursor-pointer flex flex-col items-center"
         htmlFor="audio"
