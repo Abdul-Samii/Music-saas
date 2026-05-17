@@ -178,51 +178,6 @@ export class MediaController {
     };
   }
 
-  // POST /media/render-server  — FFmpeg server-side render, returns MP4 stream
-  @Post('render-server')
-  async renderServer(
-    @Body()
-    body: {
-      videoClipUrl: string;
-      audioUrl: string;
-      trimStart: number;
-      trimEnd: number;
-      lyrics: { text: string; time: number }[];
-      textColor: string;
-      overlayOpacity: number;
-      textPosition: 'top' | 'center' | 'bottom';
-      fontSize: 'sm' | 'md' | 'lg';
-    },
-    @CurrentUser() _user: JwtUser,
-    @Res() res: Response,
-  ) {
-    if (!body.videoClipUrl || !body.audioUrl) {
-      throw new BadRequestException('videoClipUrl and audioUrl are required');
-    }
-    const audioPath = '.' + body.audioUrl;
-    let outputPath: string | null = null;
-    try {
-      outputPath = await this.media.renderVideoServer({
-        videoClipUrl: body.videoClipUrl,
-        audioPath,
-        trimStart: Number(body.trimStart) || 0,
-        trimEnd: Number(body.trimEnd),
-        lyrics: (body.lyrics ?? []).filter((l) => l.time != null),
-        textColor: body.textColor ?? '#FFFFFF',
-        overlayOpacity: Number(body.overlayOpacity) || 0.4,
-        textPosition: body.textPosition ?? 'bottom',
-        fontSize: body.fontSize ?? 'md',
-      });
-      res.download(outputPath, 'creative.mp4', () => {
-        if (outputPath) fs.unlink(outputPath, () => {});
-      });
-    } catch (err) {
-      console.error('[render-server]', err);
-      if (outputPath) fs.unlink(outputPath, () => {});
-      res.status(500).json({ error: 'Render failed' });
-    }
-  }
-
   // GET /media/proxy-clip?url=<encoded-s3-url>  — proxies S3 video to avoid browser CORS
   @Get('proxy-clip')
   async proxyClip(@Query('url') url: string, @Res() res: Response) {

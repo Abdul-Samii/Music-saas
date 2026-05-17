@@ -1755,68 +1755,291 @@ export default function StudioPage() {
     }
   }
 
-  // ── Server-side render download ──
+  // ── Canvas-based video download ──
   async function downloadVideoCanvas(result: { id: string; name: string; config: ClipConfig }, clipIndex: number) {
     if (downloadingId) return;
     setDownloadingId(result.id);
 
     const clipUrl = selectedClips[clipIndex]?.url ?? selectedClips[0]?.url;
     const cfg = result.config;
+    const W = 720, H = 1280;
+    const dur = trimEnd - trimStart;
+    const fsPx = cfg.fontSize === "sm" ? 44 : cfg.fontSize === "md" ? 56 : 72;
 
+    // Build tiktok word chunks: up to 3 words, total chars ≤ 18, no word >10 mixed
+    const allWords = lines.flatMap((l) => l.split(" ").filter(Boolean));
+    const wordChunksRender: string[][] = [];
+    let wci = 0;
+    while (wci < allWords.length) {
+      const chunk: string[] = [];
+      let totalChars = 0;
+      while (wci < allWords.length && chunk.length < 3) {
+        const w = allWords[wci];
+        if (chunk.length === 0) {
+          chunk.push(w); totalChars += w.length; wci++;
+          if (w.length > 10) break;
+        } else {
+          if (w.length > 10 || totalChars + w.length > 18) break;
+          chunk.push(w); totalChars += w.length; wci++;
+        }
+      }
+      if (chunk.length > 0) wordChunksRender.push(chunk);
+    }
+
+    const lineWordOffsets = lines.map((_, li2) =>
+      lines.slice(0, li2).reduce((acc, l) => acc + l.split(" ").filter(Boolean).length, 0)
+    );
+
+    function lineAt(t: number): number {
+      for (let i = 0; i < timestamps.length; i++) {
+        const start = timestamps[i];
+        if (start !== null && t >= start) {
+          const end = endTimestamps[i];
+          if (end === null || end === undefined || t < end) return i;
+        }
+      }
+      return -1;
+    }
+
+    function globalWordAt(t: number): number {
+      let best = -1;
+      for (let li2 = 0; li2 < lines.length; li2++) {
+        const wts = wordTimestamps?.[li2] ?? [];
+        for (let wi = 0; wi < wts.length; wi++) {
+          if (wts[wi]?.start <= t) best = lineWordOffsets[li2] + wi;
+          else break;
+        }
+      }
+      return best;
+    }
+
+    function wordAt(li: number, t: number): number {
+      const wts = wordTimestamps?.[li] ?? [];
+      let w = 0;
+      for (let wi = 0; wi < wts.length; wi++) {
+        if (wts[wi]?.start <= t) w = wi; else break;
+      }
+      return w;
+    }
+
+    function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+      const words = text.split(" ");
+      const wrapped: string[] = [];
+      let cur = "";
+      for (const word of words) {
+        const test = cur ? `${cur} ${word}` : word;
+        if (ctx.measureText(test).width > maxW && cur) { wrapped.push(cur); cur = word; }
+        else cur = test;
+      }
+      if (cur) wrapped.push(cur);
+      return wrapped;
+    }
+
+    function drawLyrics(ctx: CanvasRenderingContext2D, t: number) {
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.shadowBlur = 0;
+      const maxTextW = W - 80;
+
+      if (cfg.lyricStyle === "tiktok") {
+        const gwi = globalWordAt(t);
+        if (gwi < 0) return;
+        let accumulated = 0;
+        let currentChunk = 0;
+        for (let ci = 0; ci < wordChunksRender.length; ci++) {
+          accumulated += wordChunksRender[ci].length;
+          if (accumulated > gwi) { currentChunk = ci; break; }
+          currentChunk = ci;
+        }
+        const page = Math.floor(currentChunk / 2);
+        const pageStart = page * 2;
+        const posInPage = currentChunk - pageStart;
+        const visibleChunks = wordChunksRender.slice(pageStart, pageStart + 2).slice(0, posInPage + 1);
+        const pageFirstWordIdx = wordChunksRender.slice(0, pageStart).reduce((acc, c) => acc + c.length, 0);
+        ctx.font = `700 52px 'Varela Round', sans-serif`;
+        ctx.fillStyle = "#FFFFFF";
+        ctx.shadowBlur = 0;
+        const lh = 108;
+        const pad = W * 0.10;
+        const maxW2 = W - pad * 2;
+        const totalH = visibleChunks.length * lh;
+        const yStart = H / 2 - totalH / 2;
+        visibleChunks.forEach((chunk, idx) => {
+          const absChunkIdx = pageStart + idx;
+          const chunkGlobalStart = pageFirstWordIdx + wordChunksRender.slice(pageStart, absChunkIdx).reduce((acc, c) => acc + c.length, 0);
+          const y = yStart + idx * lh + lh / 2;
+          const wordWidths = chunk.map((w) => ctx.measureText(w).width);
+          const totalWordW = wordWidths.reduce((a, b) => a + b, 0);
+          const gap = chunk.length > 1 ? (maxW2 - totalWordW) / (chunk.length - 1) : 0;
+          let x = pad;
+          chunk.forEach((word, wi) => {
+            if (chunkGlobalStart + wi <= gwi) { ctx.textAlign = "left"; ctx.fillText(word, x, y); }
+            x += wordWidths[wi] + gap;
+          });
+          ctx.textAlign = "center";
+        });
+        ctx.textAlign = "center";
+        return;
+      }
+
+      const li = lineAt(t);
+      if (li < 0 || li >= lines.length) return;
+      const line = lines[li] ?? "";
+      const yBase = cfg.textPosition === "top" ? H * 0.14 : cfg.textPosition === "center" ? H * 0.5 : H * 0.80;
+
+      if (cfg.lyricStyle === "spotlight") {
+        ctx.font = `900 ${Math.round(fsPx * 1.3)}px ${cfg.fontFamily}`;
+        ctx.fillStyle = cfg.highlightColor;
+        ctx.shadowColor = cfg.highlightColor;
+        ctx.shadowBlur = 24;
+        const wrapped = wrapLines(ctx, line, maxTextW);
+        const lh = Math.round(fsPx * 1.3) * 1.25;
+        wrapped.forEach((l, i) => ctx.fillText(l, W / 2, yBase + (i - wrapped.length / 2 + 0.5) * lh));
+      } else if (cfg.lyricStyle === "word-by-word") {
+        const words = line.split(" ").filter(Boolean);
+        const activeWi = wordAt(li, t);
+        ctx.font = `800 ${fsPx}px ${cfg.fontFamily}`;
+        const rows: { word: string; wi: number }[][] = [];
+        let row: { word: string; wi: number }[] = [];
+        let rowW = 0;
+        words.forEach((word, wi) => {
+          const ww = ctx.measureText(word + " ").width;
+          if (rowW + ww > maxTextW && row.length) { rows.push(row); row = []; rowW = 0; }
+          row.push({ word, wi }); rowW += ww;
+        });
+        if (row.length) rows.push(row);
+        const lh = fsPx * 1.35;
+        rows.forEach((r, ri) => {
+          const rowText = r.map((x) => x.word).join(" ");
+          const rowTotalW = ctx.measureText(rowText).width;
+          let x = W / 2 - rowTotalW / 2;
+          const y = yBase + (ri - rows.length / 2 + 0.5) * lh;
+          r.forEach(({ word, wi }, rWi) => {
+            const active = wi === activeWi;
+            ctx.fillStyle = active ? cfg.highlightColor : cfg.textColor;
+            ctx.shadowColor = active ? cfg.highlightColor : "rgba(0,0,0,0.8)";
+            ctx.shadowBlur = active ? 16 : 8;
+            ctx.textAlign = "left";
+            const label = word + (rWi < r.length - 1 ? " " : "");
+            ctx.fillText(label, x, y);
+            x += ctx.measureText(label).width;
+          });
+          ctx.textAlign = "center";
+        });
+      } else {
+        ctx.font = `800 ${fsPx}px ${cfg.fontFamily}`;
+        ctx.fillStyle = cfg.textColor;
+        ctx.shadowColor = "rgba(0,0,0,0.9)";
+        ctx.shadowBlur = 10;
+        const wrapped = wrapLines(ctx, line, maxTextW);
+        const lh = fsPx * 1.35;
+        wrapped.forEach((l, i) => ctx.fillText(l, W / 2, yBase + (i - wrapped.length / 2 + 0.5) * lh));
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    const apiRoot = process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api/v1";
+    const apiOrigin = new URL(apiRoot).origin;
+    const fullAudioUrl = uploadedAudioUrl.startsWith("http") ? uploadedAudioUrl : `${apiOrigin}${uploadedAudioUrl}`;
+    const proxiedClipUrl = `${apiRoot}/media/proxy-clip?url=${encodeURIComponent(clipUrl)}`;
+
+    const session = await getSession();
+    const token = (session as { accessToken?: string } | null)?.accessToken;
+    const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const cleanups: (() => void)[] = [];
     try {
-      // Ensure audio is uploaded to the server first
-      let audioUrl = uploadedAudioUrl;
-      if (!audioUrl && audioFileRef.current) {
-        const uploaded = await creativeApi.uploadAudio(audioFileRef.current, (p) => setUploadProgress(p)) as { audioUrl: string };
-        audioUrl = uploaded.audioUrl;
-        setUploadedAudioUrl(audioUrl);
+      const [videoBlob, audioBlob] = await Promise.all([
+        fetch(proxiedClipUrl, { headers: authHeader }).then((r) => r.blob()),
+        fetch(fullAudioUrl, { headers: authHeader }).then((r) => r.blob()),
+      ]);
+      const videoObjUrl = URL.createObjectURL(videoBlob);
+      const audioObjUrl = URL.createObjectURL(audioBlob);
+      cleanups.push(() => URL.revokeObjectURL(videoObjUrl));
+      cleanups.push(() => URL.revokeObjectURL(audioObjUrl));
+
+      const videoEl = document.createElement("video");
+      videoEl.src = videoObjUrl;
+      videoEl.muted = true;
+      videoEl.loop = true;
+      await new Promise<void>((res, rej) => { videoEl.onloadeddata = () => res(); videoEl.onerror = rej; videoEl.load(); });
+
+      const audioEl = document.createElement("audio");
+      audioEl.src = audioObjUrl;
+      await new Promise<void>((res, rej) => { audioEl.oncanplay = () => res(); audioEl.onerror = rej; audioEl.load(); });
+      audioEl.currentTime = trimStart;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = W; canvas.height = H;
+      const ctx = canvas.getContext("2d")!;
+
+      const audioCtx = new AudioContext();
+      const src = audioCtx.createMediaElementSource(audioEl);
+      const dest = audioCtx.createMediaStreamDestination();
+      src.connect(dest);
+      cleanups.push(() => audioCtx.close());
+
+      // VP8 encodes faster in-browser; 24fps sufficient for social video
+      const mimeType = ["video/webm;codecs=vp8,opus", "video/webm;codecs=vp9,opus", "video/webm"]
+        .find((t) => MediaRecorder.isTypeSupported(t)) ?? "video/webm";
+      const chunks: Blob[] = [];
+      const rec = new MediaRecorder(
+        new MediaStream([...canvas.captureStream(24).getTracks(), ...dest.stream.getTracks()]),
+        { mimeType, videoBitsPerSecond: 2_500_000 },
+      );
+      rec.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = async () => {
+        try {
+          const webmBlob = new Blob(chunks, { type: "video/webm" });
+          const fd = new FormData();
+          fd.append("video", webmBlob, "video.webm");
+          const resp = await fetch(`${apiRoot}/media/convert-mp4`, {
+            method: "POST",
+            headers: authHeader,
+            body: fd,
+          });
+          if (!resp.ok) throw new Error(`Server ${resp.status}`);
+          const contentType = resp.headers.get("content-type") ?? "";
+          if (!contentType.includes("video") && !contentType.includes("octet-stream")) throw new Error(`Bad content-type: ${contentType}`);
+          const mp4Blob = await resp.blob();
+          const url = URL.createObjectURL(mp4Blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = `${result.name}.mp4`;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (convErr) {
+          console.error("[convert-mp4] falling back to webm:", convErr);
+          const blob = new Blob(chunks, { type: "video/webm" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = `${result.name}.webm`;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } finally {
+          cleanups.forEach((fn) => fn());
+          setDownloadingId(null);
+        }
+      };
+
+      await document.fonts.ready;
+      rec.start(100);
+      await Promise.all([videoEl.play(), audioEl.play()]);
+      const t0 = performance.now();
+
+      function frame() {
+        const elapsed = (performance.now() - t0) / 1000;
+        if (elapsed >= dur) { rec.stop(); videoEl.pause(); audioEl.pause(); return; }
+        ctx.drawImage(videoEl, 0, 0, W, H);
+        ctx.fillStyle = `rgba(0,0,0,${cfg.overlayOpacity})`;
+        ctx.fillRect(0, 0, W, H);
+        drawLyrics(ctx, trimStart + elapsed);
+        requestAnimationFrame(frame);
       }
-      if (!audioUrl) throw new Error("No audio available");
+      requestAnimationFrame(frame);
 
-      const lyricsPayload = lines
-        .map((text, i) => ({ text, time: timestamps[i] as number | null }))
-        .filter((l): l is { text: string; time: number } => l.time !== null && l.time !== undefined);
-
-      const apiRoot = process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api/v1";
-      const session = await getSession();
-      const token = (session as { accessToken?: string } | null)?.accessToken;
-
-      const resp = await fetch(`${apiRoot}/media/render-server`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          videoClipUrl: clipUrl,
-          audioUrl,
-          trimStart,
-          trimEnd,
-          lyrics: lyricsPayload,
-          textColor: cfg.textColor,
-          overlayOpacity: cfg.overlayOpacity,
-          textPosition: cfg.textPosition,
-          fontSize: cfg.fontSize,
-        }),
-      });
-
-      if (!resp.ok) {
-        const errText = await resp.text().catch(() => "unknown");
-        throw new Error(`Render failed: ${errText}`);
-      }
-
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${result.name}.mp4`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
-      console.error("[render-server]", err);
-    } finally {
+      console.error("[Download]", err);
+      cleanups.forEach((fn) => fn());
       setDownloadingId(null);
     }
   }
