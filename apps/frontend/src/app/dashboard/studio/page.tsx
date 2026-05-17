@@ -1738,13 +1738,16 @@ export default function StudioPage() {
       });
       const data = await resp.json() as { url?: string; duration?: number; filename?: string; message?: string };
       if (!resp.ok) throw new Error(data.message ?? "Upload failed");
+      // data.url is a relative path like /uploads/user-videos/xxx.mp4 — make it absolute
+      const apiOrigin = new URL(apiRoot).origin;
+      const fullUrl = `${apiOrigin}${data.url}`;
       const newClip: VideoClip = {
         id: `user-${Date.now()}`,
         title: file.name.replace(/\.[^.]+$/, ""),
         style: "My Video",
         duration: data.duration ?? 0,
-        url: data.url!,
-        thumbnail: data.url!,
+        url: fullUrl,
+        thumbnail: fullUrl,
       };
       setUserClips((prev) => [...prev, newClip]);
       toggleClip(newClip);
@@ -1941,7 +1944,10 @@ export default function StudioPage() {
     const apiRoot = process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api/v1";
     const apiOrigin = new URL(apiRoot).origin;
     const fullAudioUrl = uploadedAudioUrl.startsWith("http") ? uploadedAudioUrl : `${apiOrigin}${uploadedAudioUrl}`;
-    const proxiedClipUrl = `${apiRoot}/media/proxy-clip?url=${encodeURIComponent(clipUrl)}`;
+    // S3 clips need the proxy (CORS); user-uploaded clips are already on the same server
+    const proxiedClipUrl = clipUrl.includes("amazonaws.com")
+      ? `${apiRoot}/media/proxy-clip?url=${encodeURIComponent(clipUrl)}`
+      : clipUrl;
 
     const session = await getSession();
     const token = (session as { accessToken?: string } | null)?.accessToken;
