@@ -1345,6 +1345,7 @@ export default function StudioPage() {
   const [audioLanguage, setAudioLanguage] = useState("");
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState("");
   const [autoTranscribed, setAutoTranscribed] = useState(false);
+  const [whisperSnapshot, setWhisperSnapshot] = useState<{ lyricsText: string; timestamps: number[] } | null>(null);
   const [wordTimestamps, setWordTimestamps] = useState<WordTs[][]>([]);
 
   const [selectedClips, setSelectedClips] = useState<VideoClip[]>([]);
@@ -2004,6 +2005,7 @@ export default function StudioPage() {
   const overLimit = trimDuration > MAX_TRIM + 0.01;
   const timedCount = timestamps.filter((t) => t !== null).length;
   const allSynced = lines.length > 0 && timedCount === lines.length;
+  const [editingLineIdx, setEditingLineIdx] = useState<number | null>(null);
   const trimProgress = trimEnd > trimStart
     ? Math.max(0, Math.min((currentTime - trimStart) / (trimEnd - trimStart), 1))
     : 0;
@@ -2310,11 +2312,14 @@ export default function StudioPage() {
                             console.log("[Whisper] final lines:", newLines);
                             console.log("[Whisper] final timestamps:", relevant.map((s) => s.start));
                             if (newLines.length > 0) {
-                              setLyricsText(newLines.join("\n"));
-                              setTimestamps(relevant.map((s) => s.start));
+                              const lyrTxt = newLines.join("\n");
+                              const tss = relevant.map((s) => s.start);
+                              setLyricsText(lyrTxt);
+                              setTimestamps(tss);
                               setWordTimestamps(relevant.map((s) => s.words ?? []));
                               setSyncIndex(newLines.length);
                               setAutoTranscribed(true);
+                              setWhisperSnapshot({ lyricsText: lyrTxt, timestamps: tss });
                             } else {
                               setTranscriptionFailed(true);
                             }
@@ -2565,6 +2570,27 @@ export default function StudioPage() {
                     {syncIndex === 0 ? "Start Sync" : "Resume Sync"}
                   </button>
                 )}
+                {whisperSnapshot && (
+                  <button
+                    onClick={() => {
+                      setLyricsText(whisperSnapshot.lyricsText);
+                      setTimestamps(whisperSnapshot.timestamps);
+                      setSyncIndex(whisperSnapshot.timestamps.length);
+                      setSyncActive(false);
+                      stopPlayback(false);
+                      pausedAtRef.current = trimStart;
+                      setCurrentTime(trimStart);
+                    }}
+                    title="Reset timestamps back to what Whisper originally detected"
+                    style={{ padding: "0.5rem 1rem", borderRadius: 10, border: `1px solid ${syncActive ? "#C7D2FE" : "#E2E6F0"}`, cursor: "pointer", background: "transparent", color: "#6366F1", fontWeight: 600, fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.3rem" }}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                      <path d="M3 3v5h5"/>
+                    </svg>
+                    Undo to Whisper
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setTimestamps(Array(lines.length).fill(null));
@@ -2674,15 +2700,43 @@ export default function StudioPage() {
                       </svg>
                     )}
 
-                    {/* Lyric text */}
-                    <span style={{
-                      fontSize: "0.875rem",
-                      color: isDone ? "#64748b" : isCurrent ? NAVY : "#94a3b8",
-                      fontWeight: isCurrent ? 700 : 400,
-                      flex: 1,
-                    }}>
-                      {line}
-                    </span>
+                    {/* Lyric text — click to edit */}
+                    {editingLineIdx === i ? (
+                      <input
+                        autoFocus
+                        defaultValue={line}
+                        onClick={(e) => e.stopPropagation()}
+                        onBlur={(e) => {
+                          const val = e.target.value.trim();
+                          if (val) {
+                            const updated = [...lines];
+                            updated[i] = val;
+                            setLyricsText(updated.join("\n"));
+                          }
+                          setEditingLineIdx(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); }
+                          if (e.key === "Escape") { setEditingLineIdx(null); }
+                          e.stopPropagation();
+                        }}
+                        style={{ flex: 1, fontSize: "0.875rem", fontWeight: 700, color: NAVY, background: "#EEF2FF", border: "1.5px solid #BFD0FB", borderRadius: 6, padding: "0.15rem 0.4rem", outline: "none" }}
+                      />
+                    ) : (
+                      <span
+                        onClick={(e) => { e.stopPropagation(); if (!syncActive) setEditingLineIdx(i); }}
+                        title={syncActive ? undefined : "Click to edit"}
+                        style={{
+                          fontSize: "0.875rem",
+                          color: isDone ? "#64748b" : isCurrent ? NAVY : "#94a3b8",
+                          fontWeight: isCurrent ? 700 : 400,
+                          flex: 1,
+                          cursor: syncActive ? "default" : "text",
+                        }}
+                      >
+                        {line}
+                      </span>
+                    )}
                   </div>
                 );
               })}
