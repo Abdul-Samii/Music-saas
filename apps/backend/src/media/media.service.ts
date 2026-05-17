@@ -404,6 +404,8 @@ export class MediaService {
         if (vStart >= duration) continue;
         const escaped = this.escapeDrawtext(line.text.trim());
         if (!escaped) continue;
+        const enableStart = vStart.toFixed(3);
+        const enableEnd = Math.min(vEnd, duration).toFixed(3);
         drawtexts.push(
           `drawtext=text='${escaped}'` +
             `:fontsize=${fsPx}` +
@@ -411,7 +413,7 @@ export class MediaService {
             `:x=(w-text_w)/2` +
             `:y=h*${yFrac}-text_h/2` +
             `:shadowx=2:shadowy=2:shadowcolor=black@0.8` +
-            `:enable='between(t,${vStart.toFixed(3)},${Math.min(vEnd, duration).toFixed(3)})'`,
+            `:enable='(t>=${enableStart})*(t<=${enableEnd})'`,
         );
       }
 
