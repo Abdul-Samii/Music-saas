@@ -159,7 +159,7 @@ const BestAlternatives = () => {
     </section>
   );
 };
-const checkIcon = (status: boolean | null) => {
+export const checkIcon = (status: boolean | null) => {
   if (status === false) {
     // return <img src="/img/cross-icon.svg" width={36} alt="" />;
     return (
