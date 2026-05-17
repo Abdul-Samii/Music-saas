@@ -2810,143 +2810,155 @@ export default function StudioPage() {
             </div>
           </div>
 
-          {/* Sync control banner */}
+          {/* Line sync card — contains keyboard hint + Timeline Editor */}
           <div style={{
             background: syncActive ? "#EEF2FF" : "#F8F9FC",
             borderRadius: 16,
             border: `1.5px solid ${syncActive ? BLUE : "#E2E6F0"}`,
-            padding: "1.25rem 1.5rem",
-            display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap",
+            padding: "1rem 1.25rem",
+            display: "flex", flexDirection: "column", gap: "0.75rem",
             transition: "all 0.2s",
           }}>
-            <div>
-              <p style={{ fontWeight: 700, fontSize: "0.9rem", color: syncActive ? BLUE : NAVY }}>
-                {syncActive
-                  ? allSynced ? "All lines synced!" : "Sync mode active"
-                  : syncIndex === 0 ? "Ready to sync" : "Sync paused"}
-              </p>
-              <p style={{ fontSize: "0.78rem", color: "#64748b", marginTop: "0.25rem" }}>
-                {syncActive && !allSynced
-                  ? `Press SPACE as each line begins · ${timedCount}/${lines.length} lines timed`
-                  : allSynced
-                  ? `${lines.length} lines synced successfully`
-                  : "Click Start Sync, then press SPACE at the start of each lyric line as the audio plays"}
-              </p>
-            </div>
-            <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
-              {syncActive ? (
-                <button
-                  onClick={() => { setSyncActive(false); if (isPlaying) pause(); }}
-                  style={{ padding: "0.5rem 1.125rem", borderRadius: 10, border: "none", cursor: "pointer", background: "#FEE2E2", color: "#DC2626", fontWeight: 700, fontSize: "0.8rem" }}
-                >
-                  Stop Sync
-                </button>
-              ) : (
+            {/* Header row */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+              <div>
+                <p style={{ fontWeight: 700, fontSize: "0.9rem", color: syncActive ? BLUE : NAVY }}>
+                  {syncActive
+                    ? allSynced ? "All lines synced!" : "Sync mode active"
+                    : syncIndex === 0 ? "Line Sync" : "Sync paused"}
+                </p>
+                <p style={{ fontSize: "0.78rem", color: syncActive ? "#4338CA" : "#64748b", marginTop: "0.2rem" }}>
+                  {syncActive && !allSynced
+                    ? `Press SPACE as each line begins · ${timedCount}/${lines.length} lines timed`
+                    : allSynced
+                    ? `${lines.length} lines synced successfully`
+                    : "Press SPACE at the start of each lyric line as the audio plays"}
+                </p>
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
+                {syncActive ? (
+                  <button
+                    onClick={() => { setSyncActive(false); if (isPlaying) pause(); }}
+                    style={{ padding: "0.5rem 1.125rem", borderRadius: 10, border: "none", cursor: "pointer", background: "#FEE2E2", color: "#DC2626", fontWeight: 700, fontSize: "0.8rem" }}
+                  >
+                    Stop Sync
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setWordSyncActive(false);
+                      setWordTimestamps([]);
+                      setWordSyncIdx(0);
+                      setSyncActive(true);
+                      if (!isPlaying) {
+                        if (pausedAtRef.current >= trimEnd) {
+                          pausedAtRef.current = trimStart;
+                          setCurrentTime(trimStart);
+                        }
+                        startPlayback();
+                      }
+                    }}
+                    style={{ padding: "0.5rem 1.125rem", borderRadius: 10, border: "none", cursor: "pointer", background: BLUE, color: "#fff", fontWeight: 700, fontSize: "0.8rem" }}
+                  >
+                    {syncIndex === 0 ? "Start Sync" : "Resume Sync"}
+                  </button>
+                )}
                 <button
                   onClick={() => {
-                    setWordSyncActive(false);
-                    setWordTimestamps([]);
-                    setWordSyncIdx(0);
-                    setSyncActive(true);
-                    if (!isPlaying) {
-                      if (pausedAtRef.current >= trimEnd) {
-                        pausedAtRef.current = trimStart;
-                        setCurrentTime(trimStart);
-                      }
-                      startPlayback();
-                    }
+                    setTimestamps(Array(lines.length).fill(null));
+                    setSyncIndex(0);
+                    setSyncActive(false);
+                    stopPlayback(false);
+                    pausedAtRef.current = trimStart;
+                    setCurrentTime(trimStart);
                   }}
-                  style={{ padding: "0.5rem 1.125rem", borderRadius: 10, border: "none", cursor: "pointer", background: BLUE, color: "#fff", fontWeight: 700, fontSize: "0.8rem" }}
+                  style={{ padding: "0.5rem 1rem", borderRadius: 10, border: `1px solid ${syncActive ? "#C7D2FE" : "#E2E6F0"}`, cursor: "pointer", background: "transparent", color: syncActive ? "#4338CA" : "#64748b", fontWeight: 600, fontSize: "0.8rem" }}
                 >
-                  {syncIndex === 0 ? "Start Sync" : "Resume Sync"}
+                  Reset
                 </button>
-              )}
+              </div>
+            </div>
+
+            {/* AI auto-synced notice */}
+            {autoTranscribed && allSynced && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", padding: "0.75rem 1rem", borderRadius: 10, background: "#F0FDF4", border: "1px solid #86EFAC" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <p style={{ fontSize: "0.75rem", color: "#16A34A", fontWeight: 600, margin: 0 }}>
+                  Auto-synced by Whisper AI · you can still adjust manually
+                </p>
+              </div>
+            )}
+
+            {/* Keyboard hint */}
+            {syncActive && !allSynced && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.625rem" }}>
+                <div style={{ background: "#EEF2FF", border: "1px solid #C7D2FE", borderRadius: 8, padding: "0.25rem 0.75rem", fontFamily: "monospace", fontSize: "0.8rem", fontWeight: 700, color: "#4338CA", boxShadow: "0 2px 0 #A5B4FC" }}>
+                  SPACE
+                </div>
+                <span style={{ fontSize: "0.78rem", color: "#4338CA", fontWeight: 600 }}>to timestamp the highlighted line</span>
+              </div>
+            )}
+
+            {/* Timeline Editor — scoped to line sync */}
+            <div style={{ borderTop: `1px solid ${syncActive ? "#C7D2FE" : "#E2E6F0"}`, paddingTop: "0.75rem" }}>
               <button
-                onClick={() => {
-                  setTimestamps(Array(lines.length).fill(null));
-                  setSyncIndex(0);
-                  setSyncActive(false);
-                  stopPlayback(false);
-                  pausedAtRef.current = trimStart;
-                  setCurrentTime(trimStart);
+                onClick={() => setShowLineTimeline((v) => !v)}
+                style={{
+                  display: "flex", alignItems: "center", gap: "0.5rem",
+                  padding: "0.5rem 0.875rem", borderRadius: 10,
+                  border: `1.5px solid ${showLineTimeline ? (syncActive ? BLUE : BLUE) : (syncActive ? "#C7D2FE" : "#E2E6F0")}`,
+                  background: showLineTimeline ? "#EEF2FF" : "transparent",
+                  color: showLineTimeline ? BLUE : (syncActive ? "#4338CA" : "#475569"),
+                  cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", width: "100%",
+                  justifyContent: "space-between",
                 }}
-                style={{ padding: "0.5rem 1rem", borderRadius: 10, border: "1px solid #E2E6F0", cursor: "pointer", background: "#fff", color: "#64748b", fontWeight: 600, fontSize: "0.8rem" }}
               >
-                Reset
+                <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
+                  </svg>
+                  Timeline Editor
+                  <span style={{ fontSize: "0.65rem", fontWeight: 500, opacity: 0.7 }}>
+                    — drag line blocks, zoom, fine-tune
+                  </span>
+                </span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transform: showLineTimeline ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
               </button>
+              {showLineTimeline && (
+                <div style={{ marginTop: "0.75rem" }}>
+                  <LyricTimeline
+                    audioBuffer={audioBuffer}
+                    trimStart={trimStart}
+                    trimEnd={trimEnd}
+                    lines={lines}
+                    timestamps={timestamps}
+                    onTimestampsChange={setTimestamps}
+                    currentTime={currentTime}
+                    onSeek={handleSeek}
+                    isPlaying={isPlaying}
+                    onPlayPause={togglePlay}
+                    syncActive={syncActive}
+                    wordSyncActive={wordSyncActive}
+                    wordTimestamps={wordTimestamps}
+                    onWordTimestampsChange={setWordTimestamps}
+                    mode="lines"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
-          {/* AI auto-synced notice */}
-          {autoTranscribed && allSynced && (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", padding: "0.875rem 1.25rem", borderRadius: 12, background: "#F0FDF4", border: "1.5px solid #86EFAC" }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              <div>
-                <p style={{ fontWeight: 700, fontSize: "0.825rem", color: "#16A34A" }}>Auto-synced by Whisper AI</p>
-                <p style={{ fontSize: "0.75rem", color: "#4ADE80" }}>All {lines.length} lines have timestamps from transcription · you can still adjust manually</p>
-              </div>
-            </div>
-          )}
-
-          {/* Keyboard hint */}
-          {syncActive && !allSynced && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.625rem" }}>
-              <div style={{ background: "#F1F5F9", border: "1px solid #E2E6F0", borderRadius: 8, padding: "0.25rem 0.75rem", fontFamily: "monospace", fontSize: "0.8rem", fontWeight: 700, color: "#475569", boxShadow: "0 2px 0 #CBD5E1" }}>
-                SPACE
-              </div>
-              <span style={{ fontSize: "0.78rem", color: "#64748b" }}>to timestamp the highlighted line</span>
-            </div>
-          )}
-
-          {/* Line timeline toggle */}
-          <div>
-            <button
-              onClick={() => setShowLineTimeline((v) => !v)}
-              style={{
-                display: "flex", alignItems: "center", gap: "0.5rem",
-                padding: "0.6rem 1rem", borderRadius: 12,
-                border: `1.5px solid ${showLineTimeline ? BLUE : "#E2E6F0"}`,
-                background: showLineTimeline ? "#EEF2FF" : "#fff",
-                color: showLineTimeline ? BLUE : "#475569",
-                cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", width: "100%",
-                justifyContent: "space-between", boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-              }}
-            >
-              <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
-                </svg>
-                Timeline Editor
-                <span style={{ fontSize: "0.68rem", fontWeight: 500, color: showLineTimeline ? BLUE : "#94a3b8" }}>
-                  — drag line blocks, zoom, fine-tune
-                </span>
-              </span>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                style={{ transform: showLineTimeline ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </button>
-            {showLineTimeline && (
-              <div style={{ marginTop: "0.75rem" }}>
-                <LyricTimeline
-                  audioBuffer={audioBuffer}
-                  trimStart={trimStart}
-                  trimEnd={trimEnd}
-                  lines={lines}
-                  timestamps={timestamps}
-                  onTimestampsChange={setTimestamps}
-                  currentTime={currentTime}
-                  onSeek={handleSeek}
-                  isPlaying={isPlaying}
-                  onPlayPause={togglePlay}
-                  syncActive={syncActive}
-                  wordSyncActive={wordSyncActive}
-                  wordTimestamps={wordTimestamps}
-                  onWordTimestampsChange={setWordTimestamps}
-                  mode="lines"
-                />
-              </div>
-            )}
+          {/* Mutual exclusivity notice */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.6rem 1rem", borderRadius: 10, background: "#FFF7ED", border: "1px solid #FED7AA" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <p style={{ fontSize: "0.72rem", color: "#9A3412", margin: 0 }}>
+              <strong>One method at a time</strong> — starting Line Sync resets Word-level Sync, and vice versa.
+            </p>
           </div>
 
           {/* Word sync card — contains keyboard hint + Timeline Editor */}
