@@ -811,8 +811,7 @@ const tlBtn: CSSProperties = {
 
 function LyricTimeline({
   audioBuffer, trimStart, trimEnd, lines, timestamps, onTimestampsChange,
-  currentTime, onSeek, isPlaying, onPlayPause, syncActive, wordSyncActive,
-  wordTimestamps, onWordTimestampsChange, mode = "both",
+  currentTime, onSeek, isPlaying, onPlayPause, syncActive, onAddLine,
 }: {
   audioBuffer: AudioBuffer;
   trimStart: number; trimEnd: number;
@@ -824,10 +823,7 @@ function LyricTimeline({
   isPlaying: boolean;
   onPlayPause: () => void;
   syncActive: boolean;
-  wordSyncActive: boolean;
-  wordTimestamps: WordTs[][];
-  onWordTimestampsChange: (wts: WordTs[][]) => void;
-  mode?: "lines" | "words" | "both";
+  onAddLine?: (atTime: number) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -838,13 +834,6 @@ function LyricTimeline({
   const [fineTuneValue, setFineTuneValue] = useState("");
   const dragging = useRef<{ line: number; targetLine: number; startX: number; origTs: number } | null>(null);
   const waveCache = useRef<Float32Array | null>(null);
-
-  // Word track state (second timeline, same zoom/scroll)
-  const [selectedWord, setSelectedWord] = useState<{ li: number; wi: number } | null>(null);
-  const [wordFineTune, setWordFineTune] = useState("");
-  const wordCanvasRef = useRef<HTMLCanvasElement>(null);
-  const wordWrapRef = useRef<HTMLDivElement>(null);
-  const wordDragging = useRef<{ li: number; wi: number; startX: number; origStart: number } | null>(null);
 
   const totalDur = trimEnd - trimStart;
   const visibleDur = totalDur / Math.max(1, zoom);
@@ -935,17 +924,22 @@ function LyricTimeline({
       }
     }
 
-    // Timestamp vertical markers
+    // Region bars (show active duration for each line) + start markers
     for (let i = 0; i < timestamps.length; i++) {
       const ts = timestamps[i];
-      if (ts === null || ts < viewStart - 1 || ts > viewEnd + 1) continue;
+      if (ts === null) continue;
+      const nextTs = timestamps[i + 1] ?? trimEnd;
       const x = ((ts - viewStart) / visibleDur) * W;
+      const xEnd = ((nextTs - viewStart) / visibleDur) * W;
       const color = BLOCK_COLORS[i % BLOCK_COLORS.length];
+      // Colored region strip at bottom
+      ctx.fillStyle = color + "33";
+      ctx.fillRect(x, H - 10, xEnd - x, 10);
+      // Solid start-line
       ctx.strokeStyle = color;
-      ctx.lineWidth = 1;
-      ctx.setLineDash([3, 3]);
-      ctx.beginPath(); ctx.moveTo(x, RULER_H); ctx.lineTo(x, H); ctx.stroke();
+      ctx.lineWidth = 2;
       ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(x, RULER_H); ctx.lineTo(x, H); ctx.stroke();
     }
 
     // Playhead
@@ -986,6 +980,15 @@ function LyricTimeline({
     if (!rect) return;
     const t = xToTime(e.clientX - rect.left);
     onSeek(Math.max(trimStart, Math.min(t, trimEnd)));
+  }
+
+  // Canvas double-click → insert new line at that time
+  function onCanvasDoubleClick(e: React.MouseEvent) {
+    if (!onAddLine) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const t = xToTime(e.clientX - rect.left);
+    onAddLine(Math.max(trimStart, Math.min(t, trimEnd)));
   }
 
   // Wheel: Ctrl = zoom, else scroll
@@ -1105,275 +1108,50 @@ function LyricTimeline({
     onTimestampsChange(next);
   }
 
-  // Block layer (absolutely positioned over canvas)
+  // Block layer — fixed-width labels centered at each timestamp so blocks move independently
   const W = getW();
   const blocks = lines.map((line, i) => {
     const ts = timestamps[i];
     if (ts === null) return null;
     const x = ((ts - viewStart) / visibleDur) * W;
-    const nextTs = timestamps[i + 1] ?? trimEnd;
-    const xEnd = ((nextTs - viewStart) / visibleDur) * W;
-    const blockW = Math.max(28, xEnd - x);
-    if (x > W + 10 || x + blockW < -10) return null;
+    if (x < -180 || x > W + 10) return null;
     const color = BLOCK_COLORS[i % BLOCK_COLORS.length];
     const isSelected = i === selectedLine;
     return (
-      <div
-        key={i}
-        onMouseDown={(e) => onBlockMouseDown(e, i)}
-        style={{
-          position: "absolute", left: x, top: 28,
-          width: blockW,
-          background: color, color: "#fff",
-          fontSize: "0.65rem", fontWeight: 700,
-          height: 26, borderRadius: 4,
-          display: "flex", alignItems: "center",
-          cursor: "grab", overflow: "hidden",
-          boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${color}` : "0 1px 4px rgba(0,0,0,0.5)",
-          zIndex: isSelected ? 10 : 5, userSelect: "none",
-        }}
-      >
-        {/* Left resize handle */}
-        <div
-          onMouseDown={(e) => onResizeMouseDown(e, i, "left")}
-          style={{ width: 7, height: "100%", cursor: "ew-resize", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.2)" }}
-        >
-          <div style={{ width: 2, height: 12, background: "rgba(255,255,255,0.6)", borderRadius: 1 }} />
+      <div key={i} style={{ position: "absolute", left: x, top: 24, transform: "translateX(-50%)", zIndex: isSelected ? 10 : 5, userSelect: "none", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        {/* Left-resize | drag-body | right-resize */}
+        <div style={{ display: "flex", height: 28, borderRadius: 5, overflow: "hidden", boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${color}` : "0 2px 6px rgba(0,0,0,0.5)" }}>
+          {/* Left resize */}
+          <div
+            onMouseDown={(e) => onResizeMouseDown(e, i, "left")}
+            title="Drag to move start earlier/later"
+            style={{ width: 8, background: color + "cc", cursor: "ew-resize", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+          >
+            <div style={{ width: 2, height: 10, background: "rgba(255,255,255,0.7)", borderRadius: 1 }} />
+          </div>
+          {/* Drag body */}
+          <div
+            onMouseDown={(e) => onBlockMouseDown(e, i)}
+            style={{ background: color, color: "#fff", fontSize: "0.63rem", fontWeight: 700, padding: "0 6px", cursor: "grab", display: "flex", alignItems: "center", gap: 3, whiteSpace: "nowrap", maxWidth: 140, overflow: "hidden" }}
+          >
+            <span style={{ fontFamily: "monospace", opacity: 0.75, flexShrink: 0 }}>{i + 1}</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{line}</span>
+          </div>
+          {/* Right resize */}
+          <div
+            onMouseDown={(e) => onResizeMouseDown(e, i, "right")}
+            title="Drag to move end (next line start)"
+            style={{ width: 8, background: color + "cc", cursor: "ew-resize", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+          >
+            <div style={{ width: 2, height: 10, background: "rgba(255,255,255,0.7)", borderRadius: 1 }} />
+          </div>
         </div>
-        {/* Label */}
-        <div style={{ flex: 1, overflow: "hidden", display: "flex", alignItems: "center", gap: 3, padding: "0 4px", minWidth: 0 }}>
-          <span style={{ fontFamily: "monospace", opacity: 0.75, flexShrink: 0 }}>{i + 1}</span>
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{line}</span>
-        </div>
-        {/* Right resize handle */}
-        <div
-          onMouseDown={(e) => onResizeMouseDown(e, i, "right")}
-          style={{ width: 7, height: "100%", cursor: "ew-resize", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.2)" }}
-        >
-          <div style={{ width: 2, height: 12, background: "rgba(255,255,255,0.6)", borderRadius: 1 }} />
-        </div>
+        {/* Anchor tick */}
+        <div style={{ width: 2, height: 6, background: color, borderRadius: 1 }} />
       </div>
     );
   });
 
-  // ── Word track (same zoom/scroll as main timeline) ──
-
-  // Draw word track canvas
-  const drawWordTrack = useCallback(() => {
-    const canvas = wordCanvasRef.current;
-    const wrap = wordWrapRef.current;
-    if (!canvas || !wrap) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const dpr = window.devicePixelRatio || 1;
-    const W = wrap.clientWidth;
-    const H = 90;
-    if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
-      canvas.width = W * dpr; canvas.height = H * dpr;
-    }
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = "#080D1A"; ctx.fillRect(0, 0, W, H);
-
-    // Waveform (shared view window, purple tint)
-    const peaks = waveCache.current;
-    if (peaks) {
-      const fullDur = audioBuffer.duration;
-      for (let i = 0; i < W; i++) {
-        const t = viewStart + (i / W) * visibleDur;
-        const idx = Math.floor((t / fullDur) * peaks.length);
-        const peak = peaks[Math.max(0, Math.min(idx, peaks.length - 1))] || 0;
-        const barH = Math.max(2, peak * H * 0.7);
-        ctx.fillStyle = `rgba(99,102,241,${0.18 + peak * 0.55})`;
-        ctx.fillRect(i, (H - barH) / 2, 1, barH);
-      }
-    }
-
-    // Word cells: boundary line + label per word
-    for (let li = 0; li < lines.length; li++) {
-      const wts = wordTimestamps[li] ?? [];
-      if (wts.length === 0) continue;
-      const color = BLOCK_COLORS[li % BLOCK_COLORS.length];
-      for (let wi = 0; wi < wts.length; wi++) {
-        const ws = wts[wi];
-        if (!ws || ws.start > viewEnd + 1 || ws.start < viewStart - 1) continue;
-        const x = ((ws.start - viewStart) / visibleDur) * W;
-        const nextX = wi + 1 < wts.length
-          ? ((wts[wi + 1].start - viewStart) / visibleDur) * W
-          : W;
-        const cellW = nextX - x;
-        const isSel = selectedWord?.li === li && selectedWord?.wi === wi;
-
-        // Cell background for selected
-        if (isSel) { ctx.fillStyle = "rgba(99,102,241,0.2)"; ctx.fillRect(x, 0, cellW, H); }
-
-        // Left boundary
-        ctx.strokeStyle = isSel ? "#A5B4FC" : color;
-        ctx.lineWidth = isSel ? 2 : 1;
-        ctx.setLineDash([]);
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-
-        // Word label (clipped to cell)
-        if (cellW > 14) {
-          ctx.save();
-          ctx.beginPath(); ctx.rect(x + 2, 2, Math.max(0, cellW - 4), H - 4); ctx.clip();
-          ctx.fillStyle = isSel ? "#C7D2FE" : color;
-          ctx.font = `bold 10px sans-serif`;
-          ctx.textAlign = "left";
-          ctx.fillText(ws.word, x + 4, 14);
-          ctx.font = `9px monospace`;
-          ctx.fillStyle = "#475569";
-          ctx.fillText(ws.start.toFixed(2) + "s", x + 4, H - 5);
-          ctx.restore();
-        }
-      }
-    }
-
-    // Playhead
-    const px = ((currentTime - viewStart) / visibleDur) * W;
-    ctx.strokeStyle = "#F43F5E"; ctx.lineWidth = 2; ctx.setLineDash([]);
-    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
-
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-  }, [audioBuffer, viewStart, viewEnd, visibleDur, wordTimestamps, lines, currentTime, selectedWord, waveCache]);
-
-  useEffect(() => { drawWordTrack(); }, [drawWordTrack]);
-
-  useEffect(() => {
-    const ro = new ResizeObserver(() => drawWordTrack());
-    if (wordWrapRef.current) ro.observe(wordWrapRef.current);
-    return () => ro.disconnect();
-  }, [drawWordTrack]);
-
-  // Word canvas click → seek + select word
-  function onWordTrackClick(e: React.MouseEvent) {
-    if (wordDragging.current) return;
-    const rect = wordWrapRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const t = viewStart + ((e.clientX - rect.left) / rect.width) * visibleDur;
-    onSeek(Math.max(trimStart, Math.min(t, trimEnd)));
-    // Select closest word
-    let best: { li: number; wi: number } | null = null;
-    let bestDiff = Infinity;
-    for (let li = 0; li < lines.length; li++) {
-      const wts = wordTimestamps[li] ?? [];
-      for (let wi = 0; wi < wts.length; wi++) {
-        const ws = wts[wi];
-        if (ws && t >= ws.start) { const d = t - ws.start; if (d < bestDiff) { bestDiff = d; best = { li, wi }; } }
-      }
-    }
-    if (best) { setSelectedWord(best); setWordFineTune((wordTimestamps[best.li]?.[best.wi]?.start ?? 0).toFixed(2)); }
-  }
-
-  // Word block drag (positions use main timeline coordinates)
-  function onWordBlockMouseDown(e: React.MouseEvent, li: number, wi: number) {
-    e.stopPropagation(); e.preventDefault();
-    setSelectedWord({ li, wi });
-    const ts = wordTimestamps[li]?.[wi];
-    wordDragging.current = { li, wi, startX: e.clientX, origStart: ts?.start ?? currentTime };
-    if (ts) setWordFineTune(ts.start.toFixed(2));
-  }
-
-  useEffect(() => {
-    function onMove(e: MouseEvent) {
-      if (!wordDragging.current) return;
-      const { li, wi, startX, origStart } = wordDragging.current;
-      const W = wordWrapRef.current?.clientWidth ?? getW();
-      const dt = ((e.clientX - startX) / W) * visibleDur;
-      let newStart = origStart + dt;
-      if (snap) newStart = Math.round(newStart * 10) / 10;
-      // Clamp within line bounds
-      const lStart = timestamps[li] ?? trimStart;
-      const lEnd = (li + 1 < timestamps.length && timestamps[li + 1] !== null)
-        ? timestamps[li + 1]! : trimEnd;
-      newStart = Math.max(lStart, Math.min(newStart, lEnd - 0.01));
-      const next = wordTimestamps.map((arr) => [...arr]);
-      while (next.length <= li) next.push([]);
-      const arr = [...(next[li] ?? [])];
-      arr[wi] = { ...arr[wi], start: newStart };
-      if (wi > 0 && arr[wi - 1]) arr[wi - 1] = { ...arr[wi - 1], end: newStart };
-      if (arr[wi + 1]) arr[wi] = { ...arr[wi], end: arr[wi + 1].start };
-      next[li] = arr;
-      onWordTimestampsChange(next);
-      setWordFineTune(newStart.toFixed(2));
-    }
-    function onUp() { wordDragging.current = null; }
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleDur, snap, timestamps, trimStart, trimEnd, wordTimestamps, onWordTimestampsChange]);
-
-  // Sync word fine-tune with selectedWord
-  useEffect(() => {
-    if (!selectedWord) return;
-    const ts = wordTimestamps[selectedWord.li]?.[selectedWord.wi];
-    if (ts) setWordFineTune(ts.start.toFixed(2));
-  }, [selectedWord, wordTimestamps]);
-
-  function applyWordFineTune() {
-    if (!selectedWord) return;
-    const { li, wi } = selectedWord;
-    const val = parseFloat(wordFineTune);
-    if (isNaN(val)) return;
-    const lStart = timestamps[li] ?? trimStart;
-    const lEnd = (li + 1 < timestamps.length && timestamps[li + 1] !== null) ? timestamps[li + 1]! : trimEnd;
-    const newStart = Math.max(lStart, Math.min(val, lEnd - 0.01));
-    const next = wordTimestamps.map((arr) => [...arr]);
-    while (next.length <= li) next.push([]);
-    const arr = [...(next[li] ?? [])];
-    arr[wi] = { ...arr[wi], start: newStart };
-    if (wi > 0 && arr[wi - 1]) arr[wi - 1] = { ...arr[wi - 1], end: newStart };
-    next[li] = arr;
-    onWordTimestampsChange(next);
-  }
-
-  function initLineWordsEvenly(li: number) {
-    const ws = (lines[li] ?? "").trim().split(/\s+/).filter(Boolean);
-    if (ws.length === 0) return;
-    const lStart = timestamps[li] ?? trimStart;
-    const lEnd = (li + 1 < timestamps.length && timestamps[li + 1] !== null) ? timestamps[li + 1]! : trimEnd;
-    const step = (lEnd - lStart) / ws.length;
-    const arr: WordTs[] = ws.map((w, i) => ({ word: w, start: lStart + i * step, end: lStart + (i + 1) * step }));
-    const next = wordTimestamps.map((a) => [...a]);
-    while (next.length <= li) next.push([]);
-    next[li] = arr;
-    onWordTimestampsChange(next);
-    setSelectedWord({ li, wi: 0 });
-    setWordFineTune(arr[0].start.toFixed(2));
-  }
-
-  // Word block DOM divs (positioned using main timeline coordinates)
-  const WW = wordWrapRef.current?.clientWidth ?? getW();
-  const wordBlockDivs = lines.flatMap((_, li) => {
-    const wts = wordTimestamps[li] ?? [];
-    return wts.map((ws, wi) => {
-      if (!ws) return null;
-      const x = ((ws.start - viewStart) / visibleDur) * WW;
-      if (x < -110 || x > WW + 10) return null;
-      const color = BLOCK_COLORS[li % BLOCK_COLORS.length];
-      const isSel = selectedWord?.li === li && selectedWord?.wi === wi;
-      return (
-        <div
-          key={`${li}-${wi}`}
-          onMouseDown={(e) => onWordBlockMouseDown(e, li, wi)}
-          style={{
-            position: "absolute", left: x, top: 16,
-            transform: "translateX(-2px)",
-            background: isSel ? "#6366F1" : color,
-            color: "#fff", fontSize: "0.6rem", fontWeight: 700,
-            padding: "0 5px", height: 20, borderRadius: 4,
-            display: "flex", alignItems: "center",
-            cursor: "ew-resize", whiteSpace: "nowrap",
-            maxWidth: 120, overflow: "hidden",
-            boxShadow: isSel ? `0 0 0 2px #fff, 0 0 0 4px #6366F1` : "0 1px 3px rgba(0,0,0,0.5)",
-            zIndex: isSel ? 10 : 5, userSelect: "none",
-          }}
-        >
-          {ws.word}
-        </div>
-      );
-    });
-  }).filter(Boolean);
 
   return (
     <div style={{ background: "#0F172A", borderRadius: 16, overflow: "hidden", border: "1px solid #1E293B" }}>
@@ -1408,25 +1186,34 @@ function LyricTimeline({
         </button>
         <div style={{ width: 1, height: 18, background: "#334155" }} />
         <span style={{ fontSize: "0.63rem", color: "#475569" }}>←/→ nudge · Shift+←/→ fine · Enter=set · Tab=next</span>
+        {onAddLine && (
+          <button
+            onClick={() => onAddLine(currentTime)}
+            title="Add new line at playhead"
+            style={{ ...tlBtn, marginLeft: "auto", background: "#1E3A8A", color: "#93C5FD", fontSize: "0.68rem", fontWeight: 700, padding: "0.2rem 0.6rem", gap: "0.25rem", display: "flex", alignItems: "center" }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add line
+          </button>
+        )}
         {selectedLine !== null && (
-          <span style={{ marginLeft: "auto", fontSize: "0.68rem", color: BLOCK_COLORS[selectedLine % BLOCK_COLORS.length], fontWeight: 700 }}>
+          <span style={{ marginLeft: onAddLine ? "0" : "auto", fontSize: "0.68rem", color: BLOCK_COLORS[selectedLine % BLOCK_COLORS.length], fontWeight: 700 }}>
             Line {selectedLine + 1} selected
           </span>
         )}
       </div>
 
-      {/* Canvas + block layer — line track */}
-      {mode !== "words" && (
+      {/* Canvas + block layer */}
       <div
         ref={wrapRef}
         style={{ position: "relative", height: 165, overflow: "hidden", cursor: "crosshair" }}
         onWheel={onWheel}
         onClick={onCanvasClick}
+        onDoubleClick={onCanvasDoubleClick}
       >
         <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
         {blocks}
       </div>
-      )}
 
       {/* Scrollbar */}
       {zoom > 1.05 && (
@@ -1449,7 +1236,7 @@ function LyricTimeline({
       )}
 
       {/* Line fine-tune bar */}
-      {mode !== "words" && selectedLine !== null && (
+      {selectedLine !== null && (
         <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", padding: "0.5rem 0.875rem", background: "#1E293B", borderTop: "1px solid #0F172A", flexWrap: "wrap" }}>
           <div style={{ width: 9, height: 9, borderRadius: "50%", background: BLOCK_COLORS[selectedLine % BLOCK_COLORS.length], flexShrink: 0 }} />
           <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#E2E8F0", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1477,89 +1264,6 @@ function LyricTimeline({
         </div>
       )}
 
-      {/* ── Word Track (second row, same zoom/scroll as line track) ── */}
-      {mode !== "lines" && <div style={{ borderTop: "2px solid #0F172A" }}>
-        {/* Word track label row */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.3rem 0.875rem", background: "#111827", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#6366F1", letterSpacing: "0.05em" }}>WORDS</span>
-          <span style={{ fontSize: "0.6rem", color: "#374151" }}>drag to move · click to seek · Spacebar syncs</span>
-          {/* Init buttons for lines with no word timestamps */}
-          <div style={{ display: "flex", gap: "0.375rem", flexWrap: "wrap", marginLeft: "auto" }}>
-            {lines.map((_, li) =>
-              (wordTimestamps[li]?.length ?? 0) === 0 ? (
-                <button
-                  key={li}
-                  onClick={() => initLineWordsEvenly(li)}
-                  style={{ padding: "0.15rem 0.5rem", borderRadius: 5, border: "1px solid #4338CA", cursor: "pointer", background: "transparent", color: "#818CF8", fontSize: "0.6rem", fontWeight: 700 }}
-                >
-                  Init L{li + 1}
-                </button>
-              ) : null
-            )}
-          </div>
-        </div>
-
-        {/* Word track canvas + draggable word blocks */}
-        <div
-          ref={wordWrapRef}
-          style={{ position: "relative", height: 90, overflow: "hidden", cursor: "crosshair" }}
-          onWheel={onWheel}
-          onClick={onWordTrackClick}
-        >
-          <canvas ref={wordCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
-          {wordBlockDivs}
-          {lines.every((_, li) => (wordTimestamps[li]?.length ?? 0) === 0) && (
-            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", pointerEvents: "none" }}>
-              <span style={{ fontSize: "0.72rem", color: "#374151" }}>No word timestamps — use Word Sync (SPACE) or click Init above</span>
-            </div>
-          )}
-        </div>
-
-        {/* Word fine-tune bar (shown when a word is selected) */}
-        {selectedWord !== null && (
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.375rem 0.875rem", background: "#0F172A", borderTop: "1px solid #1E293B", flexWrap: "wrap" }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: BLOCK_COLORS[selectedWord.li % BLOCK_COLORS.length], flexShrink: 0 }} />
-            <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#A5B4FC" }}>
-              &ldquo;{wordTimestamps[selectedWord.li]?.[selectedWord.wi]?.word}&rdquo;
-            </span>
-            <span style={{ fontSize: "0.65rem", color: "#4B5563" }}>line {selectedWord.li + 1}</span>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginLeft: "auto" }}>
-              <span style={{ fontSize: "0.65rem", color: "#64748B" }}>t =</span>
-              <input
-                type="number" step="0.01" value={wordFineTune}
-                onChange={(e) => setWordFineTune(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") applyWordFineTune(); }}
-                onBlur={applyWordFineTune}
-                style={{ width: 62, fontFamily: "monospace", fontSize: "0.72rem", background: "#080D1A", color: "#E2E8F0", border: "1px solid #4338CA", borderRadius: 6, padding: "0.2rem 0.375rem" }}
-              />
-              <span style={{ fontSize: "0.65rem", color: "#64748B" }}>s</span>
-              <button
-                onClick={() => {
-                  const { li, wi } = selectedWord;
-                  const next = wordTimestamps.map((a) => [...a]);
-                  while (next.length <= li) next.push([]);
-                  const arr = [...(next[li] ?? [])];
-                  arr[wi] = { ...arr[wi], start: currentTime };
-                  if (wi > 0 && arr[wi - 1]) arr[wi - 1] = { ...arr[wi - 1], end: currentTime };
-                  next[li] = arr;
-                  onWordTimestampsChange(next);
-                  setWordFineTune(currentTime.toFixed(2));
-                }}
-                style={{ padding: "0.2rem 0.5rem", borderRadius: 6, border: "none", cursor: "pointer", background: "#6366F1", color: "#fff", fontSize: "0.65rem", fontWeight: 700 }}
-              >
-                Set to Playhead
-              </button>
-              <button
-                onClick={() => { if (selectedWord) initLineWordsEvenly(selectedWord.li); }}
-                style={{ ...tlBtn, fontSize: "0.62rem", color: "#818CF8" }}
-                title="Re-distribute this line's words evenly"
-              >
-                Reset line
-              </button>
-            </div>
-          </div>
-        )}
-      </div>}
     </div>
   );
 }
@@ -1912,6 +1616,31 @@ export default function StudioPage() {
       syncLineRefs.current[syncIndex]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }, [syncIndex, step]);
+
+  // ── Add new lyric line at a given time (from timeline double-click or Add button) ──
+  function handleAddLine(atTime: number) {
+    // Find sorted insertion index based on existing timestamps
+    const pairs = timestamps
+      .map((t, i) => ({ t, i }))
+      .filter((p) => p.t !== null)
+      .sort((a, b) => (a.t as number) - (b.t as number));
+    const insertAfter = pairs.reduce((best, p) => ((p.t as number) <= atTime ? p.i : best), -1);
+    const insertIdx = insertAfter + 1;
+
+    const newLines = [...lines];
+    newLines.splice(insertIdx, 0, "New line");
+    setLyricsText(newLines.join("\n"));
+
+    const newTs = [...timestamps];
+    newTs.splice(insertIdx, 0, atTime);
+    setTimestamps(newTs);
+
+    setWordTimestamps((prev) => {
+      const next = [...prev];
+      next.splice(insertIdx, 0, []);
+      return next;
+    });
+  }
 
   // ── Fetch video library when entering Style step ──
   useEffect(() => {
@@ -2929,6 +2658,7 @@ export default function StudioPage() {
                 wordTimestamps={wordTimestamps}
                 onWordTimestampsChange={setWordTimestamps}
                 mode="lines"
+                onAddLine={handleAddLine}
               />
             </div>
           </div>
