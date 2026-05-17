@@ -1968,10 +1968,12 @@ export default function StudioPage() {
       videoEl.src = videoObjUrl;
       videoEl.muted = true;
       videoEl.loop = true;
+      videoEl.disableRemotePlayback = true;
       await new Promise<void>((res, rej) => { videoEl.onloadeddata = () => res(); videoEl.onerror = rej; videoEl.load(); });
 
       const audioEl = document.createElement("audio");
       audioEl.src = audioObjUrl;
+      audioEl.disableRemotePlayback = true; // prevent macOS "Now Playing" overlay from hijacking playback
       await new Promise<void>((res, rej) => { audioEl.oncanplay = () => res(); audioEl.onerror = rej; audioEl.load(); });
       audioEl.currentTime = trimStart;
 
