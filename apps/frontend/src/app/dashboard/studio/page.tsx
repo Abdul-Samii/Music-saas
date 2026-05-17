@@ -833,6 +833,7 @@ function LyricTimeline({
   const [selectedLine, setSelectedLine] = useState<number | null>(null);
   const [snap, setSnap] = useState(true);
   const [fineTuneValue, setFineTuneValue] = useState("");
+  const [endTuneValue, setEndTuneValue] = useState("");
   const dragging = useRef<{ line: number; targetLine: number; startX: number; origTs: number } | null>(null);
   const waveCache = useRef<Float32Array | null>(null);
 
@@ -1099,12 +1100,13 @@ function LyricTimeline({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLine, timestamps, onTimestampsChange, onPlayPause, currentTime, trimStart, trimEnd, snap, lines.length, syncActive, onDeleteLine]);
 
-  // Sync fine-tune input with selected line
+  // Sync fine-tune inputs with selected line
   useEffect(() => {
-    if (selectedLine !== null && timestamps[selectedLine] !== null) {
-      setFineTuneValue((timestamps[selectedLine]!).toFixed(2));
-    }
-  }, [selectedLine, timestamps]);
+    if (selectedLine === null) return;
+    if (timestamps[selectedLine] !== null) setFineTuneValue((timestamps[selectedLine]!).toFixed(2));
+    const endTs = timestamps[selectedLine + 1] ?? trimEnd;
+    setEndTuneValue(endTs.toFixed(2));
+  }, [selectedLine, timestamps, trimEnd]);
 
   function applyFineTune() {
     if (selectedLine === null) return;
@@ -1113,6 +1115,20 @@ function LyricTimeline({
     const next = [...timestamps];
     next[selectedLine] = Math.max(trimStart, Math.min(val, trimEnd));
     onTimestampsChange(next);
+  }
+
+  function applyEndTune() {
+    if (selectedLine === null) return;
+    const val = parseFloat(endTuneValue);
+    if (isNaN(val)) return;
+    const clamped = Math.max(trimStart, Math.min(val, trimEnd));
+    // If there's a next line, move its start timestamp
+    if (selectedLine + 1 < timestamps.length) {
+      const next = [...timestamps];
+      next[selectedLine + 1] = clamped;
+      onTimestampsChange(next);
+    }
+    // Last line: end is trimEnd, read-only — nothing to change
   }
 
   // Block layer — fixed-width labels centered at each timestamp so blocks move independently
@@ -1249,8 +1265,8 @@ function LyricTimeline({
           <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "#E2E8F0", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             Line {selectedLine + 1}: {lines[selectedLine]}
           </span>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.375rem", marginLeft: "auto", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "0.68rem", color: "#64748B" }}>t =</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginLeft: "auto", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "0.68rem", color: "#64748B" }}>From</span>
             <input
               type="number" step="0.01" value={fineTuneValue}
               onChange={(e) => setFineTuneValue(e.target.value)}
@@ -1258,12 +1274,23 @@ function LyricTimeline({
               onBlur={applyFineTune}
               style={{ width: 68, fontFamily: "monospace", fontSize: "0.78rem", background: "#0F172A", color: "#E2E8F0", border: "1px solid #334155", borderRadius: 6, padding: "0.2rem 0.4rem" }}
             />
+            <span style={{ fontSize: "0.68rem", color: "#475569" }}>→</span>
+            <span style={{ fontSize: "0.68rem", color: "#64748B" }}>To</span>
+            <input
+              type="number" step="0.01" value={endTuneValue}
+              onChange={(e) => setEndTuneValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") applyEndTune(); }}
+              onBlur={applyEndTune}
+              disabled={selectedLine + 1 >= timestamps.length}
+              title={selectedLine + 1 >= timestamps.length ? "Last line ends at trim end" : "Set end time"}
+              style={{ width: 68, fontFamily: "monospace", fontSize: "0.78rem", background: "#0F172A", color: selectedLine + 1 >= timestamps.length ? "#475569" : "#E2E8F0", border: "1px solid #334155", borderRadius: 6, padding: "0.2rem 0.4rem", opacity: selectedLine + 1 >= timestamps.length ? 0.5 : 1 }}
+            />
             <span style={{ fontSize: "0.68rem", color: "#64748B" }}>s</span>
             <button
               onClick={() => { const next = [...timestamps]; next[selectedLine] = currentTime; onTimestampsChange(next); setFineTuneValue(currentTime.toFixed(2)); }}
               style={{ padding: "0.25rem 0.625rem", borderRadius: 6, border: "none", cursor: "pointer", background: BLUE, color: "#fff", fontSize: "0.68rem", fontWeight: 700 }}
             >
-              Set to Playhead
+              Set Start
             </button>
             <button onClick={() => setSelectedLine((s) => s !== null ? Math.max(0, s - 1) : null)} disabled={selectedLine === 0} style={{ ...tlBtn, opacity: selectedLine === 0 ? 0.35 : 1 }}>↑</button>
             <button onClick={() => setSelectedLine((s) => s !== null ? Math.min(lines.length - 1, s + 1) : null)} disabled={selectedLine === lines.length - 1} style={{ ...tlBtn, opacity: selectedLine === lines.length - 1 ? 0.35 : 1 }}>↓</button>
