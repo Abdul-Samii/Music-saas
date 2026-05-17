@@ -340,7 +340,11 @@ export class MediaService {
   }
 
   private escapeDrawtext(text: string): string {
-    return text.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/%/g, '%%');
+    // Within FFmpeg single-quoted option values, \' does NOT escape an apostrophe —
+    // it closes the quoted region. Use the POSIX trick instead: end the quote,
+    // add a backslash-escaped ' outside quotes, then reopen the quote.
+    // e.g. "I'm" → "I'\''m", wrapped by caller → 'I'\''m'
+    return text.replace(/%/g, '%%').replace(/'/g, "'\\''");
   }
 
   async renderVideoServer(params: {
