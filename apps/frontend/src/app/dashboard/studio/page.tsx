@@ -811,6 +811,7 @@ const tlBtn: CSSProperties = {
 
 function LyricTimeline({
   audioBuffer, trimStart, trimEnd, lines, timestamps, onTimestampsChange,
+  endTimestamps, onEndTimestampsChange,
   currentTime, onSeek, isPlaying, onPlayPause, syncActive, onAddLine, onDeleteLine,
 }: {
   audioBuffer: AudioBuffer;
@@ -818,6 +819,8 @@ function LyricTimeline({
   lines: string[];
   timestamps: (number | null)[];
   onTimestampsChange: (ts: (number | null)[]) => void;
+  endTimestamps: (number | null)[];
+  onEndTimestampsChange: (ets: (number | null)[]) => void;
   currentTime: number;
   onSeek: (t: number) => void;
   isPlaying: boolean;
@@ -834,7 +837,7 @@ function LyricTimeline({
   const [snap, setSnap] = useState(true);
   const [fineTuneValue, setFineTuneValue] = useState("");
   const [endTuneValue, setEndTuneValue] = useState("");
-  const dragging = useRef<{ line: number; targetLine: number; startX: number; origTs: number } | null>(null);
+  const dragging = useRef<{ line: number; field: "start" | "end" | "body"; startX: number; origStart: number; origEnd: number } | null>(null);
   const waveCache = useRef<Float32Array | null>(null);
 
   const totalDur = trimEnd - trimStart;
@@ -926,18 +929,16 @@ function LyricTimeline({
       }
     }
 
-    // Region bars (show active duration for each line) + start markers
+    // Region bars (each line's own start→end) + start markers
     for (let i = 0; i < timestamps.length; i++) {
       const ts = timestamps[i];
       if (ts === null) continue;
-      const nextTs = timestamps[i + 1] ?? trimEnd;
+      const endTs = endTimestamps[i] ?? trimEnd;
       const x = ((ts - viewStart) / visibleDur) * W;
-      const xEnd = ((nextTs - viewStart) / visibleDur) * W;
+      const xEnd = ((endTs - viewStart) / visibleDur) * W;
       const color = BLOCK_COLORS[i % BLOCK_COLORS.length];
-      // Colored region strip at bottom
       ctx.fillStyle = color + "33";
       ctx.fillRect(x, H - 10, xEnd - x, 10);
-      // Solid start-line
       ctx.strokeStyle = color;
       ctx.lineWidth = 2;
       ctx.setLineDash([]);
@@ -953,7 +954,7 @@ function LyricTimeline({
     ctx.beginPath(); ctx.moveTo(px - 5, 0); ctx.lineTo(px + 5, 0); ctx.lineTo(px, 9); ctx.fill();
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-  }, [audioBuffer, trimStart, trimEnd, timestamps, currentTime, zoom, clampedScroll, viewStart, viewEnd, visibleDur]);
+  }, [audioBuffer, trimEnd, timestamps, endTimestamps, currentTime, viewStart, viewEnd, visibleDur]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -1013,42 +1014,57 @@ function LyricTimeline({
     }
   }
 
-  // Block drag (body) — moves the block's own start timestamp
+  // Block drag (body) — moves start + end together (preserves duration)
   function onBlockMouseDown(e: React.MouseEvent, idx: number) {
     e.stopPropagation();
     e.preventDefault();
     setSelectedLine(idx);
-    dragging.current = { line: idx, targetLine: idx, startX: e.clientX, origTs: timestamps[idx] ?? currentTime };
+    dragging.current = {
+      line: idx, field: "body", startX: e.clientX,
+      origStart: timestamps[idx] ?? currentTime,
+      origEnd: endTimestamps[idx] ?? currentTime + 2,
+    };
   }
 
-  // Resize handle mousedown — left edge moves this block's start, right edge moves next block's start
+  // Resize handle — left edge moves this line's start, right edge moves this line's end
   function onResizeMouseDown(e: React.MouseEvent, idx: number, edge: "left" | "right") {
     e.stopPropagation();
     e.preventDefault();
     setSelectedLine(idx);
-    const targetLine = edge === "right" ? idx + 1 : idx;
-    const origTs = timestamps[targetLine] ?? currentTime;
-    dragging.current = { line: idx, targetLine, startX: e.clientX, origTs };
+    dragging.current = {
+      line: idx, field: edge === "left" ? "start" : "end", startX: e.clientX,
+      origStart: timestamps[idx] ?? currentTime,
+      origEnd: endTimestamps[idx] ?? currentTime + 2,
+    };
   }
 
   useEffect(() => {
     function onMove(e: MouseEvent) {
       if (!dragging.current) return;
-      const { targetLine, startX, origTs } = dragging.current;
+      const { line, field, startX, origStart, origEnd } = dragging.current;
       const dt = ((e.clientX - startX) / getW()) * visibleDur;
-      let newTs = origTs + dt;
-      if (snap) newTs = Math.round(newTs * 10) / 10;
-      newTs = Math.max(trimStart, Math.min(newTs, trimEnd));
-      const next = [...timestamps];
-      next[targetLine] = newTs;
-      onTimestampsChange(next);
+      const snap10 = (v: number) => snap ? Math.round(v * 10) / 10 : v;
+      const clamp = (v: number) => Math.max(trimStart, Math.min(v, trimEnd));
+
+      if (field === "body") {
+        const newStart = clamp(snap10(origStart + dt));
+        const newEnd = clamp(snap10(origEnd + dt));
+        const nextTs = [...timestamps]; nextTs[line] = newStart; onTimestampsChange(nextTs);
+        const nextEts = [...endTimestamps]; nextEts[line] = newEnd; onEndTimestampsChange(nextEts);
+      } else if (field === "start") {
+        const newStart = clamp(snap10(origStart + dt));
+        const nextTs = [...timestamps]; nextTs[line] = Math.min(newStart, origEnd - 0.1); onTimestampsChange(nextTs);
+      } else {
+        const newEnd = clamp(snap10(origEnd + dt));
+        const nextEts = [...endTimestamps]; nextEts[line] = Math.max(newEnd, origStart + 0.1); onEndTimestampsChange(nextEts);
+      }
     }
     function onUp() { dragging.current = null; }
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timestamps, onTimestampsChange, visibleDur, snap, trimStart, trimEnd]);
+  }, [timestamps, onTimestampsChange, endTimestamps, onEndTimestampsChange, visibleDur, snap, trimStart, trimEnd]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1104,9 +1120,9 @@ function LyricTimeline({
   useEffect(() => {
     if (selectedLine === null) return;
     if (timestamps[selectedLine] !== null) setFineTuneValue((timestamps[selectedLine]!).toFixed(2));
-    const endTs = timestamps[selectedLine + 1] ?? trimEnd;
+    const endTs = endTimestamps[selectedLine] ?? trimEnd;
     setEndTuneValue(endTs.toFixed(2));
-  }, [selectedLine, timestamps, trimEnd]);
+  }, [selectedLine, timestamps, endTimestamps, trimEnd]);
 
   function applyFineTune() {
     if (selectedLine === null) return;
@@ -1121,33 +1137,33 @@ function LyricTimeline({
     if (selectedLine === null) return;
     const val = parseFloat(endTuneValue);
     if (isNaN(val)) return;
-    const clamped = Math.max(trimStart, Math.min(val, trimEnd));
-    // If there's a next line, move its start timestamp
-    if (selectedLine + 1 < timestamps.length) {
-      const next = [...timestamps];
-      next[selectedLine + 1] = clamped;
-      onTimestampsChange(next);
-    }
-    // Last line: end is trimEnd, read-only — nothing to change
+    const start = timestamps[selectedLine] ?? trimStart;
+    const clamped = Math.max(start + 0.1, Math.min(val, trimEnd));
+    const next = [...endTimestamps];
+    next[selectedLine] = clamped;
+    onEndTimestampsChange(next);
   }
 
-  // Block layer — fixed-width labels centered at each timestamp so blocks move independently
+  // Block layer — spans from start to end timestamp for each line
   const W = getW();
   const blocks = lines.map((line, i) => {
     const ts = timestamps[i];
     if (ts === null) return null;
+    const endTs = endTimestamps[i] ?? trimEnd;
     const x = ((ts - viewStart) / visibleDur) * W;
-    if (x < -180 || x > W + 10) return null;
+    const xEnd = ((endTs - viewStart) / visibleDur) * W;
+    const blockW = Math.max(48, xEnd - x);
+    if (xEnd < 0 || x > W + 10) return null;
     const color = BLOCK_COLORS[i % BLOCK_COLORS.length];
     const isSelected = i === selectedLine;
     return (
-      <div key={i} style={{ position: "absolute", left: x, top: 24, transform: "translateX(-50%)", zIndex: isSelected ? 10 : 5, userSelect: "none", display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div key={i} style={{ position: "absolute", left: x, top: 24, width: blockW, zIndex: isSelected ? 10 : 5, userSelect: "none" }}>
         {/* Left-resize | drag-body | right-resize */}
-        <div style={{ display: "flex", height: 28, borderRadius: 5, overflow: "hidden", boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${color}` : "0 2px 6px rgba(0,0,0,0.5)" }}>
-          {/* Left resize */}
+        <div style={{ display: "flex", height: 28, borderRadius: 5, overflow: "hidden", boxShadow: isSelected ? `0 0 0 2px #fff, 0 0 0 4px ${color}` : "0 2px 6px rgba(0,0,0,0.5)", width: "100%" }}>
+          {/* Left resize handle */}
           <div
             onMouseDown={(e) => onResizeMouseDown(e, i, "left")}
-            title="Drag to move start earlier/later"
+            title="Drag to adjust start time"
             style={{ width: 8, background: color + "cc", cursor: "ew-resize", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
           >
             <div style={{ width: 2, height: 10, background: "rgba(255,255,255,0.7)", borderRadius: 1 }} />
@@ -1155,22 +1171,20 @@ function LyricTimeline({
           {/* Drag body */}
           <div
             onMouseDown={(e) => onBlockMouseDown(e, i)}
-            style={{ background: color, color: "#fff", fontSize: "0.63rem", fontWeight: 700, padding: "0 6px", cursor: "grab", display: "flex", alignItems: "center", gap: 3, whiteSpace: "nowrap", maxWidth: 140, overflow: "hidden" }}
+            style={{ background: color, color: "#fff", fontSize: "0.63rem", fontWeight: 700, padding: "0 6px", cursor: "grab", display: "flex", alignItems: "center", gap: 3, overflow: "hidden", flex: 1, minWidth: 0 }}
           >
             <span style={{ fontFamily: "monospace", opacity: 0.75, flexShrink: 0 }}>{i + 1}</span>
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{line}</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{line}</span>
           </div>
-          {/* Right resize */}
+          {/* Right resize handle */}
           <div
             onMouseDown={(e) => onResizeMouseDown(e, i, "right")}
-            title="Drag to move end (next line start)"
+            title="Drag to adjust end time"
             style={{ width: 8, background: color + "cc", cursor: "ew-resize", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
           >
             <div style={{ width: 2, height: 10, background: "rgba(255,255,255,0.7)", borderRadius: 1 }} />
           </div>
         </div>
-        {/* Anchor tick */}
-        <div style={{ width: 2, height: 6, background: color, borderRadius: 1 }} />
       </div>
     );
   });
@@ -1281,9 +1295,7 @@ function LyricTimeline({
               onChange={(e) => setEndTuneValue(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") applyEndTune(); }}
               onBlur={applyEndTune}
-              disabled={selectedLine + 1 >= timestamps.length}
-              title={selectedLine + 1 >= timestamps.length ? "Last line ends at trim end" : "Set end time"}
-              style={{ width: 68, fontFamily: "monospace", fontSize: "0.78rem", background: "#0F172A", color: selectedLine + 1 >= timestamps.length ? "#475569" : "#E2E8F0", border: "1px solid #334155", borderRadius: 6, padding: "0.2rem 0.4rem", opacity: selectedLine + 1 >= timestamps.length ? 0.5 : 1 }}
+              style={{ width: 68, fontFamily: "monospace", fontSize: "0.78rem", background: "#0F172A", color: "#E2E8F0", border: "1px solid #334155", borderRadius: 6, padding: "0.2rem 0.4rem" }}
             />
             <span style={{ fontSize: "0.68rem", color: "#64748B" }}>s</span>
             <button
@@ -1389,8 +1401,9 @@ export default function StudioPage() {
   const [transcriptionFailed, setTranscriptionFailed] = useState(false);
   const [audioLanguage, setAudioLanguage] = useState("");
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState("");
+  const [endTimestamps, setEndTimestamps] = useState<(number | null)[]>([]);
   const [autoTranscribed, setAutoTranscribed] = useState(false);
-  const [whisperSnapshot, setWhisperSnapshot] = useState<{ lyricsText: string; timestamps: number[] } | null>(null);
+  const [whisperSnapshot, setWhisperSnapshot] = useState<{ lyricsText: string; timestamps: number[]; endTimestamps: number[] } | null>(null);
   const [wordTimestamps, setWordTimestamps] = useState<WordTs[][]>([]);
 
   const [selectedClips, setSelectedClips] = useState<VideoClip[]>([]);
@@ -1623,6 +1636,7 @@ export default function StudioPage() {
     const newLines = lines.filter((_, i) => i !== idx);
     setLyricsText(newLines.join("\n"));
     setTimestamps((prev) => prev.filter((_, i) => i !== idx));
+    setEndTimestamps((prev) => prev.filter((_, i) => i !== idx));
     setWordTimestamps((prev) => prev.filter((_, i) => i !== idx));
     setSyncIndex((prev) => Math.min(prev, newLines.length));
   }
@@ -1644,6 +1658,12 @@ export default function StudioPage() {
     const newTs = [...timestamps];
     newTs.splice(insertIdx, 0, atTime);
     setTimestamps(newTs);
+
+    setEndTimestamps((prev) => {
+      const next = [...prev];
+      next.splice(insertIdx, 0, atTime + 2);
+      return next;
+    });
 
     setWordTimestamps((prev) => {
       const next = [...prev];
@@ -2369,12 +2389,14 @@ export default function StudioPage() {
                             if (newLines.length > 0) {
                               const lyrTxt = newLines.join("\n");
                               const tss = relevant.map((s) => s.start);
+                              const etss = relevant.map((s) => s.end);
                               setLyricsText(lyrTxt);
                               setTimestamps(tss);
+                              setEndTimestamps(etss);
                               setWordTimestamps(relevant.map((s) => s.words ?? []));
                               setSyncIndex(newLines.length);
                               setAutoTranscribed(true);
-                              setWhisperSnapshot({ lyricsText: lyrTxt, timestamps: tss });
+                              setWhisperSnapshot({ lyricsText: lyrTxt, timestamps: tss, endTimestamps: etss });
                             } else {
                               setTranscriptionFailed(true);
                             }
@@ -2496,6 +2518,7 @@ export default function StudioPage() {
                 if (!autoTranscribed) {
                   // Manual lyrics — reset for fresh spacebar sync
                   setTimestamps(Array(lines.length).fill(null));
+                  setEndTimestamps(Array(lines.length).fill(null));
                   setSyncIndex(0);
                 }
                 // If Whisper already set timestamps, preserve them as-is
@@ -2630,6 +2653,7 @@ export default function StudioPage() {
                     onClick={() => {
                       setLyricsText(whisperSnapshot.lyricsText);
                       setTimestamps(whisperSnapshot.timestamps);
+                      setEndTimestamps(whisperSnapshot.endTimestamps);
                       setSyncIndex(whisperSnapshot.timestamps.length);
                       setSyncActive(false);
                       stopPlayback(false);
@@ -2649,6 +2673,7 @@ export default function StudioPage() {
                 <button
                   onClick={() => {
                     setTimestamps(Array(lines.length).fill(null));
+                    setEndTimestamps(Array(lines.length).fill(null));
                     setSyncIndex(0);
                     setSyncActive(false);
                     stopPlayback(false);
@@ -2685,6 +2710,8 @@ export default function StudioPage() {
                 onSeek={handleSeek}
                 isPlaying={isPlaying}
                 onPlayPause={togglePlay}
+                endTimestamps={endTimestamps}
+                onEndTimestampsChange={setEndTimestamps}
                 syncActive={syncActive}
                 onAddLine={handleAddLine}
                 onDeleteLine={handleDeleteLine}
