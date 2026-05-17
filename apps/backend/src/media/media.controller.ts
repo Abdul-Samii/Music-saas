@@ -141,6 +141,88 @@ export class MediaController {
     }
   }
 
+  // POST /media/upload-user-video  — validates ≤ 60 s, stores, returns URL
+  @Post('upload-user-video')
+  @UseInterceptors(
+    FileInterceptor('video', {
+      storage: diskStorage({
+        destination: './uploads/user-videos',
+        filename: (_req, file, cb) => {
+          const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+          const ext = file.originalname.split('.').pop() ?? 'mp4';
+          cb(null, `${unique}.${ext}`);
+        },
+      }),
+      limits: { fileSize: 500 * 1024 * 1024 },
+    }),
+  )
+  async uploadUserVideo(@UploadedFile() file: MulterDiskFile) {
+    if (!file) throw new BadRequestException('No video file');
+    let duration: number;
+    try {
+      duration = await this.media.getVideoDurationSec(file.path);
+    } catch {
+      fs.unlink(file.path, () => {});
+      throw new BadRequestException('Could not read video file');
+    }
+    if (duration > 61) {
+      fs.unlink(file.path, () => {});
+      throw new BadRequestException(
+        `Video is ${Math.ceil(duration)}s — maximum is 60 seconds`,
+      );
+    }
+    return {
+      url: `/uploads/user-videos/${file.filename}`,
+      duration,
+      filename: file.originalname,
+    };
+  }
+
+  // POST /media/render-server  — FFmpeg server-side render, returns MP4 stream
+  @Post('render-server')
+  async renderServer(
+    @Body()
+    body: {
+      videoClipUrl: string;
+      audioUrl: string;
+      trimStart: number;
+      trimEnd: number;
+      lyrics: { text: string; time: number }[];
+      textColor: string;
+      overlayOpacity: number;
+      textPosition: 'top' | 'center' | 'bottom';
+      fontSize: 'sm' | 'md' | 'lg';
+    },
+    @CurrentUser() _user: JwtUser,
+    @Res() res: Response,
+  ) {
+    if (!body.videoClipUrl || !body.audioUrl) {
+      throw new BadRequestException('videoClipUrl and audioUrl are required');
+    }
+    const audioPath = '.' + body.audioUrl;
+    let outputPath: string | null = null;
+    try {
+      outputPath = await this.media.renderVideoServer({
+        videoClipUrl: body.videoClipUrl,
+        audioPath,
+        trimStart: Number(body.trimStart) || 0,
+        trimEnd: Number(body.trimEnd),
+        lyrics: (body.lyrics ?? []).filter((l) => l.time != null),
+        textColor: body.textColor ?? '#FFFFFF',
+        overlayOpacity: Number(body.overlayOpacity) || 0.4,
+        textPosition: body.textPosition ?? 'bottom',
+        fontSize: body.fontSize ?? 'md',
+      });
+      res.download(outputPath, 'creative.mp4', () => {
+        if (outputPath) fs.unlink(outputPath, () => {});
+      });
+    } catch (err) {
+      console.error('[render-server]', err);
+      if (outputPath) fs.unlink(outputPath, () => {});
+      res.status(500).json({ error: 'Render failed' });
+    }
+  }
+
   // GET /media/proxy-clip?url=<encoded-s3-url>  — proxies S3 video to avoid browser CORS
   @Get('proxy-clip')
   async proxyClip(@Query('url') url: string, @Res() res: Response) {
