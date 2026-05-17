@@ -349,12 +349,13 @@ function VideoThumb({ src, style }: { src: string; style?: React.CSSProperties }
 // ── Interactive preview video with animated lyrics ────────────────────────────
 type WordTs = { word: string; start: number; end: number };
 
-function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpacity, textColor, highlightColor, textPosition, fontSize, lyricStyle, fontFamily, lines, timestamps, wordTimestamps, staticPreview }: {
+function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpacity, textColor, highlightColor, textPosition, fontSize, lyricStyle, fontFamily, lines, timestamps, endTimestamps, wordTimestamps, staticPreview }: {
   src: string; audioSrc?: string; audioTrimStart?: number; audioTrimEnd?: number;
   overlayOpacity: number; textColor: string; highlightColor: string;
   textPosition: "top" | "center" | "bottom"; fontSize: "sm" | "md" | "lg";
   lyricStyle: LyricStyle; fontFamily: string; lines: string[];
   timestamps?: (number | null)[];
+  endTimestamps?: (number | null)[];
   wordTimestamps?: WordTs[][];
   staticPreview?: boolean;
 }) {
@@ -435,11 +436,13 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
 
   // Stable refs so RAF callbacks always read latest data
   const safeTimesRef = useRef<number[] | null>(null);
+  const endTimestampsRef = useRef<(number | null)[] | undefined>(undefined);
   const safeLinesRef = useRef<string[]>([]);
   const wordTsRef = useRef<WordTs[][] | undefined>(undefined);
   const wordOffsetsRef = useRef<number[]>([]);
   useLayoutEffect(() => {
     safeTimesRef.current = safeTimes;
+    endTimestampsRef.current = endTimestamps;
     safeLinesRef.current = safeLines;
     wordTsRef.current = wordTimestamps;
     wordOffsetsRef.current = wordOffsets;
@@ -509,12 +512,15 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
       if (!audio || !times || times.length === 0) { rafId = requestAnimationFrame(tick); return; }
 
       const t = audio.currentTime;
+      const endTimes = endTimestampsRef.current;
 
-      // Find which line we're in
+      // Find the active line: start <= t < end (independent per line)
       let li = -1;
       for (let i = 0; i < times.length; i++) {
-        if (t >= times[i]) li = i;
-        else break;
+        if (t >= times[i]) {
+          const end = endTimes?.[i];
+          if (end === null || end === undefined || t < end) li = i;
+        }
       }
       if (li >= 0) li = Math.min(li, lns.length - 1);
 
@@ -548,7 +554,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
         } else {
           // Fallback: linear interpolation across segment duration
           const lineStart = times[li];
-          const lineEnd = times[li + 1] ?? (lineStart + 5);
+          const lineEnd = endTimestampsRef.current?.[li] ?? (lineStart + 5);
           const words = lns[li]?.split(" ").filter(Boolean) ?? [];
           wi = Math.min(
             Math.floor(((t - lineStart) / Math.max(0.1, lineEnd - lineStart)) * words.length),
@@ -1747,11 +1753,14 @@ export default function StudioPage() {
     );
 
     function lineAt(t: number): number {
-      let cur = -1;
       for (let i = 0; i < timestamps.length; i++) {
-        if (timestamps[i] !== null && (timestamps[i] as number) <= t) cur = i;
+        const start = timestamps[i];
+        if (start !== null && t >= start) {
+          const end = endTimestamps[i];
+          if (end === null || end === undefined || t < end) return i;
+        }
       }
-      return cur;
+      return -1;
     }
 
     function globalWordAt(t: number): number {
@@ -3095,6 +3104,7 @@ export default function StudioPage() {
                           fontFamily={activeConfig.fontFamily}
                           lines={lines.length > 0 ? lines : ["Your lyric line appears here"]}
                           timestamps={timestamps}
+                          endTimestamps={endTimestamps}
                           wordTimestamps={wordTimestamps}
                         />
                       </div>
