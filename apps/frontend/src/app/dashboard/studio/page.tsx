@@ -554,7 +554,8 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
         } else {
           // Fallback: linear interpolation across segment duration
           const lineStart = times[li];
-          const lineEnd = endTimestampsRef.current?.[li] ?? (lineStart + 5);
+          const nextLineStart = times.slice(li + 1).find((ts) => ts != null) ?? null;
+          const lineEnd = endTimestampsRef.current?.[li] ?? nextLineStart ?? (audioTrimEnd ?? lineStart + 5);
           const words = lns[li]?.split(" ").filter(Boolean) ?? [];
           wi = Math.min(
             Math.floor(((t - lineStart) / Math.max(0.1, lineEnd - lineStart)) * words.length),
@@ -1822,25 +1823,49 @@ export default function StudioPage() {
       return -1;
     }
 
+    // Helper: linear word index within a line when no Whisper word timestamps exist
+    function interpolatedWordIdx(li: number, t: number): number {
+      const lineStart = timestamps[li] ?? t;
+      const nextStart = timestamps.slice(li + 1).find((ts) => ts !== null) ?? null;
+      const lineEnd = endTimestamps[li] ?? nextStart ?? trimEnd;
+      const words = lines[li]?.split(" ").filter(Boolean) ?? [];
+      if (words.length === 0) return 0;
+      return Math.min(
+        Math.floor(((t - lineStart) / Math.max(0.01, lineEnd - lineStart)) * words.length),
+        words.length - 1
+      );
+    }
+
     function globalWordAt(t: number): number {
-      let best = -1;
-      for (let li2 = 0; li2 < lines.length; li2++) {
-        const wts = wordTimestamps?.[li2] ?? [];
-        for (let wi = 0; wi < wts.length; wi++) {
-          if (wts[wi]?.start <= t) best = lineWordOffsets[li2] + wi;
-          else break;
+      const hasWordTs = wordTimestamps && wordTimestamps.some((wts) => wts && wts.length > 0);
+      if (hasWordTs) {
+        let best = -1;
+        for (let li2 = 0; li2 < lines.length; li2++) {
+          const wts = wordTimestamps?.[li2] ?? [];
+          for (let wi = 0; wi < wts.length; wi++) {
+            if (wts[wi]?.start <= t) best = lineWordOffsets[li2] + wi;
+            else break;
+          }
         }
+        return best;
       }
-      return best;
+      // Fallback: linear interpolation across the active line
+      const li = lineAt(t);
+      if (li < 0) return -1;
+      return lineWordOffsets[li] + interpolatedWordIdx(li, t);
     }
 
     function wordAt(li: number, t: number): number {
       const wts = wordTimestamps?.[li] ?? [];
-      let w = 0;
-      for (let wi = 0; wi < wts.length; wi++) {
-        if (wts[wi]?.start <= t) w = wi; else break;
+      if (wts.length > 0) {
+        let w = 0;
+        for (let wi = 0; wi < wts.length; wi++) {
+          if (wts[wi]?.start <= t) w = wi; else break;
+        }
+        return w;
       }
-      return w;
+      // Fallback: linear interpolation when no Whisper word timestamps
+      return interpolatedWordIdx(li, t);
     }
 
     function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
