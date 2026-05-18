@@ -939,8 +939,9 @@ function LyricTimeline({
     // Region bars (each line's own start→end) + start markers
     for (let i = 0; i < timestamps.length; i++) {
       const ts = timestamps[i];
-      if (ts === null) continue;
-      const endTs = endTimestamps[i] ?? trimEnd;
+      // Skip lines whose timestamp falls outside the trim window
+      if (ts === null || ts < trimStart || ts > trimEnd) continue;
+      const endTs = Math.min(endTimestamps[i] ?? trimEnd, trimEnd);
       const x = ((ts - viewStart) / visibleDur) * W;
       const xEnd = ((endTs - viewStart) / visibleDur) * W;
       const color = BLOCK_COLORS[i % BLOCK_COLORS.length];
@@ -1155,8 +1156,9 @@ function LyricTimeline({
   const W = getW();
   const blocks = lines.map((line, i) => {
     const ts = timestamps[i];
-    if (ts === null) return null;
-    const endTs = endTimestamps[i] ?? trimEnd;
+    // Skip blocks outside the trim window entirely — they are invalid/stale
+    if (ts === null || ts < trimStart || ts > trimEnd) return null;
+    const endTs = Math.min(endTimestamps[i] ?? trimEnd, trimEnd);
     const x = ((ts - viewStart) / visibleDur) * W;
     const xEnd = ((endTs - viewStart) / visibleDur) * W;
     const blockW = Math.max(48, xEnd - x);
@@ -2543,8 +2545,10 @@ export default function StudioPage() {
                             console.log("[Whisper] final timestamps:", relevant.map((s) => s.start));
                             if (newLines.length > 0) {
                               const lyrTxt = newLines.join("\n");
-                              const tss = relevant.map((s) => s.start);
-                              const etss = relevant.map((s) => s.end);
+                              // Clamp all Whisper timestamps to the trim window so stale
+                              // pre-trimStart segments can never appear on the timeline
+                              const tss = relevant.map((s) => Math.max(trimStart, Math.min(trimEnd, s.start)));
+                              const etss = relevant.map((s) => Math.max(trimStart, Math.min(trimEnd, s.end)));
                               setLyricsText(lyrTxt);
                               setTimestamps(tss);
                               setEndTimestamps(etss);
@@ -2600,7 +2604,17 @@ export default function StudioPage() {
 
             <textarea
               value={lyricsText}
-              onChange={(e) => setLyricsText(e.target.value)}
+              onChange={(e) => {
+                setLyricsText(e.target.value);
+                // Any manual edit invalidates existing timestamps — wipe them so the
+                // timeline is empty until the user re-syncs or Whisper runs again.
+                setTimestamps([]);
+                setEndTimestamps([]);
+                setWordTimestamps([]);
+                setSyncIndex(0);
+                setAutoTranscribed(false);
+                setSyncActive(false);
+              }}
               placeholder={"Verse 1 line one\nVerse 1 line two\nVerse 1 line three\n\nChorus line one\nChorus line two\n\nVerse 2 line one\n..."}
               rows={18}
               style={{
