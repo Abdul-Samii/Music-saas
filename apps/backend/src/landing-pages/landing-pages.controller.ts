@@ -102,11 +102,11 @@ export class LandingPagesController {
       pixelId: body.pixelId,
     });
 
-    const appUrl =
-      process.env.APP_URL ?? 'https://escalium.io';
+    const landingUrl = process.env.LANDING_PAGE_URL ?? 'https://mysong.to';
+    const p = page as { artistSlug: string; songSlug: string };
     return {
       ...page,
-      url: `${appUrl}/p/${page.artistSlug}/${page.songSlug}`,
+      url: `${landingUrl}/${p.artistSlug}/${p.songSlug}`,
     };
   }
 
@@ -114,11 +114,15 @@ export class LandingPagesController {
   @Get('my')
   @UseGuards(JwtAuthGuard)
   async myPages(@CurrentUser() user: JwtUser) {
-    const pages = await this.service.findByUser(user.id);
-    const appUrl = process.env.APP_URL ?? 'https://escalium.io';
+    const pages = (await this.service.findByUser(user.id)) as {
+      artistSlug: string;
+      songSlug: string;
+      [key: string]: unknown;
+    }[];
+    const landingUrl = process.env.LANDING_PAGE_URL ?? 'https://mysong.to';
     return pages.map((p) => ({
       ...p,
-      url: `${appUrl}/p/${p.artistSlug}/${p.songSlug}`,
+      url: `${landingUrl}/${p.artistSlug}/${p.songSlug}`,
     }));
   }
 
