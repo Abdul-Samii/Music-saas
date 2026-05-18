@@ -53,7 +53,7 @@ export default function LandingPagesPage() {
 
   const songSlugPreview = toSlug(name);
   const landingUrlPreview = artistSlug && songSlugPreview
-    ? `escalium.io/p/${artistSlug}/${songSlugPreview}`
+    ? `mysong.to/${artistSlug}/${songSlugPreview}`
     : "";
 
   useEffect(() => {
@@ -152,9 +152,9 @@ export default function LandingPagesPage() {
           </svg>
           <div style={{ flex: 1 }}>
             <p style={{ fontWeight: 700, color: "#166534", fontSize: "0.875rem" }}>Landing page created!</p>
-            <a href={`https://${created.url}`} target="_blank" rel="noopener noreferrer"
+            <a href={created.url} target="_blank" rel="noopener noreferrer"
               style={{ fontSize: "0.8rem", color: BLUE, fontWeight: 600 }}>
-              {created.url}
+              {created.url.replace(/^https?:\/\//, "")}
             </a>
           </div>
           <button onClick={() => setCreated(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: "1.2rem" }}>×</button>
@@ -271,7 +271,8 @@ export default function LandingPagesPage() {
         ) : (
           <div>
             {pages.map((page, i) => {
-              const url = `escalium.io/p/${page.artistSlug}/${page.songSlug}`;
+              const fullUrl = `https://mysong.to/${page.artistSlug}/${page.songSlug}`;
+              const displayUrl = `mysong.to/${page.artistSlug}/${page.songSlug}`;
               return (
                 <div key={page.id} style={{
                   display: "flex", alignItems: "center", gap: "1rem",
@@ -282,9 +283,9 @@ export default function LandingPagesPage() {
                   <img src={page.thumbnailUrl} alt={page.title} style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontWeight: 700, fontSize: "0.875rem", color: NAVY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{page.title}</p>
-                    <a href={`https://${url}`} target="_blank" rel="noopener noreferrer"
+                    <a href={fullUrl} target="_blank" rel="noopener noreferrer"
                       style={{ fontSize: "0.78rem", color: BLUE, fontWeight: 500, textDecoration: "none" }}>
-                      {url}
+                      {displayUrl}
                     </a>
                   </div>
                   <div style={{ display: "flex", gap: "0.5rem", flexShrink: 0 }}>
@@ -298,7 +299,7 @@ export default function LandingPagesPage() {
                       Analytics
                     </button>
                     <button
-                      onClick={() => navigator.clipboard.writeText(`https://${url}`)}
+                      onClick={() => navigator.clipboard.writeText(fullUrl)}
                       style={{ display: "flex", alignItems: "center", gap: "0.375rem", padding: "0.4rem 0.75rem", borderRadius: 8, border: "1px solid #E2E6F0", background: "#F8F9FC", cursor: "pointer", fontSize: "0.75rem", fontWeight: 600, color: "#64748b" }}
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -306,7 +307,7 @@ export default function LandingPagesPage() {
                       </svg>
                       Copy
                     </button>
-                    <a href={`https://${url}`} target="_blank" rel="noopener noreferrer"
+                    <a href={fullUrl} target="_blank" rel="noopener noreferrer"
                       style={{ display: "flex", alignItems: "center", gap: "0.375rem", padding: "0.4rem 0.75rem", borderRadius: 8, border: `1px solid ${BLUE}`, background: "#EEF2FF", textDecoration: "none", fontSize: "0.75rem", fontWeight: 600, color: BLUE }}
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
