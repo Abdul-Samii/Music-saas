@@ -1413,6 +1413,11 @@ export default function StudioPage() {
   const [whisperSnapshot, setWhisperSnapshot] = useState<{ lyricsText: string; timestamps: number[]; endTimestamps: number[] } | null>(null);
   const [wordTimestamps, setWordTimestamps] = useState<WordTs[][]>([]);
 
+  // ── Word sync (pass 2) ──
+  const [wordSyncMode, setWordSyncMode] = useState(false);
+  const [wordSyncLine, setWordSyncLine] = useState(0);
+  const [wordSyncWordIdx, setWordSyncWordIdx] = useState(0);
+
   const [selectedClips, setSelectedClips] = useState<VideoClip[]>([]);
   const [clipConfigs, setClipConfigs] = useState<Record<string, ClipConfig>>({});
   const [activeClipId, setActiveClipId] = useState<string | null>(null);
@@ -1659,6 +1664,72 @@ export default function StudioPage() {
       syncLineRefs.current[syncIndex]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }, [syncIndex, step]);
+
+  // ── Word-level spacebar sync handler (pass 2) ──
+  useEffect(() => {
+    if (step !== 2 || !wordSyncMode) return;
+
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+      if (e.code !== "Space") return;
+      e.preventDefault();
+      if (!isPlaying) return;
+
+      const t = currentTimeRef.current;
+      const lineWords = lines[wordSyncLine]?.split(" ").filter(Boolean) ?? [];
+      const wi = wordSyncWordIdx;
+      if (wi >= lineWords.length) return;
+
+      setWordTimestamps((prev) => {
+        const next = [...prev];
+        const lineWts = [...(next[wordSyncLine] ?? [])];
+        const lineEndFallback =
+          endTimestamps[wordSyncLine] ??
+          (timestamps[wordSyncLine + 1] ?? null) ??
+          trimEnd;
+        // Record start of current word (end is placeholder until next word or line end)
+        lineWts[wi] = { word: lineWords[wi], start: t, end: lineEndFallback };
+        // Fix end of previous word to be exactly when this one starts
+        if (wi > 0 && lineWts[wi - 1]) {
+          lineWts[wi - 1] = { ...lineWts[wi - 1], end: t };
+        }
+        next[wordSyncLine] = lineWts;
+        return next;
+      });
+
+      const nextWi = wi + 1;
+      if (nextWi >= lineWords.length) {
+        // Line complete — advance to next unsynced line
+        let nextLine = wordSyncLine + 1;
+        while (nextLine < lines.length) {
+          const nWords = lines[nextLine]?.split(" ").filter(Boolean).length ?? 0;
+          if ((wordTimestamps[nextLine]?.length ?? 0) < nWords) break;
+          nextLine++;
+        }
+        if (nextLine < lines.length) {
+          setWordSyncLine(nextLine);
+          setWordSyncWordIdx(0);
+          const nextStart = timestamps[nextLine];
+          if (nextStart !== null && nextStart !== undefined) {
+            setTimeout(() => {
+              pausedAtRef.current = nextStart!;
+              setCurrentTime(nextStart!);
+            }, 30);
+          }
+        } else {
+          // All lines word-synced
+          setWordSyncWordIdx(nextWi);
+        }
+      } else {
+        setWordSyncWordIdx(nextWi);
+      }
+    }
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, wordSyncMode, wordSyncLine, wordSyncWordIdx, isPlaying, lines, timestamps, endTimestamps, trimEnd, wordTimestamps]);
 
   // ── Delete a lyric line by index ──
   function handleDeleteLine(idx: number) {
@@ -2956,6 +3027,224 @@ export default function StudioPage() {
               )}
             </div>
           </div>
+
+          {/* ── Word Sync (Pass 2) ── shown once all lines have start times */}
+          {(allSynced || autoTranscribed) && (() => {
+            const wordSyncedLineCount = lines.filter((l, i) => {
+              const wc = l.split(" ").filter(Boolean).length;
+              return (wordTimestamps[i]?.length ?? 0) >= wc;
+            }).length;
+            const allWordSynced = wordSyncedLineCount === lines.length && lines.length > 0;
+            const currentLineWords = lines[wordSyncLine]?.split(" ").filter(Boolean) ?? [];
+            const lineFullySynced = (wordTimestamps[wordSyncLine]?.length ?? 0) >= currentLineWords.length;
+
+            return (
+              <div style={{
+                background: wordSyncMode ? "#F0FDF4" : "#FAFBFC",
+                borderRadius: 16,
+                border: `1.5px solid ${wordSyncMode ? "#86EFAC" : "#E2E6F0"}`,
+                padding: "1rem 1.25rem",
+                display: "flex", flexDirection: "column", gap: "0.875rem",
+                transition: "all 0.2s",
+              }}>
+                {/* Header */}
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+                  <div>
+                    <p style={{ fontWeight: 700, fontSize: "0.9rem", color: wordSyncMode ? "#16A34A" : NAVY, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      {allWordSynced
+                        ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Word sync complete</>
+                        : "Word Sync"}
+                      <span style={{ fontSize: "0.7rem", fontWeight: 600, background: wordSyncMode ? "#DCFCE7" : "#F1F5F9", color: wordSyncMode ? "#16A34A" : "#64748b", padding: "0.15rem 0.5rem", borderRadius: 99 }}>
+                        {wordSyncedLineCount}/{lines.length} lines
+                      </span>
+                    </p>
+                    <p style={{ fontSize: "0.78rem", color: "#64748b", marginTop: "0.15rem" }}>
+                      {wordSyncMode
+                        ? "Press SPACE as each word is spoken — word-level accuracy like Whisper"
+                        : "Optional: tap each word for frame-accurate word timing"}
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    {wordSyncMode ? (
+                      <button
+                        onClick={() => { setWordSyncMode(false); if (isPlaying) pause(); }}
+                        style={{ padding: "0.5rem 1rem", borderRadius: 10, border: "none", cursor: "pointer", background: "#DCFCE7", color: "#16A34A", fontWeight: 700, fontSize: "0.8rem" }}
+                      >
+                        Done
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          // Find first line that needs word sync
+                          let startLine = lines.findIndex((l, i) => {
+                            const wc = l.split(" ").filter(Boolean).length;
+                            return (wordTimestamps[i]?.length ?? 0) < wc;
+                          });
+                          if (startLine < 0) startLine = 0;
+                          setWordSyncLine(startLine);
+                          setWordSyncWordIdx(wordTimestamps[startLine]?.length ?? 0);
+                          setWordSyncMode(true);
+                          setSyncActive(false);
+                          // Seek to line start
+                          const lineStart = timestamps[startLine];
+                          if (lineStart !== null && lineStart !== undefined) {
+                            pausedAtRef.current = lineStart!;
+                            setCurrentTime(lineStart!);
+                          }
+                        }}
+                        style={{ padding: "0.5rem 1rem", borderRadius: 10, border: `1px solid #86EFAC`, cursor: "pointer", background: "#F0FDF4", color: "#16A34A", fontWeight: 700, fontSize: "0.8rem" }}
+                      >
+                        {allWordSynced ? "Re-sync Words" : wordSyncedLineCount > 0 ? "Resume Word Sync" : "Start Word Sync"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {wordSyncMode && (
+                  <>
+                    {/* Line selector pills */}
+                    <div style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap" }}>
+                      {lines.map((l, i) => {
+                        const wc = l.split(" ").filter(Boolean).length;
+                        const done = (wordTimestamps[i]?.length ?? 0) >= wc;
+                        const active = i === wordSyncLine;
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              setWordSyncLine(i);
+                              setWordSyncWordIdx(0);
+                              setWordTimestamps((prev) => { const n = [...prev]; n[i] = []; return n; });
+                              if (isPlaying) pause();
+                              const ls = timestamps[i];
+                              if (ls !== null && ls !== undefined) { pausedAtRef.current = ls!; setCurrentTime(ls!); }
+                            }}
+                            title={`Line ${i + 1}: ${l}`}
+                            style={{
+                              width: 30, height: 30, borderRadius: 8, border: `1.5px solid ${active ? "#16A34A" : done ? "#86EFAC" : "#E2E6F0"}`,
+                              background: active ? "#16A34A" : done ? "#DCFCE7" : "#F8F9FC",
+                              color: active ? "#fff" : done ? "#16A34A" : "#94a3b8",
+                              fontSize: "0.7rem", fontWeight: 700, cursor: "pointer",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                            }}
+                          >
+                            {done && !active
+                              ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                              : i + 1}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Current line word display */}
+                    <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #DCFCE7", padding: "0.875rem 1rem" }}>
+                      <p style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", marginBottom: "0.625rem" }}>
+                        Line {wordSyncLine + 1} — {wordSyncWordIdx}/{currentLineWords.length} words timed
+                        {lineFullySynced && <span style={{ marginLeft: "0.5rem", color: "#16A34A" }}>✓ complete</span>}
+                      </p>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                        {currentLineWords.map((word, wi) => {
+                          const done = wi < wordSyncWordIdx;
+                          const active = wi === wordSyncWordIdx;
+                          const wts = wordTimestamps[wordSyncLine]?.[wi];
+                          return (
+                            <div key={wi} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.2rem" }}>
+                              <span style={{
+                                padding: "0.4rem 0.75rem", borderRadius: 10,
+                                background: done ? "#DCFCE7" : active ? "#16A34A" : "#F1F5F9",
+                                color: done ? "#16A34A" : active ? "#fff" : "#94a3b8",
+                                fontWeight: active ? 800 : done ? 700 : 400,
+                                fontSize: "0.9rem",
+                                boxShadow: active ? "0 2px 8px rgba(22,163,74,0.3)" : "none",
+                                border: `1.5px solid ${active ? "#16A34A" : done ? "#86EFAC" : "#E2E6F0"}`,
+                                transition: "all 0.12s",
+                              }}>
+                                {word}
+                              </span>
+                              {wts && (
+                                <span style={{ fontFamily: "monospace", fontSize: "0.58rem", color: "#94a3b8" }}>{fmt(wts.start)}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Controls row */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", flexWrap: "wrap" }}>
+                      {/* Play from line start */}
+                      <button
+                        onClick={() => {
+                          const ls = timestamps[wordSyncLine] ?? trimStart;
+                          if (isPlaying) {
+                            handleSeek(ls);
+                          } else {
+                            pausedAtRef.current = ls;
+                            setCurrentTime(ls);
+                            startPlayback(ls);
+                          }
+                        }}
+                        style={{
+                          padding: "0.45rem 0.875rem", borderRadius: 10, border: "none", cursor: "pointer",
+                          background: `linear-gradient(135deg, #16A34A, #15803D)`,
+                          color: "#fff", fontWeight: 700, fontSize: "0.8rem",
+                          display: "flex", alignItems: "center", gap: "0.4rem",
+                        }}
+                      >
+                        {isPlaying
+                          ? <><svg width="10" height="10" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause</>
+                          : <><svg width="10" height="10" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play line {wordSyncLine + 1}</>}
+                      </button>
+
+                      {/* Redo current line */}
+                      <button
+                        onClick={() => {
+                          setWordSyncWordIdx(0);
+                          setWordTimestamps((prev) => { const n = [...prev]; n[wordSyncLine] = []; return n; });
+                          if (isPlaying) pause();
+                          const ls = timestamps[wordSyncLine];
+                          if (ls !== null && ls !== undefined) { pausedAtRef.current = ls!; setCurrentTime(ls!); }
+                        }}
+                        style={{ padding: "0.45rem 0.75rem", borderRadius: 10, border: "1px solid #E2E6F0", cursor: "pointer", background: "#F8F9FC", color: "#64748b", fontWeight: 600, fontSize: "0.78rem" }}
+                      >
+                        Redo line
+                      </button>
+
+                      {/* Skip to next line */}
+                      {wordSyncLine < lines.length - 1 && (
+                        <button
+                          onClick={() => {
+                            const next = wordSyncLine + 1;
+                            setWordSyncLine(next);
+                            setWordSyncWordIdx(0);
+                            if (isPlaying) pause();
+                            const ns = timestamps[next];
+                            if (ns !== null && ns !== undefined) { pausedAtRef.current = ns!; setCurrentTime(ns!); }
+                          }}
+                          style={{ padding: "0.45rem 0.75rem", borderRadius: 10, border: "1px solid #E2E6F0", cursor: "pointer", background: "#F8F9FC", color: "#64748b", fontWeight: 600, fontSize: "0.78rem", display: "flex", alignItems: "center", gap: "0.3rem" }}
+                        >
+                          Skip line
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                        </button>
+                      )}
+
+                      {/* SPACE hint */}
+                      {isPlaying && !lineFullySynced && (
+                        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <div style={{ background: "#DCFCE7", border: "1px solid #86EFAC", borderRadius: 8, padding: "0.2rem 0.6rem", fontFamily: "monospace", fontSize: "0.78rem", fontWeight: 700, color: "#16A34A", boxShadow: "0 2px 0 #86EFAC" }}>
+                            SPACE
+                          </div>
+                          <span style={{ fontSize: "0.75rem", color: "#16A34A", fontWeight: 600 }}>
+                            → &ldquo;{currentLineWords[wordSyncWordIdx]}&rdquo;
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Navigation */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
