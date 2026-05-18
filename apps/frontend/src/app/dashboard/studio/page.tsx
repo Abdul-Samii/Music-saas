@@ -1593,6 +1593,24 @@ export default function StudioPage() {
     }
   }
 
+  function shiftAllTimestamps(delta: number) {
+    setTimestamps((prev) =>
+      prev.map((t) => t === null ? null : Math.max(trimStart, Math.min(trimEnd, t + delta)))
+    );
+    setEndTimestamps((prev) =>
+      prev.map((t) => t === null ? null : Math.max(trimStart, Math.min(trimEnd, t + delta)))
+    );
+    setWordTimestamps((prev) =>
+      prev.map((wts) =>
+        wts.map((wt) => ({
+          ...wt,
+          start: Math.max(trimStart, Math.min(trimEnd, wt.start + delta)),
+          end: Math.max(trimStart, Math.min(trimEnd, wt.end + delta)),
+        }))
+      )
+    );
+  }
+
   useEffect(() => {
     if (gainRef.current) gainRef.current.gain.value = volume;
   }, [volume]);
@@ -2033,12 +2051,16 @@ export default function StudioPage() {
       const t0 = performance.now();
 
       function frame() {
-        const elapsed = (performance.now() - t0) / 1000;
-        if (elapsed >= dur) { rec.stop(); videoEl.pause(); audioEl.pause(); return; }
+        // Use audioEl.currentTime as source of truth — wall-clock drifts under render load
+        const audioTime = audioEl.currentTime;
+        const wallElapsed = (performance.now() - t0) / 1000;
+        if (audioTime >= trimEnd || wallElapsed >= dur + 2) {
+          rec.stop(); videoEl.pause(); audioEl.pause(); return;
+        }
         ctx.drawImage(videoEl, 0, 0, W, H);
         ctx.fillStyle = `rgba(0,0,0,${cfg.overlayOpacity})`;
         ctx.fillRect(0, 0, W, H);
-        drawLyrics(ctx, trimStart + elapsed);
+        drawLyrics(ctx, audioTime);
         requestAnimationFrame(frame);
       }
       requestAnimationFrame(frame);
@@ -2627,7 +2649,50 @@ export default function StudioPage() {
                 onChange={(e) => setVolume(parseFloat(e.target.value))}
                 style={{ width: 72, accentColor: BLUE }} />
             </div>
+
+            {/* Speed selector */}
+            <div style={{ display: "flex", gap: "0.25rem", flexShrink: 0 }}>
+              {([1, 0.5, 0.25] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => changeSpeed(s)}
+                  style={{
+                    padding: "0.25rem 0.5rem", borderRadius: 7, border: `1.5px solid ${speed === s ? BLUE : "#E2E6F0"}`,
+                    background: speed === s ? "#EEF2FF" : "#F8F9FC", cursor: "pointer",
+                    fontSize: "0.7rem", fontWeight: 700, color: speed === s ? BLUE : "#64748b",
+                  }}
+                >
+                  {s === 1 ? "1×" : s === 0.5 ? "½×" : "¼×"}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {/* Sync offset bar — visible once any line is timed */}
+          {timedCount > 0 && (
+            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #E2E6F0", padding: "0.625rem 1rem", display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+              <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", flexShrink: 0 }}>Sync offset</span>
+              <div style={{ display: "flex", gap: "0.375rem" }}>
+                {([-0.5, -0.1, -0.05, 0.05, 0.1, 0.5] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => shiftAllTimestamps(d)}
+                    title={`Shift all lyrics ${d > 0 ? "later" : "earlier"} by ${Math.abs(d)}s`}
+                    style={{
+                      padding: "0.3rem 0.6rem", borderRadius: 8,
+                      border: `1px solid ${d < 0 ? "#FED7D7" : "#D1FAE5"}`,
+                      background: d < 0 ? "#FFF5F5" : "#F0FDF4",
+                      color: d < 0 ? "#DC2626" : "#16A34A",
+                      fontSize: "0.72rem", fontWeight: 700, cursor: "pointer",
+                    }}
+                  >
+                    {d > 0 ? `+${d}s` : `${d}s`}
+                  </button>
+                ))}
+              </div>
+              <span style={{ fontSize: "0.7rem", color: "#94a3b8", marginLeft: "auto" }}>Shift all timestamps earlier/later</span>
+            </div>
+          )}
 
           {/* Line sync card — contains keyboard hint + Timeline Editor */}
           <div style={{
