@@ -1887,6 +1887,13 @@ export default function StudioPage() {
       lines.slice(0, li2).reduce((acc, l) => acc + l.split(" ").filter(Boolean).length, 0)
     );
 
+    // TikTok pre-computed tables — filled after fonts are ready (see below)
+    let tkChunkWordWidths: number[][] = [];   // wordWidths per chunk
+    let tkChunkTotalW: number[] = [];         // sum of word widths per chunk
+    let tkChunkGaps: number[] = [];           // space-between gap per chunk
+    let tkChunkStarts: number[] = [];         // global word index where each chunk begins
+    let tkWordToChunk: number[] = [];         // global word index → chunk index (O(1) lookup)
+
     function lineAt(t: number): number {
       // Must find the LAST matching line, not the first.
       // With null end timestamps, an early `return i` would always return line 0.
@@ -1969,40 +1976,42 @@ export default function StudioPage() {
       if (cfg.lyricStyle === "tiktok") {
         const gwi = globalWordAt(t);
         if (gwi < 0) return;
-        let accumulated = 0;
-        let currentChunk = 0;
-        for (let ci = 0; ci < wordChunksRender.length; ci++) {
-          accumulated += wordChunksRender[ci].length;
-          if (accumulated > gwi) { currentChunk = ci; break; }
-          currentChunk = ci;
-        }
+        // O(1) chunk lookup via pre-computed table
+        const clampedGwi = Math.min(gwi, tkWordToChunk.length - 1);
+        const currentChunk = tkWordToChunk[clampedGwi] ?? (wordChunksRender.length - 1);
+
         const page = Math.floor(currentChunk / 2);
         const pageStart = page * 2;
         const posInPage = currentChunk - pageStart;
-        const visibleChunks = wordChunksRender.slice(pageStart, pageStart + 2).slice(0, posInPage + 1);
-        const pageFirstWordIdx = wordChunksRender.slice(0, pageStart).reduce((acc, c) => acc + c.length, 0);
+        const visibleCount = posInPage + 1;
+
         ctx.font = `700 52px 'Varela Round', sans-serif`;
         ctx.fillStyle = "#FFFFFF";
         ctx.shadowBlur = 0;
         const lh = 108;
         const pad = W * 0.10;
-        const maxW2 = W - pad * 2;
-        const totalH = visibleChunks.length * lh;
+        const totalH = visibleCount * lh;
         const yStart = H / 2 - totalH / 2;
-        visibleChunks.forEach((chunk, idx) => {
-          const absChunkIdx = pageStart + idx;
-          const chunkGlobalStart = pageFirstWordIdx + wordChunksRender.slice(pageStart, absChunkIdx).reduce((acc, c) => acc + c.length, 0);
-          const y = yStart + idx * lh + lh / 2;
-          const wordWidths = chunk.map((w) => ctx.measureText(w).width);
-          const totalWordW = wordWidths.reduce((a, b) => a + b, 0);
-          const gap = chunk.length > 1 ? (maxW2 - totalWordW) / (chunk.length - 1) : 0;
+
+        for (let relIdx = 0; relIdx < visibleCount; relIdx++) {
+          const absChunkIdx = pageStart + relIdx;
+          if (absChunkIdx >= wordChunksRender.length) break;
+          const chunk = wordChunksRender[absChunkIdx];
+          const chunkGlobalStart = tkChunkStarts[absChunkIdx];
+          const wordWidths = tkChunkWordWidths[absChunkIdx];
+          const gap = tkChunkGaps[absChunkIdx];
+          const y = yStart + relIdx * lh + lh / 2;
           let x = pad;
-          chunk.forEach((word, wi) => {
-            if (chunkGlobalStart + wi <= gwi) { ctx.textAlign = "left"; ctx.fillText(word, x, y); }
+          for (let wi = 0; wi < chunk.length; wi++) {
+            // Only reveal words that have been "sung" (index <= current global word)
+            if (chunkGlobalStart + wi <= gwi) {
+              ctx.textAlign = "left";
+              ctx.fillText(chunk[wi], x, y);
+            }
             x += wordWidths[wi] + gap;
-          });
+          }
           ctx.textAlign = "center";
-        });
+        }
         ctx.textAlign = "center";
         return;
       }
@@ -2150,6 +2159,26 @@ export default function StudioPage() {
       };
 
       await document.fonts.ready;
+
+      // Pre-compute TikTok metrics now that fonts are loaded — avoids measureText() on every frame
+      if (cfg.lyricStyle === "tiktok") {
+        ctx.font = `700 52px 'Varela Round', sans-serif`;
+        const _pad = W * 0.10;
+        const _maxW = W - _pad * 2;
+        let _acc = 0;
+        for (let ci = 0; ci < wordChunksRender.length; ci++) {
+          const chunk = wordChunksRender[ci];
+          const widths = chunk.map((w) => ctx.measureText(w).width);
+          const totalW = widths.reduce((a, b) => a + b, 0);
+          tkChunkWordWidths.push(widths);
+          tkChunkTotalW.push(totalW);
+          tkChunkGaps.push(chunk.length > 1 ? (_maxW - totalW) / (chunk.length - 1) : 0);
+          tkChunkStarts.push(_acc);
+          for (let wi = 0; wi < chunk.length; wi++) tkWordToChunk.push(ci);
+          _acc += chunk.length;
+        }
+      }
+
       rec.start(100);
       await Promise.all([videoEl.play(), audioEl.play()]);
       const t0 = performance.now();
