@@ -1884,14 +1884,18 @@ export default function StudioPage() {
     );
 
     function lineAt(t: number): number {
+      // Must find the LAST matching line, not the first.
+      // With null end timestamps, an early `return i` would always return line 0.
+      let active = -1;
       for (let i = 0; i < timestamps.length; i++) {
         const start = timestamps[i];
         if (start !== null && t >= start) {
-          const end = endTimestamps[i];
-          if (end === null || end === undefined || t < end) return i;
+          // Use the next line's start as implicit end when no explicit end is set
+          const end = endTimestamps[i] ?? timestamps[i + 1] ?? null;
+          if (end === null || t < end) active = i;
         }
       }
-      return -1;
+      return active;
     }
 
     // Helper: linear word index within a line when no Whisper word timestamps exist
