@@ -1417,6 +1417,8 @@ export default function StudioPage() {
   const [wordSyncMode, setWordSyncMode] = useState(false);
   const [wordSyncLine, setWordSyncLine] = useState(0);
   const [wordSyncWordIdx, setWordSyncWordIdx] = useState(0);
+  // Tracks which lines the user has manually completed in word sync (independent of wordTimestamps)
+  const [wordSyncDone, setWordSyncDone] = useState<Set<number>>(new Set());
 
   const [selectedClips, setSelectedClips] = useState<VideoClip[]>([]);
   const [clipConfigs, setClipConfigs] = useState<Record<string, ClipConfig>>({});
@@ -1700,11 +1702,11 @@ export default function StudioPage() {
 
       const nextWi = wi + 1;
       if (nextWi >= lineWords.length) {
-        // Line complete — advance to next unsynced line
+        // Mark current line as manually completed
+        setWordSyncDone((prev) => { const next = new Set(prev); next.add(wordSyncLine); return next; });
+        // Advance to next line not yet done (use current wordSyncDone snapshot + the one we just added)
         let nextLine = wordSyncLine + 1;
-        while (nextLine < lines.length) {
-          const nWords = lines[nextLine]?.split(" ").filter(Boolean).length ?? 0;
-          if ((wordTimestamps[nextLine]?.length ?? 0) < nWords) break;
+        while (nextLine < lines.length && wordSyncDone.has(nextLine)) {
           nextLine++;
         }
         if (nextLine < lines.length) {
@@ -1729,7 +1731,7 @@ export default function StudioPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, wordSyncMode, wordSyncLine, wordSyncWordIdx, isPlaying, lines, timestamps, endTimestamps, trimEnd, wordTimestamps]);
+  }, [step, wordSyncMode, wordSyncLine, wordSyncWordIdx, isPlaying, lines, timestamps, endTimestamps, trimEnd, wordSyncDone]);
 
   // ── Delete a lyric line by index ──
   function handleDeleteLine(idx: number) {
@@ -3034,13 +3036,12 @@ export default function StudioPage() {
 
           {/* ── Word Sync (Pass 2) ── shown once all lines have start times */}
           {(allSynced || autoTranscribed) && (() => {
-            const wordSyncedLineCount = lines.filter((l, i) => {
-              const wc = l.split(" ").filter(Boolean).length;
-              return (wordTimestamps[i]?.length ?? 0) >= wc;
-            }).length;
+            // Use wordSyncDone (not wordTimestamps.length) so pre-existing Whisper data
+            // doesn't falsely mark lines as completed before the user taps them here.
+            const wordSyncedLineCount = wordSyncDone.size;
             const allWordSynced = wordSyncedLineCount === lines.length && lines.length > 0;
             const currentLineWords = lines[wordSyncLine]?.split(" ").filter(Boolean) ?? [];
-            const lineFullySynced = (wordTimestamps[wordSyncLine]?.length ?? 0) >= currentLineWords.length;
+            const lineFullySynced = wordSyncDone.has(wordSyncLine);
 
             return (
               <div style={{
@@ -3079,14 +3080,11 @@ export default function StudioPage() {
                     ) : (
                       <button
                         onClick={() => {
-                          // Find first line that needs word sync
-                          let startLine = lines.findIndex((l, i) => {
-                            const wc = l.split(" ").filter(Boolean).length;
-                            return (wordTimestamps[i]?.length ?? 0) < wc;
-                          });
+                          // Find first line not yet manually word-synced
+                          let startLine = lines.findIndex((_, i) => !wordSyncDone.has(i));
                           if (startLine < 0) startLine = 0;
                           setWordSyncLine(startLine);
-                          setWordSyncWordIdx(wordTimestamps[startLine]?.length ?? 0);
+                          setWordSyncWordIdx(0);
                           setWordSyncMode(true);
                           setSyncActive(false);
                           // Seek to line start
@@ -3109,8 +3107,7 @@ export default function StudioPage() {
                     {/* Line selector pills */}
                     <div style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap" }}>
                       {lines.map((l, i) => {
-                        const wc = l.split(" ").filter(Boolean).length;
-                        const done = (wordTimestamps[i]?.length ?? 0) >= wc;
+                        const done = wordSyncDone.has(i);
                         const active = i === wordSyncLine;
                         return (
                           <button
@@ -3119,6 +3116,7 @@ export default function StudioPage() {
                               setWordSyncLine(i);
                               setWordSyncWordIdx(0);
                               setWordTimestamps((prev) => { const n = [...prev]; n[i] = []; return n; });
+                              setWordSyncDone((prev) => { const n = new Set(prev); n.delete(i); return n; });
                               if (isPlaying) pause();
                               const ls = timestamps[i];
                               if (ls !== null && ls !== undefined) { pausedAtRef.current = ls!; setCurrentTime(ls!); }
@@ -3205,6 +3203,7 @@ export default function StudioPage() {
                         onClick={() => {
                           setWordSyncWordIdx(0);
                           setWordTimestamps((prev) => { const n = [...prev]; n[wordSyncLine] = []; return n; });
+                          setWordSyncDone((prev) => { const n = new Set(prev); n.delete(wordSyncLine); return n; });
                           if (isPlaying) pause();
                           const ls = timestamps[wordSyncLine];
                           if (ls !== null && ls !== undefined) { pausedAtRef.current = ls!; setCurrentTime(ls!); }
