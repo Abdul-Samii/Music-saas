@@ -3,8 +3,22 @@ import TextAnimation from "@/components/animations/TextAnimation";
 import { DotGrid } from "@/page-components/pricing/DotGrid";
 import { Parallax } from "react-scroll-parallax";
 import AudioWave from "./AudioWave";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import type { ChangeEvent } from "react";
 
 const VideoGeneratorHero = () => {
+  const router = useRouter();
+  const { data: session } = useSession();
+
+  const handleUploadChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const token = (session as { accessToken?: string } | null)?.accessToken;
+    router.push(token ? "/dashboard/creative" : "/signup");
+  };
+
   return (
     <section className="relative overflow-hidden bg-white">
       <div
@@ -29,7 +43,13 @@ const VideoGeneratorHero = () => {
               Create viral lyric videos for social media in seconds
             </p>
             <div className="max-w-[650px] mx-auto">
-              <input type="file" className="hidden" id="audio" />
+              <input
+                type="file"
+                className="hidden"
+                id="audio"
+                accept="audio/*"
+                onChange={handleUploadChange}
+              />
               <label
                 className="border border-border bg-white shadow-card p-10 rounded-xl block cursor-pointer"
                 htmlFor="audio"

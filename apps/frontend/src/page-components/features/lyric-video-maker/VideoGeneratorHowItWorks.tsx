@@ -144,8 +144,8 @@ const VideoGeneratorHowItWorks = () => {
           </div>
         </FadeInUp>
         <div>
-          {/* <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5"> */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 lg:gap-6 max-w-[920px] mx-auto">
+          {/* <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 lg:gap-6 max-w-[920px] mx-auto"> */}
+          <div className="grid grid-cols-1 gap-5 lg:gap-6 max-w-[720px] mx-auto">
             {STEPS.map((s) => (
               <SlideDown key={s.step}>
                 <div className="card flex flex-col gap-4 bg-white! shadow-none! duration-300 transition-all hover:-translate-y-2 h-full">
