@@ -2248,15 +2248,23 @@ export default function StudioPage() {
 
       await new Promise<void>((resolve, reject) => {
         let settled = false;
+        const settle = () => { if (!settled) { settled = true; resolve(); } };
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const rvfc = (videoEl as any).requestVideoFrameCallback?.bind(videoEl);
         if (!rvfc) { resolve(); return; } // graceful skip — phase 2 falls back to seek
+
+        // 'ended' fires after the last frame; the frame callback may not fire again after it
+        videoEl.addEventListener('ended', settle, { once: true });
+        // Hard timeout: if something stalls, don't hang the download indefinitely
+        const safetyTimeout = setTimeout(settle, Math.max((clipDuration / 16) * 1000 + 4000, 8000));
+        cleanups.push(() => { clearTimeout(safetyTimeout); videoEl.removeEventListener('ended', settle); });
+
         const handleFrame = (_now: number, meta: { mediaTime: number }) => {
           if (settled) return;
           createImageBitmap(videoEl).then((bmp) => {
             capturedFrames.push({ time: meta.mediaTime, bmp });
-            if (videoEl.ended || meta.mediaTime >= clipDuration - 0.04) {
-              settled = true; resolve();
+            if (settled || meta.mediaTime >= clipDuration - 0.04) {
+              settle();
             } else {
               rvfc(handleFrame);
             }
