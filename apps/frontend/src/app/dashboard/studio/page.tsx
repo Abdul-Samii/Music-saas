@@ -2256,10 +2256,11 @@ export default function StudioPage() {
           // requestVideoFrameCallback is purpose-built for this; onseeked+rAF as fallback.
           const seekReady = (t: number) => new Promise<void>((res) => {
             const done = () => res();
-            if ("requestVideoFrameCallback" in videoEl) {
-              (videoEl as any).requestVideoFrameCallback(done);
+            const vid = videoEl as any;
+            if (vid.requestVideoFrameCallback) {
+              vid.requestVideoFrameCallback(done);
             } else {
-              videoEl.onseeked = () => requestAnimationFrame(done);
+              vid.onseeked = () => requestAnimationFrame(done);
               setTimeout(res, 500);
             }
             videoEl.currentTime = t;
