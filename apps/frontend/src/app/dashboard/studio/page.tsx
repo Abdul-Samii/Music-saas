@@ -514,11 +514,17 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
       const t = audio.currentTime;
       const endTimes = endTimestampsRef.current;
 
-      // Find the active line: start <= t < end (independent per line)
+      // Find the active line: use first word's start time (Whisper) as the threshold so
+      // nothing is shown during the gap between segment start and the first spoken word.
       let li = -1;
       for (let i = 0; i < times.length; i++) {
-        if (t >= times[i]) {
-          const end = endTimes?.[i];
+        const lineWordTs = wordTsRef.current?.[i];
+        const effectiveStart = (lineWordTs && lineWordTs.length > 0) ? lineWordTs[0].start : times[i];
+        if (t >= effectiveStart) {
+          const rawEnd = endTimes?.[i];
+          // If no explicit end time, use last word's end from Whisper word timestamps
+          const lastWordEnd = (lineWordTs && lineWordTs.length > 0) ? lineWordTs[lineWordTs.length - 1].end : undefined;
+          const end = (rawEnd !== null && rawEnd !== undefined) ? rawEnd : lastWordEnd;
           if (end === null || end === undefined || t < end) li = i;
         }
       }
