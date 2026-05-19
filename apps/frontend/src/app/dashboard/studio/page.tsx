@@ -527,16 +527,16 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
       if (li !== prevLineRef.current) {
         console.log(`[RAF] line ${prevLineRef.current === -999 ? "init" : prevLineRef.current} → ${li} at audio t=${t.toFixed(2)}s`);
         setActiveLineIndex(li);
-        setActiveWordIdx(0);
+        setActiveWordIdx(-1);
         setAnimKey((k) => k + 1);
         prevLineRef.current = li;
-        prevWordRef.current = 0;
+        prevWordRef.current = -1;
       }
 
-      // Global word index — used by tiktok style
+      // Global word index — used by tiktok style; -1 means no word spoken yet in this line
       if (li >= 0) {
         const offsets = wordOffsetsRef.current;
-        const globalWi = (offsets[li] ?? 0) + (prevWordRef.current >= 0 ? prevWordRef.current : 0);
+        const globalWi = prevWordRef.current < 0 ? -1 : (offsets[li] ?? 0) + prevWordRef.current;
         setActiveGlobalWordIdx(globalWi);
       }
 
@@ -545,8 +545,8 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
         const lineWordTs = wordTsRef.current?.[li];
         let wi: number;
         if (lineWordTs && lineWordTs.length > 0) {
-          // Exact timing from Whisper word timestamps
-          wi = 0;
+          // Exact timing from Whisper word timestamps; -1 until the first word's start is reached
+          wi = -1;
           for (let w = 0; w < lineWordTs.length; w++) {
             if (t >= lineWordTs[w].start) wi = w;
             else break;
@@ -712,6 +712,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
     const curWords = curLine.split(" ").filter(Boolean);
 
     if (lyricStyle === "word-by-word") {
+      if (activeWordIdx < 0) return null;
       // Karaoke-style: full line visible, current word highlighted, upcoming words dimmed
       return (
         <p style={{ ...textStyle, lineHeight: 1.55 }}>
@@ -740,6 +741,7 @@ function VideoPreview({ src, audioSrc, audioTrimStart, audioTrimEnd, overlayOpac
       );
     }
     if (lyricStyle === "spotlight") {
+      if (activeWordIdx < 0) return null;
       const globalWord = safeTimes
         ? allWords[Math.min(
             safeLines.slice(0, activeLineIndex).flatMap((l) => l.split(" ").filter(Boolean)).length + activeWordIdx,
@@ -1944,7 +1946,7 @@ export default function StudioPage() {
     function wordAt(li: number, t: number): number {
       const wts = wordTimestamps?.[li] ?? [];
       if (wts.length > 0) {
-        let w = 0;
+        let w = -1; // -1 = no word spoken yet in this line
         for (let wi = 0; wi < wts.length; wi++) {
           if (wts[wi]?.start <= t) w = wi; else break;
         }
@@ -2032,6 +2034,7 @@ export default function StudioPage() {
       } else if (cfg.lyricStyle === "word-by-word") {
         const words = line.split(" ").filter(Boolean);
         const activeWi = wordAt(li, t);
+        if (activeWi < 0) return; // no word spoken yet — draw nothing
         ctx.font = `800 ${fsPx}px ${cfg.fontFamily}`;
         const rows: { word: string; wi: number }[][] = [];
         let row: { word: string; wi: number }[] = [];
