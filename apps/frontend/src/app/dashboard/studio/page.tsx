@@ -2236,7 +2236,20 @@ export default function StudioPage() {
         if (audioTime >= trimEnd || wallElapsed >= dur + 2) {
           rec.stop(); videoEl.pause(); audioEl.pause(); return;
         }
-        ctx.drawImage(videoEl, 0, 0, W, H);
+        // object-fit: cover — crop to fill the 9:16 canvas without distorting the source
+        const vw = videoEl.videoWidth || W;
+        const vh = videoEl.videoHeight || H;
+        const videoAspect = vw / vh;
+        const canvasAspect = W / H;
+        let sx = 0, sy = 0, sw = vw, sh = vh;
+        if (videoAspect > canvasAspect) {
+          sw = vh * canvasAspect;
+          sx = (vw - sw) / 2;
+        } else {
+          sh = vw / canvasAspect;
+          sy = (vh - sh) / 2;
+        }
+        ctx.drawImage(videoEl, sx, sy, sw, sh, 0, 0, W, H);
         ctx.fillStyle = `rgba(0,0,0,${cfg.overlayOpacity})`;
         ctx.fillRect(0, 0, W, H);
         drawLyrics(ctx, audioTime);
