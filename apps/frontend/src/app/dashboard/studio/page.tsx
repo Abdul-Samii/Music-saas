@@ -2238,12 +2238,59 @@ export default function StudioPage() {
         }
       }
 
-      // Render each frame by seeking the video — no real-time playback speed limit
+      // Phase 1: capture every decoded video frame in one forward-play pass at 16x speed.
+      // This avoids per-frame seeking (~50ms × 1440 frames = 72s) — the previous bottleneck.
+      const capturedFrames: { time: number; bmp: ImageBitmap }[] = [];
+      videoEl.loop = false;
+      videoEl.muted = true;
+      videoEl.currentTime = 0;
+      await new Promise<void>((res) => { videoEl.onseeked = () => res(); });
+
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rvfc = (videoEl as any).requestVideoFrameCallback?.bind(videoEl);
+        if (!rvfc) { resolve(); return; } // graceful skip — phase 2 falls back to seek
+        const handleFrame = (_now: number, meta: { mediaTime: number }) => {
+          if (settled) return;
+          createImageBitmap(videoEl).then((bmp) => {
+            capturedFrames.push({ time: meta.mediaTime, bmp });
+            if (videoEl.ended || meta.mediaTime >= clipDuration - 0.04) {
+              settled = true; resolve();
+            } else {
+              rvfc(handleFrame);
+            }
+          }).catch((e) => { settled = true; reject(e); });
+        };
+        rvfc(handleFrame);
+        videoEl.playbackRate = 16;
+        videoEl.play().catch(reject);
+      });
+      capturedFrames.sort((a, b) => a.time - b.time);
+
+      // Phase 2: render canvas frames — look up nearest pre-captured bitmap instead of seeking
       for (let fi = 0; fi < totalFrames; fi++) {
         const t = trimStart + fi / FPS;
-        videoEl.currentTime = t % clipDuration;
-        await new Promise<void>((res) => { videoEl.onseeked = () => res(); });
-        ctx.drawImage(videoEl, vsx, vsy, vsw, vsh, 0, 0, W, H);
+        const vt = t % clipDuration;
+
+        let src: ImageBitmap | HTMLVideoElement;
+        if (capturedFrames.length > 0) {
+          // Binary search for closest captured frame
+          let lo = 0, hi = capturedFrames.length - 1;
+          while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (capturedFrames[mid].time < vt) lo = mid + 1; else hi = mid;
+          }
+          if (lo > 0 && Math.abs(capturedFrames[lo - 1].time - vt) < Math.abs(capturedFrames[lo].time - vt)) lo--;
+          src = capturedFrames[lo].bmp;
+        } else {
+          // requestVideoFrameCallback unavailable — fall back to seeking
+          videoEl.currentTime = vt;
+          await new Promise<void>((res) => { videoEl.onseeked = () => res(); });
+          src = videoEl;
+        }
+
+        ctx.drawImage(src, vsx, vsy, vsw, vsh, 0, 0, W, H);
         ctx.fillStyle = `rgba(0,0,0,${cfg.overlayOpacity})`;
         ctx.fillRect(0, 0, W, H);
         drawLyrics(ctx, t);
@@ -2251,6 +2298,7 @@ export default function StudioPage() {
         videoEncoder.encode(vf, { keyFrame: fi % (FPS * 2) === 0 });
         vf.close();
       }
+      capturedFrames.forEach(({ bmp }) => bmp.close());
 
       await videoEncoder.flush();
       await audioEncoder.flush();
