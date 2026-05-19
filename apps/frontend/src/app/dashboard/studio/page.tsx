@@ -2238,9 +2238,16 @@ export default function StudioPage() {
         }
       }
 
-      // Phase 1: capture every decoded video frame in one forward-play pass at 16x speed.
-      // This avoids per-frame seeking (~50ms × 1440 frames = 72s) — the previous bottleneck.
+      // Phase 1: capture every decoded video frame in one forward-play pass.
+      // Key fix: drawImage(videoEl) is synchronous — snapshot the frame to an OffscreenCanvas
+      // immediately when the callback fires, BEFORE any await. At 16x the video advances ~1s
+      // between the callback and when createImageBitmap(videoEl) resolves, producing wrong frames.
+      // Drawing to OffscreenCanvas first guarantees the captured pixel data matches meta.mediaTime.
       const capturedFrames: { time: number; bmp: ImageBitmap }[] = [];
+      const capCanvas = new OffscreenCanvas(videoEl.videoWidth || W, videoEl.videoHeight || H);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const capCtx = (capCanvas as any).getContext('2d') as CanvasRenderingContext2D;
+
       videoEl.loop = false;
       videoEl.muted = true;
       videoEl.currentTime = 0;
@@ -2253,15 +2260,16 @@ export default function StudioPage() {
         const rvfc = (videoEl as any).requestVideoFrameCallback?.bind(videoEl);
         if (!rvfc) { resolve(); return; } // graceful skip — phase 2 falls back to seek
 
-        // 'ended' fires after the last frame; the frame callback may not fire again after it
         videoEl.addEventListener('ended', settle, { once: true });
-        // Hard timeout: if something stalls, don't hang the download indefinitely
-        const safetyTimeout = setTimeout(settle, Math.max((clipDuration / 16) * 1000 + 4000, 8000));
+        // Safety timeout scaled to playbackRate so slow clips don't stall
+        const safetyTimeout = setTimeout(settle, Math.max((clipDuration / 4) * 1000 + 5000, 8000));
         cleanups.push(() => { clearTimeout(safetyTimeout); videoEl.removeEventListener('ended', settle); });
 
         const handleFrame = (_now: number, meta: { mediaTime: number }) => {
           if (settled) return;
-          createImageBitmap(videoEl).then((bmp) => {
+          // Synchronous snapshot — locks in the exact frame before any async gap
+          capCtx.drawImage(videoEl as unknown as CanvasImageSource, 0, 0);
+          createImageBitmap(capCanvas).then((bmp) => {
             capturedFrames.push({ time: meta.mediaTime, bmp });
             if (settled || meta.mediaTime >= clipDuration - 0.04) {
               settle();
@@ -2271,7 +2279,8 @@ export default function StudioPage() {
           }).catch((e) => { settled = true; reject(e); });
         };
         rvfc(handleFrame);
-        videoEl.playbackRate = 16;
+        // 4x: browser decodes every frame at this rate; 16x causes severe frame-skipping
+        videoEl.playbackRate = 4;
         videoEl.play().catch(reject);
       });
       capturedFrames.sort((a, b) => a.time - b.time);
