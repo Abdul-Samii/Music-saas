@@ -5,6 +5,7 @@ import {
   Param,
   Body,
   Query,
+  Req,
   Res,
   UseGuards,
   UseInterceptors,
@@ -16,8 +17,10 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import axios from 'axios';
 import * as fs from 'fs';
-import type { Response } from 'express';
+import * as path from 'path';
+import type { Request, Response } from 'express';
 import { MediaService } from './media.service';
+import { RenderVideoService } from './render-video.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
@@ -47,7 +50,10 @@ function audioStorage() {
 @UseGuards(JwtAuthGuard)
 @Controller('media')
 export class MediaController {
-  constructor(private readonly media: MediaService) {}
+  constructor(
+    private readonly media: MediaService,
+    private readonly renderVideo: RenderVideoService,
+  ) {}
 
   // POST /media/upload-audio  (field: "audio")
   @Post('upload-audio')
@@ -113,6 +119,52 @@ export class MediaController {
   @Get('my-creatives')
   async myCreatives(@CurrentUser() user: JwtUser) {
     return this.media.listCreatives(user.id);
+  }
+
+  // POST /media/render-video — server-side render using node-canvas + FFmpeg, returns MP4
+  @Post('render-video')
+  async renderVideoEndpoint(
+    @Body() body: {
+      audioUrl: string;
+      videoClipUrl: string;
+      trimStart: number;
+      trimEnd: number;
+      lines: string[];
+      timestamps: (number | null)[];
+      endTimestamps: (number | null)[];
+      wordTimestamps: { word: string; start: number; end: number }[][];
+      config: {
+        lyricStyle: string;
+        fontFamily: string;
+        fontSize: 'sm' | 'md' | 'lg';
+        textColor: string;
+        highlightColor: string;
+        textPosition: 'top' | 'center' | 'bottom';
+        overlayOpacity: number;
+        creativeName?: string;
+      };
+    },
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    if (!body.audioUrl || !body.videoClipUrl) {
+      res.status(400).json({ error: 'audioUrl and videoClipUrl are required' });
+      return;
+    }
+    const authHeader = req.headers.authorization
+      ? { Authorization: req.headers.authorization }
+      : undefined;
+    let outputPath: string | null = null;
+    try {
+      outputPath = await this.renderVideo.renderVideo({ ...body, authHeader } as any);
+      const name = `${body.config?.creativeName || 'video'}.mp4`;
+      res.download(outputPath, name, () => {
+        if (outputPath) fs.rm(path.dirname(outputPath), { recursive: true }, () => {});
+      });
+    } catch (err) {
+      if (outputPath) fs.rm(path.dirname(outputPath), { recursive: true }, () => {});
+      res.status(500).json({ error: 'Render failed', detail: (err as Error).message });
+    }
   }
 
   // POST /media/convert-mp4  — accepts a webm blob, returns mp4
