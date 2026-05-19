@@ -1904,13 +1904,16 @@ export default function StudioPage() {
 
     function lineAt(t: number): number {
       // Must find the LAST matching line, not the first.
-      // With null end timestamps, an early `return i` would always return line 0.
+      // Use first word's start time (Whisper) as effective start — matches the editor RAF loop.
       let active = -1;
       for (let i = 0; i < timestamps.length; i++) {
         const start = timestamps[i];
-        if (start !== null && t >= start) {
-          // Use the next line's start as implicit end when no explicit end is set
-          const end = endTimestamps[i] ?? timestamps[i + 1] ?? null;
+        if (start === null) continue;
+        const lineWts = wordTimestamps?.[i];
+        const effectiveStart = (lineWts && lineWts.length > 0) ? lineWts[0].start : start;
+        if (t >= effectiveStart) {
+          const lastWordEnd = (lineWts && lineWts.length > 0) ? lineWts[lineWts.length - 1].end : undefined;
+          const end = endTimestamps[i] ?? lastWordEnd ?? timestamps[i + 1] ?? null;
           if (end === null || t < end) active = i;
         }
       }
@@ -2030,13 +2033,18 @@ export default function StudioPage() {
       const yBase = cfg.textPosition === "top" ? H * 0.14 : cfg.textPosition === "center" ? H * 0.5 : H * 0.80;
 
       if (cfg.lyricStyle === "spotlight") {
-        ctx.font = `900 ${Math.round(fsPx * 1.3)}px ${cfg.fontFamily}`;
-        ctx.fillStyle = cfg.highlightColor;
-        ctx.shadowColor = cfg.highlightColor;
-        ctx.shadowBlur = 24;
-        const wrapped = wrapLines(ctx, line, maxTextW);
-        const lh = Math.round(fsPx * 1.3) * 1.25;
-        wrapped.forEach((l, i) => ctx.fillText(l, W / 2, yBase + (i - wrapped.length / 2 + 0.5) * lh));
+        // One word at a time — matches the editor preview exactly
+        const gwi = globalWordAt(t);
+        if (gwi < 0) { ctx.shadowBlur = 0; return; }
+        const allWordsFlat = lines.flatMap((l) => l.split(" ").filter(Boolean));
+        const word = allWordsFlat[Math.min(gwi, allWordsFlat.length - 1)] ?? "";
+        const isHighlighted = gwi % 3 === 0 || gwi % 7 === 4;
+        const spotFsPx = Math.round(fsPx * 1.7);
+        ctx.font = `900 ${spotFsPx}px ${cfg.fontFamily}`;
+        ctx.fillStyle = isHighlighted ? cfg.highlightColor : cfg.textColor;
+        ctx.shadowColor = isHighlighted ? cfg.highlightColor : "rgba(0,0,0,0.8)";
+        ctx.shadowBlur = isHighlighted ? 28 : 14;
+        ctx.fillText(word, W / 2, yBase);
       } else if (cfg.lyricStyle === "word-by-word") {
         const words = line.split(" ").filter(Boolean);
         const activeWi = wordAt(li, t);
@@ -2069,7 +2077,36 @@ export default function StudioPage() {
           });
           ctx.textAlign = "center";
         });
+      } else if (cfg.lyricStyle === "echo") {
+        ctx.font = `800 ${fsPx}px ${cfg.fontFamily}`;
+        ctx.fillStyle = cfg.textColor;
+        ctx.shadowColor = "rgba(0,0,0,0.9)";
+        ctx.shadowBlur = 10;
+        const wrapped = wrapLines(ctx, line, maxTextW);
+        const lh = fsPx * 1.35;
+        wrapped.forEach((l, i) => ctx.fillText(l, W / 2, yBase + (i - wrapped.length / 2 + 0.5) * lh));
+        // Echo reflection: flipped, faded, smaller — mirrors the CSS preview
+        const lastRowY = yBase + ((wrapped.length - 1) - wrapped.length / 2 + 0.5) * lh;
+        const pivotY = lastRowY + fsPx * 0.15;
+        ctx.save();
+        ctx.globalAlpha = 0.25;
+        ctx.shadowBlur = 0;
+        ctx.font = `800 ${Math.round(fsPx * 0.85)}px ${cfg.fontFamily}`;
+        ctx.transform(1, 0, 0, -1, 0, 2 * pivotY);
+        wrapped.forEach((l, i) => ctx.fillText(l, W / 2, yBase + (i - wrapped.length / 2 + 0.5) * lh));
+        ctx.restore();
+      } else if (cfg.lyricStyle === "glow") {
+        ctx.font = `800 ${fsPx}px ${cfg.fontFamily}`;
+        ctx.fillStyle = cfg.textColor;
+        ctx.shadowColor = cfg.textColor;
+        ctx.shadowBlur = 22;
+        const wrapped = wrapLines(ctx, line, maxTextW);
+        const lh = fsPx * 1.35;
+        // Draw twice to intensify the glow (matches CSS drop-shadow filter)
+        wrapped.forEach((l, i) => ctx.fillText(l, W / 2, yBase + (i - wrapped.length / 2 + 0.5) * lh));
+        wrapped.forEach((l, i) => ctx.fillText(l, W / 2, yBase + (i - wrapped.length / 2 + 0.5) * lh));
       } else {
+        // pop / default
         ctx.font = `800 ${fsPx}px ${cfg.fontFamily}`;
         ctx.fillStyle = cfg.textColor;
         ctx.shadowColor = "rgba(0,0,0,0.9)";
