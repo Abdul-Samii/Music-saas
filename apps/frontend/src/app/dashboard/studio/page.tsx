@@ -2148,61 +2148,74 @@ export default function StudioPage() {
       videoEl.disableRemotePlayback = true;
       await new Promise<void>((res, rej) => { videoEl.onloadeddata = () => res(); videoEl.onerror = rej; videoEl.load(); });
 
-      const audioEl = document.createElement("audio");
-      audioEl.src = audioObjUrl;
-      audioEl.disableRemotePlayback = true; // prevent macOS "Now Playing" overlay from hijacking playback
-      await new Promise<void>((res, rej) => { audioEl.oncanplay = () => res(); audioEl.onerror = rej; audioEl.load(); });
-      audioEl.currentTime = trimStart;
-
       const canvas = document.createElement("canvas");
       canvas.width = W; canvas.height = H;
       const ctx = canvas.getContext("2d")!;
 
-      const audioCtx = new AudioContext();
-      const src = audioCtx.createMediaElementSource(audioEl);
-      const dest = audioCtx.createMediaStreamDestination();
-      src.connect(dest);
-      cleanups.push(() => audioCtx.close());
+      if (typeof VideoEncoder === 'undefined' || typeof AudioEncoder === 'undefined') {
+        throw new Error('Fast download requires Chrome 94+ or Safari 16.4+. Please update your browser.');
+      }
 
-      // VP8 encodes faster in-browser; 24fps sufficient for social video
-      const mimeType = ["video/webm;codecs=vp8,opus", "video/webm;codecs=vp9,opus", "video/webm"]
-        .find((t) => MediaRecorder.isTypeSupported(t)) ?? "video/webm";
-      const chunks: Blob[] = [];
-      const rec = new MediaRecorder(
-        new MediaStream([...canvas.captureStream(24).getTracks(), ...dest.stream.getTracks()]),
-        { mimeType, videoBitsPerSecond: 2_500_000 },
-      );
-      rec.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-      rec.onstop = async () => {
-        try {
-          const webmBlob = new Blob(chunks, { type: "video/webm" });
-          const fd = new FormData();
-          fd.append("video", webmBlob, "video.webm");
-          const resp = await fetch(`${apiRoot}/media/convert-mp4`, {
-            method: "POST",
-            headers: authHeader,
-            body: fd,
-          });
-          if (!resp.ok) throw new Error(`convert-mp4 ${resp.status}`);
-          const mp4Blob = await resp.blob();
-          const url = URL.createObjectURL(mp4Blob);
-          const a = document.createElement("a");
-          a.href = url; a.download = `${result.name}.mp4`;
-          document.body.appendChild(a); a.click(); document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-        } catch (convErr) {
-          console.error("[convert-mp4] falling back to webm:", convErr);
-          const blob = new Blob(chunks, { type: "video/webm" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url; a.download = `${result.name}.webm`;
-          document.body.appendChild(a); a.click(); document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-        } finally {
-          cleanups.forEach((fn) => fn());
-          setDownloadingId(null);
+      // Fast path: WebCodecs + mp4-muxer — seeks frame-by-frame, no real-time constraint, no backend round-trip
+      const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
+
+      const FPS = 24;
+      const totalFrames = Math.ceil(dur * FPS);
+      const clipDuration = isFinite(videoEl.duration) && videoEl.duration > 0 ? videoEl.duration : dur;
+
+      // Pre-compute video crop params once (object-fit: cover)
+      const vw = videoEl.videoWidth || W;
+      const vh = videoEl.videoHeight || H;
+      const videoAspect = vw / vh;
+      const canvasAspect = W / H;
+      let vsx = 0, vsy = 0, vsw = vw, vsh = vh;
+      if (videoAspect > canvasAspect) { vsw = vh * canvasAspect; vsx = (vw - vsw) / 2; }
+      else { vsh = vw / canvasAspect; vsy = (vh - vsh) / 2; }
+
+      // Decode audio buffer for sample-accurate AAC encoding
+      const decodeCtx = new AudioContext();
+      cleanups.push(() => decodeCtx.close());
+      const audioBuffer = await decodeCtx.decodeAudioData(await audioBlob.arrayBuffer());
+      const sr = audioBuffer.sampleRate;
+      const nCh = Math.min(audioBuffer.numberOfChannels, 2);
+      const startSmp = Math.floor(trimStart * sr);
+      const endSmp = Math.min(Math.ceil(trimEnd * sr), audioBuffer.length);
+
+      // Setup mp4-muxer — outputs directly to an in-memory ArrayBuffer, no upload needed
+      const muxTarget = new ArrayBufferTarget();
+      const muxer = new Muxer({
+        target: muxTarget,
+        video: { codec: 'avc', width: W, height: H },
+        audio: { codec: 'aac', numberOfChannels: nCh, sampleRate: sr },
+        firstTimestampBehavior: 'offset',
+        fastStart: 'in-memory',
+      });
+
+      const videoEncoder = new VideoEncoder({
+        output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+        error: (e) => console.error('[VideoEncoder]', e),
+      });
+      videoEncoder.configure({ codec: 'avc1.42001f', width: W, height: H, bitrate: 2_500_000, framerate: FPS });
+
+      const audioEncoder = new AudioEncoder({
+        output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+        error: (e) => console.error('[AudioEncoder]', e),
+      });
+      audioEncoder.configure({ codec: 'mp4a.40.2', numberOfChannels: nCh, sampleRate: sr, bitrate: 128_000 });
+
+      // Encode all audio samples up-front in 4096-sample chunks (f32-planar: ch0 then ch1)
+      const AUDIO_CHUNK = 4096;
+      for (let i = startSmp; i < endSmp; i += AUDIO_CHUNK) {
+        const end = Math.min(i + AUDIO_CHUNK, endSmp);
+        const len = end - i;
+        const data = new Float32Array(nCh * len);
+        for (let ch = 0; ch < nCh; ch++) {
+          data.set(audioBuffer.getChannelData(ch).subarray(i, end), ch * len);
         }
-      };
+        const ad = new AudioData({ format: 'f32-planar', sampleRate: sr, numberOfChannels: nCh, numberOfFrames: len, timestamp: Math.round(((i - startSmp) / sr) * 1e6), data });
+        audioEncoder.encode(ad);
+        ad.close();
+      }
 
       await document.fonts.ready;
 
@@ -2225,37 +2238,32 @@ export default function StudioPage() {
         }
       }
 
-      rec.start(100);
-      await Promise.all([videoEl.play(), audioEl.play()]);
-      const t0 = performance.now();
-
-      function frame() {
-        // Use audioEl.currentTime as source of truth — wall-clock drifts under render load
-        const audioTime = audioEl.currentTime;
-        const wallElapsed = (performance.now() - t0) / 1000;
-        if (audioTime >= trimEnd || wallElapsed >= dur + 2) {
-          rec.stop(); videoEl.pause(); audioEl.pause(); return;
-        }
-        // object-fit: cover — crop to fill the 9:16 canvas without distorting the source
-        const vw = videoEl.videoWidth || W;
-        const vh = videoEl.videoHeight || H;
-        const videoAspect = vw / vh;
-        const canvasAspect = W / H;
-        let sx = 0, sy = 0, sw = vw, sh = vh;
-        if (videoAspect > canvasAspect) {
-          sw = vh * canvasAspect;
-          sx = (vw - sw) / 2;
-        } else {
-          sh = vw / canvasAspect;
-          sy = (vh - sh) / 2;
-        }
-        ctx.drawImage(videoEl, sx, sy, sw, sh, 0, 0, W, H);
+      // Render each frame by seeking the video — no real-time playback speed limit
+      for (let fi = 0; fi < totalFrames; fi++) {
+        const t = trimStart + fi / FPS;
+        videoEl.currentTime = t % clipDuration;
+        await new Promise<void>((res) => { videoEl.onseeked = () => res(); });
+        ctx.drawImage(videoEl, vsx, vsy, vsw, vsh, 0, 0, W, H);
         ctx.fillStyle = `rgba(0,0,0,${cfg.overlayOpacity})`;
         ctx.fillRect(0, 0, W, H);
-        drawLyrics(ctx, audioTime);
-        requestAnimationFrame(frame);
+        drawLyrics(ctx, t);
+        const vf = new VideoFrame(canvas, { timestamp: Math.round((fi / FPS) * 1e6) });
+        videoEncoder.encode(vf, { keyFrame: fi % (FPS * 2) === 0 });
+        vf.close();
       }
-      requestAnimationFrame(frame);
+
+      await videoEncoder.flush();
+      await audioEncoder.flush();
+      muxer.finalize();
+
+      const dlBlob = new Blob([muxTarget.buffer], { type: 'video/mp4' });
+      const dlUrl = URL.createObjectURL(dlBlob);
+      const dlA = document.createElement("a");
+      dlA.href = dlUrl; dlA.download = `${result.name}.mp4`;
+      document.body.appendChild(dlA); dlA.click(); document.body.removeChild(dlA);
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 1000);
+      cleanups.forEach((fn) => fn());
+      setDownloadingId(null);
 
     } catch (err) {
       console.error("[Download]", err);
