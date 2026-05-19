@@ -1,8 +1,18 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
+import { pipeline } from 'stream/promises';
 import { spawn } from 'child_process';
 import axios from 'axios';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+
+const s3 = new S3Client({
+  region: process.env.AWS_REGION ?? 'eu-north-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? '',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? '',
+  },
+});
 
 const W = 720;
 const H = 1280;
@@ -463,18 +473,29 @@ export class RenderVideoService implements OnModuleInit {
     });
   }
 
-  private async fetchFile(urlOrPath: string, dest: string, headers?: Record<string, string>) {
+  private async fetchFile(urlOrPath: string, dest: string, _headers?: Record<string, string>) {
+    this.logger.debug(`fetchFile: ${urlOrPath} → ${dest}`);
+
+    // Local path (e.g. /uploads/audio/...) — copy directly, no HTTP overhead
     if (!urlOrPath.startsWith('http')) {
-      // Local upload — copy directly without HTTP overhead
       fs.copyFileSync(path.join(process.cwd(), urlOrPath), dest);
       return;
     }
-    const resp = await axios.get<NodeJS.ReadableStream>(urlOrPath, { responseType: 'stream', headers: headers ?? {} });
-    await new Promise<void>((resolve, reject) => {
-      const out = fs.createWriteStream(dest);
-      resp.data.pipe(out);
-      out.on('finish', resolve);
-      out.on('error', reject);
-    });
+
+    // S3 URL — use AWS SDK so credentials, signing, and region are handled automatically
+    if (urlOrPath.includes('amazonaws.com')) {
+      const u = new URL(urlOrPath);
+      // Virtual-hosted-style: bucket.s3.region.amazonaws.com/key  OR  s3.region.amazonaws.com/bucket/key
+      const key = decodeURIComponent(u.pathname.slice(1)); // strip leading /
+      const bucket = process.env.S3_BUCKET_NAME ?? 'escaliumio';
+      const obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+      const body = obj.Body as NodeJS.ReadableStream;
+      await pipeline(body, fs.createWriteStream(dest));
+      return;
+    }
+
+    // Generic HTTP URL
+    const resp = await axios.get<NodeJS.ReadableStream>(urlOrPath, { responseType: 'stream' });
+    await pipeline(resp.data as unknown as NodeJS.ReadableStream, fs.createWriteStream(dest));
   }
 }
