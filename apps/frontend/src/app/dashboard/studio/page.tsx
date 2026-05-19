@@ -2245,24 +2245,24 @@ export default function StudioPage() {
           }
           await audioEncoder.flush();
 
+          // Attach video to DOM (hidden) so the browser's compositor decodes frames on seek.
+          // Off-DOM video elements don't reliably produce frames for drawImage after seeking.
+          videoEl.style.cssText = "position:fixed;visibility:hidden;width:1px;height:1px;pointer-events:none;z-index:-9999";
+          document.body.appendChild(videoEl);
+          cleanups.push(() => { if (videoEl.parentNode) videoEl.parentNode.removeChild(videoEl); });
+
           // Activate the video decoder: play briefly then pause so subsequent seeks
           // produce real decoded frames (without this some browsers draw a static thumbnail).
           await videoEl.play().catch(() => {});
           videoEl.pause();
-          videoEl.currentTime = trimStart;
-          await new Promise<void>((res) => { videoEl.onseeked = () => res(); setTimeout(res, 500); });
 
-          // Helper: seek to time t and wait until the frame is truly ready for drawImage.
-          // requestVideoFrameCallback is purpose-built for this; onseeked+rAF as fallback.
+          // Seek helper — addEventListener once is safer than assigning onseeked directly
+          // (assigning overwrites prior handlers when seeks overlap). Timeout guards hangs.
           const seekReady = (t: number) => new Promise<void>((res) => {
-            const done = () => res();
-            const vid = videoEl as any;
-            if (vid.requestVideoFrameCallback) {
-              vid.requestVideoFrameCallback(done);
-            } else {
-              vid.onseeked = () => requestAnimationFrame(done);
-              setTimeout(res, 500);
-            }
+            let done = false;
+            const resolve = () => { if (!done) { done = true; res(); } };
+            videoEl.addEventListener("seeked", resolve, { once: true });
+            setTimeout(resolve, 800);
             videoEl.currentTime = t;
           });
 
@@ -2295,7 +2295,9 @@ export default function StudioPage() {
           setDownloadingId(null);
           return;
         } catch (wcErr) {
-          console.warn("[WebCodecs] fast path failed, falling back to MediaRecorder:", wcErr);
+          console.error("[WebCodecs] fast path failed, falling back to MediaRecorder:", wcErr);
+          // Clean up any DOM node we added before falling back
+          if (videoEl.parentNode) videoEl.parentNode.removeChild(videoEl);
         }
       }
 
