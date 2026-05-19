@@ -2245,13 +2245,32 @@ export default function StudioPage() {
           }
           await audioEncoder.flush();
 
+          // Activate the video decoder: play briefly then pause so subsequent seeks
+          // produce real decoded frames (without this some browsers draw a static thumbnail).
+          await videoEl.play().catch(() => {});
+          videoEl.pause();
+          videoEl.currentTime = trimStart;
+          await new Promise<void>((res) => { videoEl.onseeked = () => res(); setTimeout(res, 500); });
+
+          // Helper: seek to time t and wait until the frame is truly ready for drawImage.
+          // requestVideoFrameCallback is purpose-built for this; onseeked+rAF as fallback.
+          const seekReady = (t: number) => new Promise<void>((res) => {
+            const done = () => res();
+            if ("requestVideoFrameCallback" in videoEl) {
+              (videoEl as any).requestVideoFrameCallback(done);
+            } else {
+              videoEl.onseeked = () => requestAnimationFrame(done);
+              setTimeout(res, 500);
+            }
+            videoEl.currentTime = t;
+          });
+
           // Render every video frame by seeking — far faster than real-time playback
           const FPS = 24;
           const totalFrames = Math.ceil(dur * FPS);
           for (let fi = 0; fi < totalFrames; fi++) {
             const t = trimStart + fi / FPS;
-            videoEl.currentTime = t;
-            await new Promise<void>((res) => { videoEl.onseeked = () => res(); setTimeout(res, 300); });
+            await seekReady(t);
             ctx.drawImage(videoEl, _sx, _sy, _sw, _sh, 0, 0, W, H);
             ctx.fillStyle = `rgba(0,0,0,${cfg.overlayOpacity})`;
             ctx.fillRect(0, 0, W, H);
