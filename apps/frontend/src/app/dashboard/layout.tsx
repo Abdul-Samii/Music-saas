@@ -80,7 +80,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg)" }}>
+    <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg)", alignItems: "flex-start" }}>
 
       {/* ── Mobile overlay ── */}
       {sidebarOpen && (
