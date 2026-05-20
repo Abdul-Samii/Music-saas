@@ -156,7 +156,7 @@ export default function VideoEditor({ file, onConfirm, onCancel }: Props) {
           <div>
             <h2 style={{ fontSize: "1.125rem", fontWeight: 800, color: NAVY, margin: 0 }}>Trim &amp; Format Video</h2>
             <p style={{ fontSize: "0.8rem", color: "#64748b", margin: "0.25rem 0 0" }}>
-              Preview shows 9:16 crop · max 60 seconds · audio will be muted
+              Preview shows 9:16 crop · max 60 seconds
             </p>
           </div>
 
