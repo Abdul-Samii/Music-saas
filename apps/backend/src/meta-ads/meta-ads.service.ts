@@ -538,6 +538,7 @@ export class MetaAdsService implements OnModuleInit {
       instagramActorId?: string;
       videoId?: string;
       imageHash?: string;
+      thumbnailUrl?: string;
       adTitle: string;
       adDescription?: string;
       landingPageUrl: string;
@@ -592,7 +593,9 @@ export class MetaAdsService implements OnModuleInit {
               ? { image_url: videoThumbnailUrl }
               : payload.imageHash
                 ? { image_hash: payload.imageHash }
-                : {}),
+                : payload.thumbnailUrl
+                  ? { image_url: payload.thumbnailUrl }
+                  : {}),
           },
         }
       : {

@@ -346,6 +346,8 @@ export default function NewCampaignPage() {
           pageId: form.facebookPageId,
           instagramActorId: form.instagramActorId || undefined,
           videoIds: adSlots.filter((s) => s.result?.type === "video").map((s) => (s.result as { type: "video"; videoId: string }).videoId),
+          imageHash: adSlots.find((s) => s.result?.type === "image") ? (adSlots.find((s) => s.result?.type === "image")!.result as { type: "image"; imageHash: string }).imageHash : undefined,
+          thumbnailUrl: form.landingThumbnailUrl || undefined,
           adTitle: form.adTitle,
           adDescription: form.adDescription || undefined,
           landingPageUrl,

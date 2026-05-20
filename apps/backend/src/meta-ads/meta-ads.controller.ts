@@ -281,6 +281,7 @@ export class MetaAdsController {
       videoId?: string;
       videoIds?: string[];
       imageHash?: string;
+      thumbnailUrl?: string;
       adTitle: string;
       adDescription?: string;
       landingPageUrl: string;
@@ -348,6 +349,7 @@ export class MetaAdsController {
             instagramActorId: body.instagramActorId,
             videoId: videoIds[vi],
             imageHash: body.imageHash,
+            thumbnailUrl: body.thumbnailUrl,
             adTitle: body.adTitle,
             adDescription: body.adDescription,
             landingPageUrl: body.landingPageUrl,
