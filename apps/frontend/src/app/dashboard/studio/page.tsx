@@ -224,6 +224,7 @@ function WaveformCanvas({
     }
     function onMove(e: MouseEvent) { handleMove(e.clientX); }
     function onTouchMove(e: TouchEvent) {
+      if (!dragRef.current) return;
       e.preventDefault();
       if (e.touches.length > 0) handleMove(e.touches[0].clientX);
     }
