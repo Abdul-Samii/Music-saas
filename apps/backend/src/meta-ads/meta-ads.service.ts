@@ -588,7 +588,11 @@ export class MetaAdsService implements OnModuleInit {
             title: payload.adTitle,
             message: payload.adDescription ?? '',
             call_to_action: callToAction,
-            ...(videoThumbnailUrl && { image_url: videoThumbnailUrl }),
+            ...(videoThumbnailUrl
+              ? { image_url: videoThumbnailUrl }
+              : payload.imageHash
+                ? { image_hash: payload.imageHash }
+                : {}),
           },
         }
       : {

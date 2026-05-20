@@ -998,7 +998,7 @@ export default function NewCampaignPage() {
                 This helps the campaign give you the best results while optimising the focus on the best ads without wasting too much of your budget.
               </p>
               <p style={{ fontSize: "0.75rem", color: BLUE, fontWeight: 600, marginBottom: "0.875rem" }}>
-                Any video format accepted. We&apos;ll crop to 9:16, mute audio, and let you trim the clip (max 60s).
+                Any video format accepted. We&apos;ll crop to 9:16 and let you trim the clip (max 60s).
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
                 {adSlots.map((slot, i) => (
