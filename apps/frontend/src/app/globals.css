@@ -718,6 +718,8 @@ select.input {
   /* Main content takes full width */
   .dash-main {
     padding: 1rem !important;
+    padding-bottom: 3rem !important;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Top bar stacks */

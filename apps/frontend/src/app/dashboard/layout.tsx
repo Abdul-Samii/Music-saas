@@ -80,7 +80,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div style={{ display: "flex", height: "100dvh", background: "var(--bg)" }}>
+    <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg)" }}>
 
       {/* ── Mobile overlay ── */}
       {sidebarOpen && (
@@ -260,7 +260,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* ── Main content ── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden", background: "var(--bg)" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: "var(--bg)" }}>
         {/* Mobile top bar */}
         <div className="mobile-topbar" style={{ alignItems: "center", gap: "0.75rem", padding: "0.875rem 1rem", borderBottom: "1px solid var(--border)", background: "var(--bg-card)" }}>
           <button
@@ -273,7 +273,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
           <span style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)" }}>Escalium</span>
         </div>
-        <main className="dash-main" style={{ flex: 1, padding: "2rem", overflowY: "auto" }}>
+        <main className="dash-main" style={{ flex: 1, padding: "2rem" }}>
           {children}
         </main>
       </div>
