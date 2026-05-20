@@ -14,7 +14,7 @@ const SongUploader = () => {
     if (!file) return;
 
     const token = (session as { accessToken?: string } | null)?.accessToken;
-    router.push(token ? "/dashboard/creative" : "/signup");
+    router.push(token ? "/dashboard/creative" : "/get-started");
   };
 
   return (
