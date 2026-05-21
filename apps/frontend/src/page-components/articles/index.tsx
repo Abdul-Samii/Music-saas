@@ -238,7 +238,6 @@ const ArticlesIndex = () => {
 					<DotGrid id="dots-pr1" />
 					<FadeInUp>
 						<div className="px-2 text-center relative">
-							<Chip label="" className="font-medium" />
 							<span className="sectionLabel">read our blog</span>
 							<h1 className="text-4xl lg:text-6xl lg:leading-[1.3] tracking-wide mb-4">
 								<TextAnimation text="Browse" />{" "}
