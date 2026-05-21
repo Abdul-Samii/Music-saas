@@ -1,10 +1,14 @@
 import { Providers } from "@/components/providers";
 import type { Metadata } from "next";
-import { DM_Sans, DM_Serif_Display, Instrument_Serif } from "next/font/google";
+import { DM_Sans, DM_Serif_Display, Instrument_Serif, Geist } from "next/font/google";
 import Script from "next/script";
 import ParallaxWrapper from "@/page-components/ParallaxWrapper";
 import "./globals.css";
 import { ReactNode } from "react";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
 const dmSerifDisplay = DM_Serif_Display({
   subsets: ["latin"],
@@ -72,7 +76,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-theme="light" suppressHydrationWarning>
+    <html lang="en" data-theme="light" suppressHydrationWarning className={cn("font-sans", geist.variable)}>
       <head>
         {/* Preconnect (optional but good for performance) */}
         <link rel="preconnect" href="https://www.googletagmanager.com" />
