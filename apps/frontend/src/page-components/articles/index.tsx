@@ -18,8 +18,14 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { CircleQuestionMark, ListFilter, User } from "lucide-react";
+import {
+	ArrowUpRight,
+	CircleQuestionMark,
+	ListFilter,
+	User,
+} from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useQueryState } from "nuqs";
 
 export interface Author {
@@ -227,12 +233,14 @@ const ArticlesIndex = () => {
 			<Navbar />
 
 			<div className="py-24 lg:py-30 flex gap-5 lg:gap-10 container ">
-				<aside className="hidden lg:flex flex-col max-w-xs w-full shrink-0 space-y-5">
-					<FilterContent
-						category={category}
-						setCategory={setCategory}
-						categories={categories}
-					/>
+				<aside className="hidden lg:flex flex-col max-w-xs w-full shrink-0 pt-35">
+					<div className="sticky top-[100px] flex flex-col space-y-5">
+						<FilterContent
+							category={category}
+							setCategory={setCategory}
+							categories={categories}
+						/>
+					</div>
 				</aside>
 				<section className="flex-1 grow space-y-3.5 lg:space-y-5">
 					<div className="flex flex-col items-center justify-center w-full lg:w-fit">
@@ -298,7 +306,10 @@ const Chip = ({ label, className }: { label: string; className?: string }) => {
 
 const FeaturedBlog = ({ blog }: { blog: Blog }) => {
 	return (
-		<div className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-7.5 sm:items-center">
+		<Link
+			href={`/articles/${blog.slug}`}
+			className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-7.5 sm:items-center"
+		>
 			<div className="relative aspect-square md:aspect-video rounded-xl overflow-hidden">
 				<Image
 					src={blog.image}
@@ -330,13 +341,13 @@ const FeaturedBlog = ({ blog }: { blog: Blog }) => {
 					</div>
 				</div>
 			</div>
-		</div>
+		</Link>
 	);
 };
 
 const NonFeaturedBlog = ({ blog }: { blog: Blog }) => {
 	return (
-		<div className="flex flex-col gap-5">
+		<Link href={`/articles/${blog.slug}`} className="flex flex-col gap-5">
 			<div className="relative aspect-square md:aspect-video rounded-xl overflow-hidden">
 				<Image
 					src={blog.image}
@@ -352,23 +363,26 @@ const NonFeaturedBlog = ({ blog }: { blog: Blog }) => {
 				<p className="text-secondary text-sm line-clamp-2">
 					{blog.description}
 				</p>
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-2 w-full">
 					<Image
 						src={blog.author.avatar}
 						alt={blog.author.name}
 						width={40}
 						height={40}
-						className="rounded-full object-cover size-10"
+						className="rounded-full object-cover size-10 shrink-0"
 					/>
-					<div className="flex flex-col">
-						<p className="text-sm font-medium">{blog.author.name}</p>
-						<p className="text-sm text-secondary">
-							{blog.author.avg_read_in_minutes}min read
-						</p>
+					<div className="flex items-center grow">
+						<div className="flex flex-col">
+							<p className="text-sm font-medium">{blog.author.name}</p>
+							<p className="text-sm text-secondary">
+								{blog.author.avg_read_in_minutes}min read
+							</p>
+						</div>
+						<ArrowUpRight className="size-5 ms-auto" />
 					</div>
 				</div>
 			</div>
-		</div>
+		</Link>
 	);
 };
 
