@@ -65,9 +65,10 @@ export const spotifyApi = {
 };
 
 export const creativeApi = {
-  uploadAudio: (file: File, onProgress?: (p: number) => void) => {
+  uploadAudio: (file: File, onProgress?: (p: number) => void, language?: string) => {
     const fd = new FormData();
     fd.append("audio", file);
+    if (language) fd.append("language", language);
     return api
       .post("/media/upload-audio", fd, {
         onUploadProgress: (e) =>
@@ -103,6 +104,29 @@ export const landingPagesApi = {
     pixelId?: string;
   }) => api.post("/landing-pages", data).then((r) => r.data as { url: string; id: string; artistSlug: string; songSlug: string }),
   myPages: () => api.get("/landing-pages/my").then((r) => r.data),
+  analytics: (id: string) =>
+    api.get(`/landing-pages/analytics/${id}`).then((r) => r.data as { views: number; clicks: number; title: string }),
+  metaAnalytics: (id: string) =>
+    api.get(`/landing-pages/meta-analytics/${id}`).then((r) => r.data as {
+      title: string;
+      campaigns: number;
+      impressions: number;
+      linkClicks: number;
+      landingPageViews: number;
+      reach: number;
+      spend: number;
+      spotifyClicks: number;
+      error?: string;
+    }),
+};
+
+export type Zone = { id: string; name: string; countries: string[]; createdAt: string };
+
+export const zonesApi = {
+  list: () => api.get("/zones").then((r) => r.data as Zone[]),
+  create: (data: { name: string; countries: string[] }) =>
+    api.post("/zones", data).then((r) => r.data as Zone),
+  delete: (id: string) => api.delete(`/zones/${id}`).then((r) => r.data),
 };
 
 export const usersApi = {

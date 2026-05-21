@@ -236,6 +236,7 @@ export class MetaAdsService implements OnModuleInit {
       placement: string;
       startDate?: string;
       endDate?: string;
+      customZone?: { countries: string[]; budget: number; name: string };
     },
   ): Promise<{ metaCampaignId: string; metaAdSetIds: string[] }> {
     const accountId = adAccountId.replace('act_', '');
@@ -257,17 +258,15 @@ export class MetaAdsService implements OnModuleInit {
     );
     const metaCampaignId = camp.id as string;
 
-    // 2. Create one ad set per audience tier
+    // 2. Create one ad set per tier (or one custom zone ad set)
     const metaAdSetIds: string[] = [];
-    for (let i = 0; i < payload.audienceTiers.length; i++) {
-      const tier = payload.audienceTiers[i];
-      const tierBudget = payload.tierBudgets[i] ?? 5;
-      const targeting = this.buildTargeting(tier, payload.placement);
 
+    if (payload.customZone && payload.customZone.countries.length > 0) {
+      const targeting = this.buildTargeting('custom', payload.placement, payload.customZone.countries);
       const adSetParams: Record<string, unknown> = {
-        name: `${payload.name} — ${tier}`,
+        name: `${payload.name} — ${payload.customZone.name}`,
         campaign_id: metaCampaignId,
-        daily_budget: Math.round(tierBudget * 100),
+        daily_budget: Math.round(payload.customZone.budget * 100),
         billing_event: 'IMPRESSIONS',
         optimization_goal: 'OFFSITE_CONVERSIONS',
         bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
@@ -275,47 +274,78 @@ export class MetaAdsService implements OnModuleInit {
           pixel_id: payload.pixelId,
           custom_event_type: 'CONTENT_VIEW',
         }),
-        status: 'ACTIVE',
         targeting: JSON.stringify(targeting),
         access_token: accessToken,
       };
+      if (payload.startDate) adSetParams.start_time = new Date(payload.startDate).toISOString();
+      if (payload.endDate) adSetParams.end_time = new Date(payload.endDate).toISOString();
+      const { data: adSet } = await axios.post(`${GRAPH}/act_${accountId}/adsets`, null, { params: adSetParams });
+      metaAdSetIds.push(adSet.id as string);
+    } else {
+      for (let i = 0; i < payload.audienceTiers.length; i++) {
+        const tier = payload.audienceTiers[i];
+        const tierBudget = payload.tierBudgets[i] ?? 5;
+        const targeting = this.buildTargeting(tier, payload.placement);
 
-      if (payload.startDate) adSetParams['start_time'] = payload.startDate;
-      if (payload.endDate) {
-        const start = new Date(payload.startDate ?? Date.now());
-        const end = new Date(payload.endDate);
-        // Meta requires the ad set to run for at least 24 h. Date-only strings are
-        // interpreted as midnight UTC, so a same-day/next-day window submitted in
-        // the afternoon can be shorter than 24 h. Enforce a 25-hour minimum from now.
-        const minEnd = new Date(Date.now() + 25 * 60 * 60 * 1000);
-        const effectiveEnd = end > minEnd ? end : minEnd;
-        if (effectiveEnd > start)
-          adSetParams['end_time'] = effectiveEnd.toISOString();
-      }
+        const adSetParams: Record<string, unknown> = {
+          name: `${payload.name} — ${tier}`,
+          campaign_id: metaCampaignId,
+          daily_budget: Math.round(tierBudget * 100),
+          billing_event: 'IMPRESSIONS',
+          optimization_goal: 'OFFSITE_CONVERSIONS',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+          promoted_object: JSON.stringify({
+            pixel_id: payload.pixelId,
+            custom_event_type: 'CONTENT_VIEW',
+          }),
+          status: 'ACTIVE',
+          targeting: JSON.stringify(targeting),
+          access_token: accessToken,
+        };
 
-      let adSet: { id: string };
-      try {
-        const res = await axios.post(`${GRAPH}/act_${accountId}/adsets`, null, {
-          params: adSetParams,
-        });
-        adSet = res.data as { id: string };
-      } catch (err) {
-        if (err instanceof AxiosError) {
-          this.logger.error(
-            `Meta adset error (tier: ${tier})`,
-            JSON.stringify(err.response?.data),
-          );
+        if (payload.startDate) adSetParams['start_time'] = payload.startDate;
+        if (payload.endDate) {
+          const start = new Date(payload.startDate ?? Date.now());
+          const end = new Date(payload.endDate);
+          // Meta requires the ad set to run for at least 24 h. Date-only strings are
+          // interpreted as midnight UTC, so a same-day/next-day window submitted in
+          // the afternoon can be shorter than 24 h. Enforce a 25-hour minimum from now.
+          const minEnd = new Date(Date.now() + 25 * 60 * 60 * 1000);
+          const effectiveEnd = end > minEnd ? end : minEnd;
+          if (effectiveEnd > start)
+            adSetParams['end_time'] = effectiveEnd.toISOString();
         }
-        throw err;
-      }
 
-      metaAdSetIds.push(adSet.id);
+        let adSet: { id: string };
+        try {
+          const res = await axios.post(
+            `${GRAPH}/act_${accountId}/adsets`,
+            null,
+            { params: adSetParams },
+          );
+          adSet = res.data as { id: string };
+        } catch (err) {
+          if (err instanceof AxiosError) {
+            this.logger.error(
+              `Meta adset error (tier: ${tier})`,
+              JSON.stringify(err.response?.data),
+            );
+          }
+          throw err;
+        }
+
+        metaAdSetIds.push(adSet.id);
+      }
     }
 
     return { metaCampaignId, metaAdSetIds };
   }
 
-  private buildTargeting(audienceTier: string, placement: string) {
+  private buildTargeting(
+    audienceTier: string,
+    placement: string,
+    customCountries?: string[],
+  ) {
     const tierCountries: Record<string, string[]> = {
       tier1: ['AU', 'AT', 'BE', 'DK', 'FI', 'FR', 'DE', 'IE', 'IT', 'NL', 'NZ', 'NO', 'ES', 'SE', 'CH', 'GB', 'US'],
       tier2: ['BR', 'BG', 'CL', 'CO', 'CR', 'CZ', 'GR', 'HU', 'IL', 'LB', 'LT', 'MX', 'PA', 'PY', 'PL', 'PT', 'RO'],
@@ -351,10 +381,32 @@ export class MetaAdsService implements OnModuleInit {
         'US',
         'VI',
       ],
-      bottom: ['AR', 'BO', 'BR', 'CL', 'CO', 'CR', 'DO', 'EC', 'GQ', 'GT', 'HN', 'MX', 'NI', 'PA', 'PE', 'PY', 'SV', 'UY'],
+      bottom: [
+        'AR',
+        'BO',
+        'BR',
+        'CL',
+        'CO',
+        'CR',
+        'DO',
+        'EC',
+        'GQ',
+        'GT',
+        'HN',
+        'MX',
+        'NI',
+        'PA',
+        'PE',
+        'PY',
+        'SV',
+        'UY',
+      ],
     };
 
-    const countries = tierCountries[audienceTier] ?? tierCountries['tier1'];
+    const countries =
+      customCountries && customCountries.length > 0
+        ? customCountries
+        : (tierCountries[audienceTier] ?? tierCountries['tier1']);
 
     // Placement templates
     const publisher_platforms =
@@ -486,6 +538,7 @@ export class MetaAdsService implements OnModuleInit {
       instagramActorId?: string;
       videoId?: string;
       imageHash?: string;
+      thumbnailUrl?: string;
       adTitle: string;
       adDescription?: string;
       landingPageUrl: string;
@@ -536,7 +589,13 @@ export class MetaAdsService implements OnModuleInit {
             title: payload.adTitle,
             message: payload.adDescription ?? '',
             call_to_action: callToAction,
-            ...(videoThumbnailUrl && { image_url: videoThumbnailUrl }),
+            ...(videoThumbnailUrl
+              ? { image_url: videoThumbnailUrl }
+              : payload.imageHash
+                ? { image_hash: payload.imageHash }
+                : payload.thumbnailUrl
+                  ? { image_url: payload.thumbnailUrl }
+                  : {}),
           },
         }
       : {

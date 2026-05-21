@@ -4,8 +4,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import axios from "axios";
-import { landingPagesApi, usersApi } from "@/lib/api";
+import { landingPagesApi, usersApi, zonesApi, type Zone } from "@/lib/api";
 import MetaGate from "@/components/MetaGate";
+import VideoEditor from "@/components/VideoEditor";
+import CountryPicker from "@/components/CountryPicker";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://api.escalium.io/api/v1";
 const BLUE = "#3A60E7";
@@ -76,6 +78,7 @@ function VideoPreview({ file }: { file: File }) {
       preload="metadata"
       muted
       playsInline
+      onLoadedMetadata={(e) => { e.currentTarget.currentTime = 0.1; }}
     />
   );
 }
@@ -87,9 +90,22 @@ export default function NewCampaignPage() {
 
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [editingSlot, setEditingSlot] = useState<{ index: number; file: File } | null>(null);
 
   // Artist slug (fetched from profile for landing page URL preview)
   const [artistSlug, setArtistSlug] = useState("");
+
+  // Step 1 — landing page mode
+  const [lpMode, setLpMode] = useState<"create" | "existing">("create");
+  const [existingLandingUrl, setExistingLandingUrl] = useState("");
+
+  // Step 4 — saved zones
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [useCustomZone, setUseCustomZone] = useState(false);
+  const [customZoneCountries, setCustomZoneCountries] = useState<string[]>([]);
+  const [customZoneBudget, setCustomZoneBudget] = useState("5");
+  const [customZoneName, setCustomZoneName] = useState("");
+  const [savingZone, setSavingZone] = useState(false);
 
   // Step 2 — pixels
   const [pixels, setPixels] = useState<Pixel[]>([]);
@@ -176,6 +192,12 @@ export default function NewCampaignPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Load saved zones when entering step 4
+  useEffect(() => {
+    if (step !== 4) return;
+    zonesApi.list().then(setZones).catch(() => {});
+  }, [step]);
+
   // Load FB pages when entering step 6
   useEffect(() => {
     if (step !== 6 || !token || pages.length > 0) return;
@@ -229,25 +251,7 @@ export default function NewCampaignPage() {
   const assetReady = uploadedCount >= 3;
 
   function validateAndSetSlot(index: number, file: File) {
-    const url = URL.createObjectURL(file);
-    const vid = document.createElement("video");
-    vid.preload = "metadata";
-    vid.onloadedmetadata = () => {
-      URL.revokeObjectURL(url);
-      const ratio = vid.videoWidth / vid.videoHeight;
-      const target = 9 / 16;
-      if (Math.abs(ratio - target) > 0.05) {
-        setAdSlots((prev) => prev.map((s, i) =>
-          i === index ? { ...s, file: null, result: null, error: `Wrong format (${vid.videoWidth}×${vid.videoHeight}). Videos must be 9:16 portrait, e.g. 1080×1920.` } : s,
-        ));
-      } else {
-        setAdSlots((prev) => prev.map((s, i) =>
-          i === index ? { ...s, file, result: null, error: "" } : s,
-        ));
-        void handleUploadSlot(index, file);
-      }
-    };
-    vid.src = url;
+    setEditingSlot({ index, file });
   }
 
   // Computed landing page preview URL
@@ -258,11 +262,15 @@ export default function NewCampaignPage() {
 
   const canNext = [
     form.name.trim().length >= 2,                                              // 0 Campaign
-    form.landingThumbnailUrl.length > 0 && form.spotifyUrl.trim().length > 5, // 1 Landing Page
+    lpMode === "existing"
+      ? existingLandingUrl.trim().length > 5
+      : form.landingThumbnailUrl.length > 0 && form.spotifyUrl.trim().length > 5, // 1 Landing Page
     form.pixelId.length > 0,                                                   // 2 Conversion
     Number(form.budget) >= 5,                                                  // 3 Budget
-    form.audienceTiers.length > 0 &&
-      form.audienceTiers.every((v) => Number(form.tierBudgets[v] ?? 5) >= 5), // 4 Audience
+    useCustomZone
+      ? customZoneCountries.length > 0 && Number(customZoneBudget) >= 5
+      : form.audienceTiers.length > 0 &&
+        form.audienceTiers.every((v) => Number(form.tierBudgets[v] ?? 5) >= 5), // 4 Audience
     form.placement.length > 0,                                                 // 5 Placement
     form.facebookPageId.length > 0 && form.adTitle.trim().length >= 2         // 6 Ad Creative
       && assetReady,
@@ -276,27 +284,34 @@ export default function NewCampaignPage() {
     setSubmitting(true);
     setLaunchError("");
     try {
-      // 1. Create the landing page
-      const lpRes = await landingPagesApi.create({
-        title: form.name,
-        description: form.landingDescription || undefined,
-        songSlug: form.name,
-        thumbnailUrl: form.landingThumbnailUrl,
-        spotifyUrl: form.spotifyUrl,
-        pixelId: form.pixelId || undefined,
-      });
-      const landingPageUrl = lpRes.url;
+      // 1. Create the landing page (or use existing URL)
+      let landingPageUrl: string;
+      if (lpMode === "existing") {
+        landingPageUrl = existingLandingUrl.trim();
+      } else {
+        const lpRes = await landingPagesApi.create({
+          title: form.name,
+          description: form.landingDescription || undefined,
+          songSlug: form.name,
+          thumbnailUrl: form.landingThumbnailUrl,
+          spotifyUrl: form.spotifyUrl,
+          pixelId: form.pixelId || undefined,
+        });
+        landingPageUrl = lpRes.url;
+      }
 
       // 2. Save draft campaign
       const { data: campaign } = await axios.post(
         `${API}/campaigns`,
         {
           name: form.name,
-          budget: form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 5), 0),
+          budget: useCustomZone
+            ? Number(customZoneBudget)
+            : form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 5), 0),
           startDate: form.startDate || undefined,
           endDate: form.endDate || undefined,
           pixelId: form.pixelId,
-          audienceTier: form.audienceTiers.join(","),
+          audienceTier: useCustomZone ? `custom:${customZoneName || "Custom Zone"}` : form.audienceTiers.join(","),
           placement: form.placement,
           landingPageUrl,
           adTitle: form.adTitle,
@@ -316,14 +331,23 @@ export default function NewCampaignPage() {
         {
           campaignId: (campaign as { id: string }).id,
           pixelId: form.pixelId,
-          audienceTiers: form.audienceTiers,
-          tierBudgets: form.audienceTiers.map((v) => Number(form.tierBudgets[v]) || 5),
+          audienceTiers: useCustomZone ? [] : form.audienceTiers,
+          tierBudgets: useCustomZone ? [] : form.audienceTiers.map((v) => Number(form.tierBudgets[v]) || 5),
+          ...(useCustomZone && {
+            customZone: {
+              countries: customZoneCountries,
+              budget: Number(customZoneBudget),
+              name: customZoneName || "Custom Zone",
+            },
+          }),
           placement: form.placement,
           startDate: form.startDate || undefined,
           endDate: form.endDate || undefined,
           pageId: form.facebookPageId,
           instagramActorId: form.instagramActorId || undefined,
           videoIds: adSlots.filter((s) => s.result?.type === "video").map((s) => (s.result as { type: "video"; videoId: string }).videoId),
+          imageHash: adSlots.find((s) => s.result?.type === "image") ? (adSlots.find((s) => s.result?.type === "image")!.result as { type: "image"; imageHash: string }).imageHash : undefined,
+          thumbnailUrl: form.landingThumbnailUrl || undefined,
           adTitle: form.adTitle,
           adDescription: form.adDescription || undefined,
           landingPageUrl,
@@ -343,15 +367,37 @@ export default function NewCampaignPage() {
 
   return (
     <MetaGate>
+    {editingSlot && (
+      <VideoEditor
+        file={editingSlot.file}
+        onConfirm={(processed) => {
+          const { index } = editingSlot;
+          setEditingSlot(null);
+          setAdSlots((prev) => prev.map((s, i) =>
+            i === index ? { ...s, file: processed, result: null, error: "" } : s,
+          ));
+          void handleUploadSlot(index, processed);
+        }}
+        onCancel={() => setEditingSlot(null)}
+      />
+    )}
     <div className="animate-fade-in" style={{ maxWidth: 680, margin: "0 auto", display: "flex", flexDirection: "column", gap: "2rem" }}>
 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-        <Link href="/dashboard/campaigns" style={{ display: "flex", alignItems: "center", color: "#64748b", textDecoration: "none" }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
-          </svg>
-        </Link>
+        {step === 0 ? (
+          <Link href="/dashboard/campaigns" style={{ display: "flex", alignItems: "center", color: "#64748b", textDecoration: "none" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+            </svg>
+          </Link>
+        ) : (
+          <button onClick={() => setStep((s) => s - 1)} style={{ display: "flex", alignItems: "center", color: "#64748b", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+            </svg>
+          </button>
+        )}
         <div>
           <h1 style={{ fontSize: "1.625rem", fontWeight: 800, color: NAVY, letterSpacing: "-0.02em" }}>New Campaign</h1>
           <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>Meta Ads · Sales campaign</p>
@@ -442,122 +488,174 @@ export default function NewCampaignPage() {
         {step === 1 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <div>
-              <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Create Landing Page</h2>
+              <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Landing Page</h2>
               <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>
-                We&apos;ll build a hosted landing page for your song. Your Meta Pixel will be embedded automatically.
+                Create a new landing page or use one you already have.
               </p>
             </div>
 
-            {/* URL preview */}
-            {landingUrlPreview && (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", padding: "0.75rem 1rem", background: "#F0F4FF", border: "1px solid #C7D7FD", borderRadius: 10 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                  <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                </svg>
-                <div>
-                  <p style={{ fontSize: "0.72rem", color: BLUE, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.1rem" }}>Your landing page URL</p>
-                  <p style={{ fontSize: "0.85rem", color: NAVY, fontWeight: 700 }}>{landingUrlPreview}</p>
+            {/* Tab switcher */}
+            <div style={{ display: "flex", background: "#F1F5F9", borderRadius: 10, padding: 4, gap: 2 }}>
+              {([{ label: "Create New", value: "create" }, { label: "Use Existing URL", value: "existing" }] as const).map(({ label, value }) => (
+                <button key={value} onClick={() => setLpMode(value)} style={{
+                  flex: 1, padding: "0.5rem", borderRadius: 8, border: "none", cursor: "pointer",
+                  fontWeight: 600, fontSize: "0.8rem",
+                  background: lpMode === value ? "#fff" : "transparent",
+                  color: lpMode === value ? NAVY : "#64748b",
+                  boxShadow: lpMode === value ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+                  transition: "all 0.15s",
+                }}>{label}</button>
+              ))}
+            </div>
+
+            {/* Existing URL mode */}
+            {lpMode === "existing" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                <div style={{ background: "#F0F4FF", border: "1px solid #C7D7FD", borderRadius: 12, padding: "0.875rem 1rem", display: "flex", gap: "0.625rem" }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  <p style={{ fontSize: "0.8rem", color: BLUE, lineHeight: 1.5 }}>
+                    Paste the URL of an existing landing page. Your pixel will still be tracked from the campaign.
+                  </p>
                 </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 700, color: NAVY, textTransform: "uppercase", letterSpacing: "0.05em" }}>Landing Page URL</label>
+                  <input
+                    style={inputStyle()}
+                    type="url"
+                    placeholder="https://escalium.io/p/artist/song"
+                    value={existingLandingUrl}
+                    onChange={(e) => setExistingLandingUrl(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <a href="/dashboard/landing-pages" target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: "0.8rem", color: BLUE, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "0.35rem", textDecoration: "none" }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                  </svg>
+                  View my landing pages →
+                </a>
               </div>
             )}
 
-            {/* Thumbnail upload */}
-            <div>
-              <label style={{ fontSize: "0.8rem", fontWeight: 700, color: NAVY, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.5rem" }}>
-                Song / Playlist Artwork <span style={{ color: "#F43F5E" }}>*</span>
-              </label>
-              <label style={{
-                display: "flex", alignItems: "center", gap: "1rem", cursor: "pointer",
-                padding: "1rem", borderRadius: 12,
-                border: `2px dashed ${form.landingThumbnailUrl ? "#12B76A" : lpUploadError ? "#F43F5E" : "#E2E6F0"}`,
-                background: form.landingThumbnailUrl ? "#F0FDF4" : "#F8F9FC",
-                transition: "all 0.15s",
-              }}>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  style={{ display: "none" }}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void handleThumbnailSelect(f);
-                    e.target.value = "";
-                  }}
-                />
-                {lpThumbnailPreview ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={lpThumbnailPreview} alt="thumbnail" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
-                ) : (
-                  <div style={{ width: 72, height: 72, borderRadius: 8, background: "#E2E6F0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+            {/* Create new mode */}
+            {lpMode === "create" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+
+                {/* URL preview */}
+                {landingUrlPreview && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", padding: "0.75rem 1rem", background: "#F0F4FF", border: "1px solid #C7D7FD", borderRadius: 10 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                      <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
                     </svg>
+                    <div>
+                      <p style={{ fontSize: "0.72rem", color: BLUE, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.1rem" }}>Your landing page URL</p>
+                      <p style={{ fontSize: "0.85rem", color: NAVY, fontWeight: 700 }}>{landingUrlPreview}</p>
+                    </div>
                   </div>
                 )}
-                <div style={{ flex: 1 }}>
-                  {lpUploading ? (
-                    <p style={{ fontSize: "0.875rem", color: BLUE, fontWeight: 600 }}>Uploading…</p>
-                  ) : form.landingThumbnailUrl ? (
-                    <>
-                      <p style={{ fontSize: "0.875rem", fontWeight: 600, color: "#166534" }}>✓ Artwork uploaded</p>
-                      <p style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 2 }}>Click to change</p>
-                    </>
-                  ) : (
-                    <>
-                      <p style={{ fontSize: "0.875rem", fontWeight: 600, color: NAVY }}>Upload artwork</p>
-                      <p style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 2 }}>JPG, PNG or WebP · Max 10 MB</p>
-                    </>
-                  )}
-                  {lpUploadError && <p style={{ fontSize: "0.75rem", color: "#F43F5E", marginTop: 2 }}>{lpUploadError}</p>}
-                </div>
-              </label>
-            </div>
 
-            {/* Description */}
-            <Field label="Description (optional)">
-              <input
-                style={inputStyle()}
-                type="text"
-                placeholder="e.g. New single out now — save it on Spotify!"
-                maxLength={120}
-                value={form.landingDescription}
-                onChange={(e) => setForm({ ...form, landingDescription: e.target.value })}
-              />
-              <p style={{ fontSize: "0.72rem", color: "#64748b" }}>Short line shown below the song title on the landing page.</p>
-            </Field>
-
-            {/* Spotify URL */}
-            <Field label="Spotify Link">
-              <input
-                style={inputStyle()}
-                type="url"
-                placeholder="https://open.spotify.com/track/..."
-                value={form.spotifyUrl}
-                onChange={(e) => setForm({ ...form, spotifyUrl: e.target.value })}
-              />
-              <p style={{ fontSize: "0.72rem", color: "#64748b" }}>Paste the Spotify link for your song or playlist. Listeners click this button on the landing page.</p>
-            </Field>
-
-            {/* Mini preview */}
-            {(lpThumbnailPreview || form.spotifyUrl) && (
-              <div style={{ border: "1px solid #E2E6F0", borderRadius: 14, overflow: "hidden" }}>
-                <p style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", padding: "0.625rem 1rem", background: "#F8F9FC", borderBottom: "1px solid #E2E6F0" }}>Page Preview</p>
-                <div style={{ padding: "1.25rem", background: "#1a1a2e", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.875rem" }}>
-                  {lpThumbnailPreview && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={lpThumbnailPreview} alt="artwork" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }} />
-                  )}
-                  <p style={{ color: "#fff", fontWeight: 800, fontSize: "1rem", textAlign: "center" }}>{form.name || "Song Title"}</p>
-                  {form.landingDescription && <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.75rem", textAlign: "center" }}>{form.landingDescription}</p>}
-                  {form.spotifyUrl && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", background: "#1DB954", borderRadius: 10, padding: "0.5rem 0.875rem", width: "100%", maxWidth: 240 }}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-                      <div>
-                        <p style={{ color: "#fff", fontWeight: 700, fontSize: "0.78rem" }}>Stream on Spotify</p>
-                        <p style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.68rem" }}>Click (+) to Save it</p>
+                {/* Thumbnail upload */}
+                <div>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 700, color: NAVY, textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: "0.5rem" }}>
+                    Song / Playlist Artwork <span style={{ color: "#F43F5E" }}>*</span>
+                  </label>
+                  <label style={{
+                    display: "flex", alignItems: "center", gap: "1rem", cursor: "pointer",
+                    padding: "1rem", borderRadius: 12,
+                    border: `2px dashed ${form.landingThumbnailUrl ? "#12B76A" : lpUploadError ? "#F43F5E" : "#E2E6F0"}`,
+                    background: form.landingThumbnailUrl ? "#F0FDF4" : "#F8F9FC",
+                    transition: "all 0.15s",
+                  }}>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      style={{ display: "none" }}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) void handleThumbnailSelect(f);
+                        e.target.value = "";
+                      }}
+                    />
+                    {lpThumbnailPreview ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={lpThumbnailPreview} alt="thumbnail" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: 72, height: 72, borderRadius: 8, background: "#E2E6F0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                        </svg>
                       </div>
+                    )}
+                    <div style={{ flex: 1 }}>
+                      {lpUploading ? (
+                        <p style={{ fontSize: "0.875rem", color: BLUE, fontWeight: 600 }}>Uploading…</p>
+                      ) : form.landingThumbnailUrl ? (
+                        <>
+                          <p style={{ fontSize: "0.875rem", fontWeight: 600, color: "#166534" }}>✓ Artwork uploaded</p>
+                          <p style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 2 }}>Click to change</p>
+                        </>
+                      ) : (
+                        <>
+                          <p style={{ fontSize: "0.875rem", fontWeight: 600, color: NAVY }}>Upload artwork</p>
+                          <p style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 2 }}>JPG, PNG or WebP · Max 10 MB</p>
+                        </>
+                      )}
+                      {lpUploadError && <p style={{ fontSize: "0.75rem", color: "#F43F5E", marginTop: 2 }}>{lpUploadError}</p>}
                     </div>
-                  )}
+                  </label>
                 </div>
+
+                {/* Description */}
+                <Field label="Description (optional)">
+                  <input
+                    style={inputStyle()}
+                    type="text"
+                    placeholder="e.g. New single out now — save it on Spotify!"
+                    maxLength={120}
+                    value={form.landingDescription}
+                    onChange={(e) => setForm({ ...form, landingDescription: e.target.value })}
+                  />
+                  <p style={{ fontSize: "0.72rem", color: "#64748b" }}>Short line shown below the song title on the landing page.</p>
+                </Field>
+
+                {/* Spotify URL */}
+                <Field label="Spotify Link">
+                  <input
+                    style={inputStyle()}
+                    type="url"
+                    placeholder="https://open.spotify.com/track/..."
+                    value={form.spotifyUrl}
+                    onChange={(e) => setForm({ ...form, spotifyUrl: e.target.value })}
+                  />
+                  <p style={{ fontSize: "0.72rem", color: "#64748b" }}>Paste the Spotify link for your song or playlist. Listeners click this button on the landing page.</p>
+                </Field>
+
+                {/* Mini preview */}
+                {(lpThumbnailPreview || form.spotifyUrl) && (
+                  <div style={{ border: "1px solid #E2E6F0", borderRadius: 14, overflow: "hidden" }}>
+                    <p style={{ fontSize: "0.72rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", padding: "0.625rem 1rem", background: "#F8F9FC", borderBottom: "1px solid #E2E6F0" }}>Page Preview</p>
+                    <div style={{ padding: "1.25rem", background: "#1a1a2e", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.875rem" }}>
+                      {lpThumbnailPreview && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={lpThumbnailPreview} alt="artwork" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }} />
+                      )}
+                      <p style={{ color: "#fff", fontWeight: 800, fontSize: "1rem", textAlign: "center" }}>{form.name || "Song Title"}</p>
+                      {form.landingDescription && <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.75rem", textAlign: "center" }}>{form.landingDescription}</p>}
+                      {form.spotifyUrl && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", background: "#1DB954", borderRadius: 10, padding: "0.5rem 0.875rem", width: "100%", maxWidth: 240 }}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+                          <div>
+                            <p style={{ color: "#fff", fontWeight: 700, fontSize: "0.78rem" }}>Stream on Spotify</p>
+                            <p style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.68rem" }}>Click (+) to Save it</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -651,108 +749,158 @@ export default function NewCampaignPage() {
         {step === 4 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <div>
-              <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Audience Tiers</h2>
-              <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>Select one or more tiers — each becomes a separate ad set. Minimum $5/day per tier.</p>
+              <h2 style={{ fontWeight: 800, fontSize: "1.125rem", color: NAVY, marginBottom: "0.25rem" }}>Audience</h2>
+              <p style={{ fontSize: "0.8125rem", color: "#64748b" }}>Use preset tiers or build a custom zone with specific countries.</p>
             </div>
 
-            <div ref={tierDropdownRef} style={{ position: "relative" }}>
-              <button
-                type="button"
-                onClick={() => setTierDropdownOpen((o) => !o)}
-                style={{
-                  width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
-                  padding: "0.75rem 1rem", borderRadius: 10, cursor: "pointer",
-                  border: `1.5px solid ${tierDropdownOpen ? BLUE : "#E2E6F0"}`,
-                  background: "#F8F9FC", fontSize: "0.875rem", fontWeight: 600, color: NAVY,
-                }}
-              >
-                <span>
-                  {form.audienceTiers.length === 0
-                    ? "Select tiers…"
-                    : form.audienceTiers.map((v) => AUDIENCE_TIERS.find((t) => t.value === v)?.label).join(", ")}
-                </span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                  style={{ transform: tierDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
-              </button>
+            {/* Tab switcher */}
+            <div style={{ display: "flex", background: "#F1F5F9", borderRadius: 10, padding: 4, gap: 2 }}>
+              {[{ label: "Preset Tiers", value: false }, { label: "Custom Zone", value: true }].map(({ label, value }) => (
+                <button key={label} onClick={() => setUseCustomZone(value)} style={{
+                  flex: 1, padding: "0.5rem", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 600, fontSize: "0.8rem",
+                  background: useCustomZone === value ? "#fff" : "transparent",
+                  color: useCustomZone === value ? NAVY : "#64748b",
+                  boxShadow: useCustomZone === value ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+                  transition: "all 0.15s",
+                }}>{label}</button>
+              ))}
+            </div>
 
-              {tierDropdownOpen && (
-                <div style={{
-                  position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 50,
-                  background: "#fff", borderRadius: 12, border: "1.5px solid #E2E6F0",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.08)", overflow: "hidden",
-                }}>
-                  {AUDIENCE_TIERS.map((tier) => {
-                    const selected = form.audienceTiers.includes(tier.value);
-                    return (
-                      <label key={tier.value} style={{
-                        display: "flex", alignItems: "flex-start", gap: "0.75rem", cursor: "pointer",
-                        padding: "0.875rem 1rem",
-                        background: selected ? "#F0F4FF" : "#fff",
-                        borderBottom: "1px solid #F1F5F9",
-                      }}>
-                        <input
-                          type="checkbox"
-                          checked={selected}
-                          onChange={() => setForm((f) => {
-                            const next = f.audienceTiers.includes(tier.value)
-                              ? f.audienceTiers.filter((t) => t !== tier.value)
-                              : [...f.audienceTiers, tier.value];
-                            const budgets = { ...f.tierBudgets };
-                            if (!f.audienceTiers.includes(tier.value)) budgets[tier.value] = budgets[tier.value] ?? "5";
-                            return { ...f, audienceTiers: next, tierBudgets: budgets };
-                          })}
-                          style={{ accentColor: BLUE, marginTop: 2, flexShrink: 0 }}
-                        />
-                        <div>
-                          <p style={{ fontWeight: 700, fontSize: "0.875rem", color: NAVY }}>{tier.label}</p>
-                          <p style={{ fontSize: "0.75rem", color: "#64748b", lineHeight: 1.4 }}>{tier.desc}</p>
-                        </div>
-                      </label>
-                    );
-                  })}
+            {/* ── Preset Tiers ── */}
+            {!useCustomZone && (
+              <>
+                <div ref={tierDropdownRef} style={{ position: "relative" }}>
+                  <button type="button" onClick={() => setTierDropdownOpen((o) => !o)} style={{
+                    width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
+                    padding: "0.75rem 1rem", borderRadius: 10, cursor: "pointer",
+                    border: `1.5px solid ${tierDropdownOpen ? BLUE : "#E2E6F0"}`,
+                    background: "#F8F9FC", fontSize: "0.875rem", fontWeight: 600, color: NAVY,
+                  }}>
+                    <span>{form.audienceTiers.length === 0 ? "Select tiers…" : form.audienceTiers.map((v) => AUDIENCE_TIERS.find((t) => t.value === v)?.label).join(", ")}</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: tierDropdownOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </button>
+                  {tierDropdownOpen && (
+                    <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 50, background: "#fff", borderRadius: 12, border: "1.5px solid #E2E6F0", boxShadow: "0 8px 24px rgba(0,0,0,0.08)", overflow: "hidden" }}>
+                      {AUDIENCE_TIERS.map((tier) => {
+                        const selected = form.audienceTiers.includes(tier.value);
+                        return (
+                          <label key={tier.value} style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", cursor: "pointer", padding: "0.875rem 1rem", background: selected ? "#F0F4FF" : "#fff", borderBottom: "1px solid #F1F5F9" }}>
+                            <input type="checkbox" checked={selected} onChange={() => setForm((f) => {
+                              const next = f.audienceTiers.includes(tier.value) ? f.audienceTiers.filter((t) => t !== tier.value) : [...f.audienceTiers, tier.value];
+                              const budgets = { ...f.tierBudgets };
+                              if (!f.audienceTiers.includes(tier.value)) budgets[tier.value] = budgets[tier.value] ?? "5";
+                              return { ...f, audienceTiers: next, tierBudgets: budgets };
+                            })} style={{ accentColor: BLUE, marginTop: 2, flexShrink: 0 }} />
+                            <div>
+                              <p style={{ fontWeight: 700, fontSize: "0.875rem", color: NAVY }}>{tier.label}</p>
+                              <p style={{ fontSize: "0.75rem", color: "#64748b", lineHeight: 1.4 }}>{tier.desc}</p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            {form.audienceTiers.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: NAVY }}>Daily budget per tier</p>
-                {form.audienceTiers.map((v) => {
-                  const tier = AUDIENCE_TIERS.find((t) => t.value === v)!;
-                  const val = form.tierBudgets[v] ?? "5";
-                  const tooLow = Number(val) < 5;
-                  return (
-                    <div key={v} style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                      padding: "0.75rem 1rem", borderRadius: 10,
-                      border: `1.5px solid ${tooLow ? "#FECDD3" : "#E2E6F0"}`,
-                      background: tooLow ? "#FFF1F2" : "#F8F9FC",
-                    }}>
-                      <span style={{ fontWeight: 600, fontSize: "0.875rem", color: NAVY }}>{tier.label}</span>
+                {form.audienceTiers.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                    <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: NAVY }}>Daily budget per tier</p>
+                    {form.audienceTiers.map((v) => {
+                      const tier = AUDIENCE_TIERS.find((t) => t.value === v)!;
+                      const val = form.tierBudgets[v] ?? "5";
+                      const tooLow = Number(val) < 5;
+                      return (
+                        <div key={v} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1rem", borderRadius: 10, border: `1.5px solid ${tooLow ? "#FECDD3" : "#E2E6F0"}`, background: tooLow ? "#FFF1F2" : "#F8F9FC" }}>
+                          <span style={{ fontWeight: 600, fontSize: "0.875rem", color: NAVY }}>{tier.label}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <span style={{ color: "#64748b", fontWeight: 600 }}>$</span>
+                            <input type="number" min={5} value={val}
+                              onChange={(e) => setForm((f) => ({ ...f, tierBudgets: { ...f.tierBudgets, [v]: e.target.value } }))}
+                              style={{ width: 80, padding: "0.375rem 0.5rem", borderRadius: 8, border: `1.5px solid ${tooLow ? "#FECDD3" : "#E2E6F0"}`, fontSize: "0.875rem", fontWeight: 600, color: NAVY, background: "#fff", textAlign: "right" }} />
+                            <span style={{ color: "#64748b", fontSize: "0.8rem" }}>/day</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <p style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                      Total: <strong style={{ color: NAVY }}>${form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 0), 0).toFixed(2)}/day</strong>
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ── Custom Zone ── */}
+            {useCustomZone && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+
+                {/* Saved zones */}
+                {zones.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <p style={{ fontSize: "0.78rem", fontWeight: 700, color: NAVY }}>My Saved Zones</p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                      {zones.map((z) => (
+                        <button key={z.id} onClick={() => {
+                          setCustomZoneCountries(z.countries);
+                          setCustomZoneName(z.name);
+                        }} style={{
+                          display: "flex", alignItems: "center", gap: "0.4rem",
+                          padding: "0.35rem 0.75rem", borderRadius: 8, border: `1.5px solid ${customZoneName === z.name && customZoneCountries.length === z.countries.length ? BLUE : "#E2E6F0"}`,
+                          background: customZoneName === z.name && customZoneCountries.length === z.countries.length ? "#EEF2FF" : "#F8F9FC",
+                          cursor: "pointer", fontSize: "0.78rem", fontWeight: 600, color: NAVY,
+                        }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                          {z.name} <span style={{ color: "#94a3b8", fontWeight: 400 }}>({z.countries.length})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Country picker */}
+                <CountryPicker selected={customZoneCountries} onChange={setCustomZoneCountries} />
+
+                {/* Budget + save */}
+                {customZoneCountries.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem", padding: "1rem", background: "#F8F9FC", borderRadius: 12, border: "1.5px solid #E2E6F0" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontWeight: 600, fontSize: "0.875rem", color: NAVY }}>Daily budget</span>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                         <span style={{ color: "#64748b", fontWeight: 600 }}>$</span>
-                        <input
-                          type="number"
-                          min={5}
-                          value={val}
-                          onChange={(e) => setForm((f) => ({ ...f, tierBudgets: { ...f.tierBudgets, [v]: e.target.value } }))}
-                          style={{
-                            width: 80, padding: "0.375rem 0.5rem", borderRadius: 8,
-                            border: `1.5px solid ${tooLow ? "#FECDD3" : "#E2E6F0"}`,
-                            fontSize: "0.875rem", fontWeight: 600, color: NAVY, background: "#fff",
-                            textAlign: "right",
-                          }}
-                        />
+                        <input type="number" min={5} value={customZoneBudget} onChange={(e) => setCustomZoneBudget(e.target.value)}
+                          style={{ width: 80, padding: "0.375rem 0.5rem", borderRadius: 8, border: `1.5px solid ${Number(customZoneBudget) < 5 ? "#FECDD3" : "#E2E6F0"}`, fontSize: "0.875rem", fontWeight: 600, color: NAVY, background: "#fff", textAlign: "right" }} />
                         <span style={{ color: "#64748b", fontSize: "0.8rem" }}>/day</span>
                       </div>
                     </div>
-                  );
-                })}
-                <p style={{ fontSize: "0.75rem", color: "#64748b" }}>
-                  Total: <strong style={{ color: NAVY }}>${form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 0), 0).toFixed(2)}/day</strong>
-                </p>
+
+                    {/* Save zone */}
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <input value={customZoneName} onChange={(e) => setCustomZoneName(e.target.value)}
+                        placeholder="Zone name (e.g. Spain + France)…"
+                        style={{ flex: 1, padding: "0.5rem 0.75rem", borderRadius: 8, border: "1.5px solid #E2E6F0", fontSize: "0.8rem", color: NAVY, background: "#fff", outline: "none" }} />
+                      <button
+                        disabled={!customZoneName.trim() || savingZone}
+                        onClick={async () => {
+                          if (!customZoneName.trim()) return;
+                          setSavingZone(true);
+                          try {
+                            const z = await zonesApi.create({ name: customZoneName.trim(), countries: customZoneCountries });
+                            setZones((prev) => [z, ...prev]);
+                          } finally { setSavingZone(false); }
+                        }}
+                        style={{
+                          padding: "0.5rem 0.875rem", borderRadius: 8, border: "none", cursor: customZoneName.trim() ? "pointer" : "not-allowed",
+                          background: customZoneName.trim() ? BLUE : "#E2E6F0", color: customZoneName.trim() ? "#fff" : "#94a3b8",
+                          fontSize: "0.78rem", fontWeight: 700, flexShrink: 0,
+                        }}
+                      >
+                        {savingZone ? "Saving…" : "Save zone"}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -852,7 +1000,7 @@ export default function NewCampaignPage() {
                 This helps the campaign give you the best results while optimising the focus on the best ads without wasting too much of your budget.
               </p>
               <p style={{ fontSize: "0.75rem", color: BLUE, fontWeight: 600, marginBottom: "0.875rem" }}>
-                Videos must be portrait 9:16 (e.g. 1080×1920). Landscape or square videos will be rejected.
+                Any video format accepted. We&apos;ll crop to 9:16 and let you trim the clip (max 60s).
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
                 {adSlots.map((slot, i) => (
@@ -919,7 +1067,7 @@ export default function NewCampaignPage() {
                         <label htmlFor={`ad-slot-${i}`} style={{ padding: "0.35rem 0.875rem", borderRadius: 7, fontWeight: 600, fontSize: "0.75rem", border: `1px solid ${BLUE}`, cursor: "pointer", color: BLUE, background: "#fff", flexShrink: 0 }}>
                           {slot.error ? "Try again" : "Select"}
                         </label>
-                        <input id={`ad-slot-${i}`} type="file" accept="video/mp4,video/quicktime" style={{ display: "none" }}
+                        <input id={`ad-slot-${i}`} type="file" accept="video/*" style={{ display: "none" }}
                           onChange={(e) => {
                             const f = e.target.files?.[0];
                             if (f) validateAndSetSlot(i, f);
@@ -1042,33 +1190,41 @@ export default function NewCampaignPage() {
             </div>
 
             {[
-              { label: "Campaign Name",      value: form.name },
-              { label: "Campaign Type",      value: "Sales (fixed)" },
-              { label: "Landing Page",       value: landingUrlPreview || "—" },
-              { label: "Spotify Link",       value: form.spotifyUrl || "—" },
-              { label: "Pixel",              value: pixels.find((p) => p.id === form.pixelId)?.name ?? form.pixelId },
-              { label: "Conversion",         value: "Website → View Content → Maximize Conversions" },
-              { label: "Start Date",         value: form.startDate || "Immediately" },
-              { label: "End Date",           value: form.endDate || "No end date" },
-              { label: "Audience Tiers",     value: form.audienceTiers.map((v) => `${AUDIENCE_TIERS.find((t) => t.value === v)?.label ?? v} ($${form.tierBudgets[v] ?? 5}/day)`).join(", ") },
-              { label: "Total Daily Budget", value: `$${form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 5), 0).toFixed(2)}/day` },
-              { label: "Placement",          value: PLACEMENTS.find((p) => p.value === form.placement)?.label ?? "" },
-              { label: "Facebook Page",      value: pages.find((p) => p.id === form.facebookPageId)?.name ?? form.facebookPageId },
-              { label: "Instagram Account",  value: igAccounts.find((ig) => ig.id === form.instagramActorId)?.username ? `@${igAccounts.find((ig) => ig.id === form.instagramActorId)!.username}` : "None" },
-              { label: "Ad Videos",          value: uploadedCount > 0 ? `${uploadedCount} video${uploadedCount > 1 ? "s" : ""} uploaded` : "None" },
-              { label: "Ad Title",           value: form.adTitle },
-              { label: "Description",        value: form.adDescription || "—" },
-              { label: "CTA",                value: "Listen Now" },
-              { label: "Advertiser",         value: form.advertiserName },
-              { label: "Payer",              value: form.payerDiffers ? form.payerName : "Same as advertiser" },
+              { label: "Campaign Name",      value: form.name,                  goStep: 0 },
+              { label: "Campaign Type",      value: "Sales (fixed)",             goStep: 0 },
+              { label: "Landing Page",       value: landingUrlPreview || "—",    goStep: 1 },
+              { label: "Spotify Link",       value: form.spotifyUrl || "—",      goStep: 1 },
+              { label: "Pixel",              value: pixels.find((p) => p.id === form.pixelId)?.name ?? form.pixelId, goStep: 2 },
+              { label: "Conversion",         value: "Website → View Content → Maximize Conversions", goStep: 2 },
+              { label: "Start Date",         value: form.startDate || "Immediately", goStep: 3 },
+              { label: "End Date",           value: form.endDate || "No end date",   goStep: 3 },
+              { label: useCustomZone ? "Custom Zone" : "Audience Tiers", value: useCustomZone ? `${customZoneName || "Custom Zone"} · ${customZoneCountries.length} countries · $${customZoneBudget}/day` : form.audienceTiers.map((v) => `${AUDIENCE_TIERS.find((t) => t.value === v)?.label ?? v} ($${form.tierBudgets[v] ?? 5}/day)`).join(", "), goStep: 4 },
+              { label: "Total Daily Budget", value: useCustomZone ? `$${customZoneBudget}/day` : `$${form.audienceTiers.reduce((sum, v) => sum + (Number(form.tierBudgets[v]) || 5), 0).toFixed(2)}/day`, goStep: 4 },
+              { label: "Placement",          value: PLACEMENTS.find((p) => p.value === form.placement)?.label ?? "", goStep: 5 },
+              { label: "Facebook Page",      value: pages.find((p) => p.id === form.facebookPageId)?.name ?? form.facebookPageId, goStep: 6 },
+              { label: "Instagram Account",  value: igAccounts.find((ig) => ig.id === form.instagramActorId)?.username ? `@${igAccounts.find((ig) => ig.id === form.instagramActorId)!.username}` : "None", goStep: 6 },
+              { label: "Ad Videos",          value: uploadedCount > 0 ? `${uploadedCount} video${uploadedCount > 1 ? "s" : ""} uploaded` : "None", goStep: 6 },
+              { label: "Ad Title",           value: form.adTitle,               goStep: 6 },
+              { label: "Description",        value: form.adDescription || "—",  goStep: 6 },
+              { label: "CTA",                value: "Listen Now",               goStep: 6 },
+              { label: "Advertiser",         value: form.advertiserName,        goStep: 7 },
+              { label: "Payer",              value: form.payerDiffers ? form.payerName : "Same as advertiser", goStep: 7 },
             ].map((row, i, arr) => (
               <div key={row.label} style={{
-                display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem",
+                display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem",
                 paddingBottom: i < arr.length - 1 ? "1rem" : 0,
                 borderBottom: i < arr.length - 1 ? "1px solid #F1F5F9" : "none",
               }}>
                 <span style={{ fontSize: "0.8125rem", color: "#64748b", fontWeight: 500, flexShrink: 0 }}>{row.label}</span>
-                <span style={{ fontSize: "0.8125rem", color: NAVY, fontWeight: 600, textAlign: "right", wordBreak: "break-all" }}>{row.value}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <span style={{ fontSize: "0.8125rem", color: NAVY, fontWeight: 600, textAlign: "right", wordBreak: "break-all" }}>{row.value}</span>
+                  <button
+                    onClick={() => setStep(row.goStep)}
+                    style={{ fontSize: "0.72rem", fontWeight: 600, color: BLUE, background: "#EEF2FF", border: "none", borderRadius: 6, padding: "0.2rem 0.5rem", cursor: "pointer", flexShrink: 0 }}
+                  >
+                    Edit
+                  </button>
+                </div>
               </div>
             ))}
 
@@ -1099,15 +1255,15 @@ export default function NewCampaignPage() {
         {step < STEPS.length - 1 ? (
           <button
             onClick={() => setStep((s) => s + 1)}
-            disabled={!canNext || (step === 1 && lpUploading)}
+            disabled={!canNext || (step === 1 && lpMode === "create" && lpUploading)}
             style={{
               padding: "0.75rem 1.75rem", borderRadius: 10, fontWeight: 700, fontSize: "0.875rem",
-              background: (canNext && !(step === 1 && lpUploading)) ? `linear-gradient(135deg, ${BLUE}, #4C1AEA)` : "#E2E6F0",
-              color: (canNext && !(step === 1 && lpUploading)) ? "#fff" : "#94a3b8", border: "none",
-              cursor: (canNext && !(step === 1 && lpUploading)) ? "pointer" : "not-allowed",
+              background: (canNext && !(step === 1 && lpMode === "create" && lpUploading)) ? `linear-gradient(135deg, ${BLUE}, #4C1AEA)` : "#E2E6F0",
+              color: (canNext && !(step === 1 && lpMode === "create" && lpUploading)) ? "#fff" : "#94a3b8", border: "none",
+              cursor: (canNext && !(step === 1 && lpMode === "create" && lpUploading)) ? "pointer" : "not-allowed",
             }}
           >
-            {step === 1 && lpUploading ? "Uploading…" : "Continue →"}
+            {step === 1 && lpMode === "create" && lpUploading ? "Uploading…" : "Continue →"}
           </button>
         ) : (
           <button

@@ -205,6 +205,7 @@ export class MetaAdsController {
           pageId: campaign.metaPageId,
           instagramActorId: campaign.metaIgActorId ?? undefined,
           videoId: body.videoId,
+          imageHash: campaign.adImageHash ?? undefined,
           adTitle: body.adTitle,
           adDescription: body.adDescription,
           landingPageUrl: body.landingPageUrl,
@@ -273,12 +274,14 @@ export class MetaAdsController {
       budget: number;
       startDate?: string;
       endDate?: string;
+      customZone?: { countries: string[]; budget: number; name: string };
       // Ad creative
       pageId: string;
       instagramActorId?: string;
       videoId?: string;
       videoIds?: string[];
       imageHash?: string;
+      thumbnailUrl?: string;
       adTitle: string;
       adDescription?: string;
       landingPageUrl: string;
@@ -330,6 +333,7 @@ export class MetaAdsController {
         placement: body.placement,
         startDate: body.startDate,
         endDate: body.endDate,
+        customZone: body.customZone,
       });
 
     // 2. Create one ad creative per video (or one image creative if no videos)
@@ -344,6 +348,8 @@ export class MetaAdsController {
             pageId: body.pageId,
             instagramActorId: body.instagramActorId,
             videoId: videoIds[vi],
+            imageHash: body.imageHash,
+            thumbnailUrl: body.thumbnailUrl,
             adTitle: body.adTitle,
             adDescription: body.adDescription,
             landingPageUrl: body.landingPageUrl,
@@ -398,7 +404,10 @@ export class MetaAdsController {
         metaPageId: body.pageId,
         metaIgActorId: body.instagramActorId,
         pixelId: body.pixelId,
-        audienceTier: tiers.join(','),
+        audienceTier: body.customZone
+          ? `custom:${body.customZone.name}`
+          : tiers.join(','),
+        customCountries: body.customZone ? body.customZone.countries : [],
         placement: body.placement,
         budget: body.budget,
         adTitle: body.adTitle,

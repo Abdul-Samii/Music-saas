@@ -8,6 +8,8 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -100,11 +102,11 @@ export class LandingPagesController {
       pixelId: body.pixelId,
     });
 
-    const appUrl =
-      process.env.APP_URL ?? 'https://escalium.io';
+    const landingUrl = process.env.LANDING_PAGE_URL ?? 'https://mysong.to';
+    const p = page as { artistSlug: string; songSlug: string };
     return {
       ...page,
-      url: `${appUrl}/p/${page.artistSlug}/${page.songSlug}`,
+      url: `${landingUrl}/${p.artistSlug}/${p.songSlug}`,
     };
   }
 
@@ -112,12 +114,46 @@ export class LandingPagesController {
   @Get('my')
   @UseGuards(JwtAuthGuard)
   async myPages(@CurrentUser() user: JwtUser) {
-    const pages = await this.service.findByUser(user.id);
-    const appUrl = process.env.APP_URL ?? 'https://escalium.io';
+    const pages = (await this.service.findByUser(user.id)) as {
+      artistSlug: string;
+      songSlug: string;
+      [key: string]: unknown;
+    }[];
+    const landingUrl = process.env.LANDING_PAGE_URL ?? 'https://mysong.to';
     return pages.map((p) => ({
       ...p,
-      url: `${appUrl}/p/${p.artistSlug}/${p.songSlug}`,
+      url: `${landingUrl}/${p.artistSlug}/${p.songSlug}`,
     }));
+  }
+
+  // GET /landing-pages/analytics/:id  — views + clicks (our own counters)
+  @Get('analytics/:id')
+  @UseGuards(JwtAuthGuard)
+  analytics(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.service.getAnalytics(user.id, id);
+  }
+
+  // GET /landing-pages/meta-analytics/:id  — real data from Meta Insights API
+  @Get('meta-analytics/:id')
+  @UseGuards(JwtAuthGuard)
+  metaAnalytics(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.service.getMetaAnalytics(user.id, id);
+  }
+
+  // POST /landing-pages/:id/view  — public, called from landing page on load
+  @Post(':id/view')
+  @HttpCode(HttpStatus.OK)
+  async trackView(@Param('id') id: string) {
+    await this.service.trackView(id);
+    return { ok: true };
+  }
+
+  // POST /landing-pages/:id/click  — public, called from landing page on Spotify button click
+  @Post(':id/click')
+  @HttpCode(HttpStatus.OK)
+  async trackClick(@Param('id') id: string) {
+    await this.service.trackClick(id);
+    return { ok: true };
   }
 
   // GET /landing-pages/:artist/:song  — fetch page data (public, for the Next.js route handler)

@@ -2,127 +2,250 @@ import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import FormData from 'form-data';
 import * as fs from 'fs';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import {
+  S3Client,
+  GetObjectCommand,
+  ListObjectsV2Command,
+} from '@aws-sdk/client-s3';
 import { PrismaService } from '../prisma/prisma.service';
 
-export const VIDEO_LIBRARY = [
-  {
-    id: 'v1',
-    title: 'Neon City Pulse',
-    style: 'Abstract',
-    duration: 11,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&q=80',
+const execFileAsync = promisify(execFile);
+
+const s3 = new S3Client({
+  region: process.env.AWS_REGION ?? 'eu-north-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? '',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? '',
   },
-  {
-    id: 'v2',
-    title: 'Motion Escape',
-    style: 'Abstract',
-    duration: 15,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1549490349-8643362247b5?w=400&q=80',
-  },
-  {
-    id: 'v3',
-    title: 'Dynamic Ride',
-    style: 'Cinematic',
-    duration: 15,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=400&q=80',
-  },
-  {
-    id: 'v4',
-    title: 'Deep Emotion',
-    style: 'Cinematic',
-    duration: 15,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=400&q=80',
-  },
-  {
-    id: 'v5',
-    title: 'Epic Journey',
-    style: 'Nature',
-    duration: 60,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1458966480358-a0ac42de0a7a?w=400&q=80',
-  },
-  {
-    id: 'v6',
-    title: 'Street Night',
-    style: 'Urban',
-    duration: 30,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=400&q=80',
-  },
-  {
-    id: 'v7',
-    title: 'Retro Vibes',
-    style: 'Retro',
-    duration: 60,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/VolkswagenGTIReview.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=400&q=80',
-  },
-  {
-    id: 'v8',
-    title: 'Road to Glory',
-    style: 'Action',
-    duration: 60,
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4',
-    thumbnail: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&q=80',
-  },
-];
+});
+
+const BUCKET = process.env.S3_BUCKET_NAME ?? 'escaliumio';
+const CLIPS_PREFIX = process.env.S3_CLIPS_PREFIX ?? 'Creative Studio - Clips/';
+
+type VideoClip = {
+  id: string;
+  title: string;
+  style: string;
+  duration: number;
+  url: string;
+  thumbnail: string;
+};
+
+type WordTimestamp = { word: string; start: number; end: number };
 
 type TranscriptionResult = {
   text: string;
-  segments: { text: string; start: number; end: number }[];
+  segments: {
+    text: string;
+    start: number;
+    end: number;
+    words: WordTimestamp[];
+  }[];
 };
 
 @Injectable()
 export class MediaService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {
+    fs.mkdirSync('./uploads/audio', { recursive: true });
+    fs.mkdirSync('./uploads/tmp', { recursive: true });
+    fs.mkdirSync('./uploads/user-videos', { recursive: true });
+  }
 
-  getVideoLibrary() {
-    return { clips: VIDEO_LIBRARY };
+  async getVideoLibrary(): Promise<{ clips: VideoClip[] }> {
+    // Try manifest.json first (fastest, allows custom metadata)
+    try {
+      const obj = await s3.send(
+        new GetObjectCommand({
+          Bucket: BUCKET,
+          Key: `${CLIPS_PREFIX}manifest.json`,
+        }),
+      );
+      const body = await obj.Body?.transformToString();
+      if (body) {
+        const clips = JSON.parse(body) as VideoClip[];
+        return { clips };
+      }
+    } catch {
+      // manifest not found — fall through to auto-discovery
+    }
+
+    // Auto-discover: list .mp4 files and build clip objects from S3 keys
+    try {
+      const list = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: BUCKET,
+          Prefix: CLIPS_PREFIX,
+        }),
+      );
+
+      const baseUrl = `https://${BUCKET}.s3.${process.env.AWS_REGION ?? 'eu-north-1'}.amazonaws.com`;
+
+      const clips: VideoClip[] = (list.Contents ?? [])
+        .filter((obj) => obj.Key?.toLowerCase().endsWith('.mp4'))
+        .map((obj, i) => {
+          const key = obj.Key!;
+          const filename = key.split('/').pop()!;
+          const name = filename.replace(/\.mp4$/i, '');
+          // Derive style from sub-folder name if present, else 'General'
+          const parts = key.replace(CLIPS_PREFIX, '').split('/');
+          const style = parts.length > 1 ? parts[0] : 'General';
+          // Look for matching thumbnail: same name with .jpg/.png
+          const thumbKey = key.replace(/\.mp4$/i, '.jpg');
+          return {
+            id: `s3-${i}`,
+            title: name
+              .replace(/[-_]/g, ' ')
+              .replace(/\b\w/g, (c) => c.toUpperCase()),
+            style,
+            duration: 0, // duration not available without ffprobe; set in manifest.json for accuracy
+            url: `${baseUrl}/${encodeURIComponent(key).replace(/%2F/g, '/')}`,
+            thumbnail: `${baseUrl}/${encodeURIComponent(thumbKey).replace(/%2F/g, '/')}`,
+          };
+        });
+
+      return { clips };
+    } catch (err) {
+      console.error('[VideoLibrary] S3 error:', err);
+      return { clips: [] };
+    }
+  }
+
+  private isWhisperHallucination(text: string): boolean {
+    const t = text.trim();
+    if (!t) return true;
+    // Whisper emits these when it hears music but no decodable speech
+    const patterns = [
+      /^[\s\p{Emoji_Presentation}\p{Extended_Pictographic}♪♫🎵🎶]+$/u,
+      /^\[?music\s*(playing)?\]?$/i,
+      /^\[?background\s*music\]?$/i,
+      /^\[?instrumental\]?$/i,
+      /^\[?no\s*speech\]?$/i,
+      /^\[?silence\]?$/i,
+      /^\[?applause\]?$/i,
+    ];
+    return patterns.some((p) => p.test(t));
   }
 
   async transcribeAudio(
     filePath: string,
     mimetype: string,
+    language?: string,
   ): Promise<TranscriptionResult> {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return { text: '', segments: [] };
 
-    try {
-      const fd = new FormData();
-      fd.append('file', fs.createReadStream(filePath), {
-        filename: 'audio.mp3',
-        contentType: mimetype,
-      });
-      fd.append('model', 'whisper-1');
-      fd.append('response_format', 'verbose_json');
-
-      const { data } = await axios.post(
-        'https://api.openai.com/v1/audio/transcriptions',
-        fd,
-        {
-          headers: { ...fd.getHeaders(), Authorization: `Bearer ${apiKey}` },
-          maxBodyLength: 50 * 1024 * 1024,
-        },
+    // Groq Whisper limit is 25 MB
+    const GROQ_MAX_BYTES = 25 * 1024 * 1024;
+    const stat = fs.statSync(filePath);
+    if (stat.size > GROQ_MAX_BYTES) {
+      console.warn(
+        `[transcribeAudio] file too large (${(stat.size / 1024 / 1024).toFixed(1)} MB > 25 MB limit), skipping`,
       );
-
-      type WhisperResponse = {
-        text: string;
-        segments?: { text: string; start: number; end: number }[];
-      };
-      const r = data as WhisperResponse;
-      return {
-        text: r.text ?? '',
-        segments: r.segments?.map((s) => ({ text: s.text, start: s.start, end: s.end })) ?? [],
-      };
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: unknown } };
-      console.error('[transcribeAudio]', JSON.stringify(e?.response?.data ?? err));
       return { text: '', segments: [] };
     }
+
+    // Use the real extension so Whisper picks the correct decoder.
+    // Sending an MP3 named "audio.wav" causes complete parse failure.
+    const extMap: Record<string, string> = {
+      mp3: 'audio/mpeg',
+      mp4: 'audio/mp4',
+      m4a: 'audio/mp4',
+      wav: 'audio/wav',
+      webm: 'audio/webm',
+      ogg: 'audio/ogg',
+      flac: 'audio/flac',
+      aac: 'audio/aac',
+    };
+    const ext = filePath.split('.').pop()?.toLowerCase() ?? 'mp3';
+    const filename = `audio.${ext}`;
+    const contentType = extMap[ext] ?? mimetype;
+
+    const MAX_RETRIES = 3;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const fd = new FormData();
+        fd.append('file', fs.createReadStream(filePath), {
+          filename,
+          contentType,
+        });
+        fd.append('model', 'whisper-large-v3');
+        fd.append('response_format', 'verbose_json');
+        fd.append('timestamp_granularities[]', 'word');
+        fd.append('timestamp_granularities[]', 'segment');
+        if (language) fd.append('language', language);
+
+        type WhisperResponse = {
+          text: string;
+          words?: WordTimestamp[];
+          segments?: { text: string; start: number; end: number }[];
+        };
+        const { data: r } = await axios.post<WhisperResponse>(
+          'https://api.groq.com/openai/v1/audio/transcriptions',
+          fd,
+          {
+            headers: { ...fd.getHeaders(), Authorization: `Bearer ${apiKey}` },
+            maxBodyLength: Infinity,
+            timeout: 120_000,
+          },
+        );
+        const allWords: WordTimestamp[] = r.words ?? [];
+        const text = r.text ?? '';
+        console.log(
+          `[transcribeAudio] attempt=${attempt} segments=${r.segments?.length ?? 0} words=${allWords.length} text="${text.slice(0, 80)}"`,
+        );
+
+        if (this.isWhisperHallucination(text)) {
+          console.warn(
+            `[transcribeAudio] hallucination detected, returning empty`,
+          );
+          return { text: '', segments: [] };
+        }
+
+        return {
+          text,
+          segments:
+            r.segments
+              ?.filter((s) => !this.isWhisperHallucination(s.text))
+              .map((s) => ({
+                text: s.text,
+                start: s.start,
+                end: s.end,
+                words: allWords.filter(
+                  (w) => w.start >= s.start && w.start < s.end,
+                ),
+              })) ?? [],
+        };
+      } catch (err: unknown) {
+        type AxiosLike = {
+          response?: { data?: unknown; status?: number };
+          code?: string;
+        };
+        const e = err as AxiosLike;
+        const status = e?.response?.status ?? 0;
+        const isRetryable =
+          e?.code === 'ECONNRESET' ||
+          e?.code === 'ETIMEDOUT' ||
+          e?.code === 'ECONNABORTED' ||
+          status === 429 ||
+          status >= 500;
+
+        console.error(
+          `[transcribeAudio] attempt=${attempt}/${MAX_RETRIES} status=${status}`,
+          JSON.stringify(e?.response?.data ?? String(err)),
+        );
+
+        if (!isRetryable || attempt === MAX_RETRIES) {
+          return { text: '', segments: [] };
+        }
+        // Exponential backoff: 1 s, 2 s, 4 s
+        await new Promise((resolve) =>
+          setTimeout(resolve, 1000 * 2 ** (attempt - 1)),
+        );
+      }
+    }
+    return { text: '', segments: [] };
   }
 
   async createCreative(
@@ -155,5 +278,49 @@ export class MediaService {
 
   async getCreative(id: string, userId: string) {
     return this.prisma.adCreative.findFirst({ where: { id, userId } });
+  }
+
+  async convertWebmToMp4(inputPath: string): Promise<string> {
+    const outputPath = inputPath.replace(/\.[^.]+$/, '.mp4');
+    await execFileAsync(
+      'ffmpeg',
+      [
+        '-i',
+        inputPath,
+        '-c:v',
+        'libx264',
+        '-preset',
+        'ultrafast',
+        '-crf',
+        '23',
+        '-c:a',
+        'aac',
+        '-b:a',
+        '128k',
+        '-movflags',
+        '+faststart',
+        '-y',
+        outputPath,
+      ],
+      { timeout: 5 * 60 * 1000 },
+    );
+    return outputPath;
+  }
+
+  async getVideoDurationSec(filePath: string): Promise<number> {
+    try {
+      const { stdout } = await execFileAsync('ffprobe', [
+        '-v',
+        'error',
+        '-show_entries',
+        'format=duration',
+        '-of',
+        'default=noprint_wrappers=1:nokey=1',
+        filePath,
+      ]);
+      return parseFloat(stdout.trim()) || 0;
+    } catch {
+      return 0;
+    }
   }
 }
