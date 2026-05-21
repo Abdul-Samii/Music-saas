@@ -1,6 +1,5 @@
 "use client";
 
-import FadeInUp from "@/components/animations/FadeInUp";
 import TextAnimation from "@/components/animations/TextAnimation";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
@@ -236,22 +235,20 @@ const ArticlesIndex = () => {
 						className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[500px] h-[400px] rounded-full pointer-events-none"
 					/>
 					<DotGrid id="dots-pr1" />
-					<FadeInUp>
-						<div className="px-2 text-center relative">
-							<span className="sectionLabel">read our blog</span>
-							<h1 className="text-4xl lg:text-6xl lg:leading-[1.3] tracking-wide mb-4">
-								<TextAnimation text="Browse" />{" "}
-								<span className="text-primary block">
-									<TextAnimation text="Our Resources" delay={0.4} />
-								</span>
-							</h1>
+					<div className="px-2 text-center relative">
+						<span className="sectionLabel">read our blog</span>
+						<h1 className="text-4xl lg:text-6xl lg:leading-[1.3] tracking-wide mb-4">
+							<TextAnimation text="Browse Our" />{" "}
+							<span className="text-primary">
+								<TextAnimation text="Resources" delay={0.4} />
+							</span>
+						</h1>
 
-							<p className="text-gray-400 mb-10 mx-auto max-w-[560px]">
-								We provide tips resources from industry leaders. For
-								real.
-							</p>
-						</div>
-					</FadeInUp>
+						<p className="text-gray-400 mb-10 mx-auto max-w-[560px]">
+							We provide tips resources from industry leaders. For
+							real.
+						</p>
+					</div>
 					{mounted ? (
 						<Drawer direction="right">
 							<DrawerTrigger className="lg:hidden border border-border rounded-md flex items-center justify-center  px-3 py-1.5 mt-5 ms-auto">
@@ -283,27 +280,32 @@ const ArticlesIndex = () => {
 					)}
 				</div>
 			</div>
-			<div className="py-10 flex gap-5 lg:gap-10 container ">
-				<aside className="hidden lg:flex flex-col max-w-xs w-full shrink-0">
-					<div className="sticky top-25 flex flex-col space-y-5">
-						<FilterContent
-							category={category}
-							setCategory={setCategory}
-							categories={categories}
-						/>
-					</div>
-				</aside>
-				<section className="flex-1 grow space-y-3.5 lg:space-y-5">
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
-						{featuredBlogs.map((blog) => (
-							<FeaturedBlog key={blog.uuid} blog={blog} />
-						))}
+			<div className="max-w-[1380px] mx-auto mb-16">
+				<div className="py-10 flex gap-5 lg:gap-10 container">
+					<aside className="hidden lg:flex flex-col max-w-xs w-full shrink-0">
+						<div className="sticky top-25 flex flex-col space-y-5">
+							<FilterContent
+								category={category}
+								setCategory={setCategory}
+								categories={categories}
+							/>
+						</div>
+					</aside>
+					<section className="flex-1 grow space-y-3.5 lg:space-y-5">
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
 
-						{nonFeaturedBlogs.map((blog) => (
-							<NonFeaturedBlog key={blog.uuid} blog={blog} />
-						))}
-					</div>
-				</section>
+							<div className="sm:col-span-2 grid grid-cols-1 gap-y-6 gap-x-4 mb-12">
+							{featuredBlogs.map((blog) => (
+								<FeaturedBlog key={blog.uuid} blog={blog} />
+							))}
+							</div>
+
+							{nonFeaturedBlogs.map((blog) => (
+								<NonFeaturedBlog key={blog.uuid} blog={blog} />
+							))}
+						</div>
+					</section>
+				</div>
 			</div>
 
 			<Footer />
@@ -328,9 +330,9 @@ const FeaturedBlog = ({ blog }: { blog: Blog }) => {
 	return (
 		<Link
 			href={`/articles/${blog.slug}`}
-			className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-7.5 sm:items-center"
+			className="grid grid-cols-1 sm:grid-cols-12 gap-7.5 sm:items-center"
 		>
-			<div className="relative aspect-square md:aspect-video rounded-xl overflow-hidden">
+			<div className="relative aspect-square md:aspect-video rounded-xl overflow-hidden sm:col-span-7">
 				<Image
 					src={blog.image}
 					alt={blog.title}
@@ -339,7 +341,7 @@ const FeaturedBlog = ({ blog }: { blog: Blog }) => {
 					loading="lazy"
 				/>
 			</div>
-			<div className="flex flex-col gap-3.5 md:gap-5">
+			<div className="flex flex-col gap-3.5 md:gap-5 sm:col-span-5">
 				<Chip label="Featured" className="w-fit" />
 				<h2 className="font-semibold text-xl md:text-3xl">{blog.title}</h2>
 				<p className="text-secondary text-sm line-clamp-2">
