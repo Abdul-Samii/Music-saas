@@ -3,6 +3,14 @@
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import {
+	Drawer,
+	DrawerContent,
+	DrawerDescription,
+	DrawerHeader,
+	DrawerTitle,
+	DrawerTrigger,
+} from "@/components/ui/drawer";
+import {
 	Select,
 	SelectContent,
 	SelectItem,
@@ -236,6 +244,26 @@ const ArticlesIndex = () => {
 						<p className="text-secondary">
 							We provide tips resources from industry leaders. For real.
 						</p>
+						<Drawer direction="right">
+							<DrawerTrigger className="lg:hidden border border-border rounded-md flex items-center justify-center  px-3 py-1.5 mt-5 ms-auto">
+								<ListFilter className="size-5 mr-1.5" /> Filter
+							</DrawerTrigger>
+							<DrawerContent className="border-none rounded-none!">
+								<DrawerHeader>
+									<DrawerTitle>Filter</DrawerTitle>
+									<DrawerDescription>
+										Filter the article list
+									</DrawerDescription>
+								</DrawerHeader>
+								<div className="px-4 py-5 space-y-5">
+									<FilterContent
+										category={category}
+										setCategory={setCategory}
+										categories={categories}
+									/>
+								</div>
+							</DrawerContent>
+						</Drawer>
 					</div>
 
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
