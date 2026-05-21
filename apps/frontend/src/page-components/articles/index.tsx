@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
 	ArrowUpRight,
+	ChevronDownIcon,
 	CircleQuestionMark,
 	ListFilter,
 	User,
@@ -27,6 +28,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useQueryState } from "nuqs";
+import { useEffect, useState } from "react";
 
 export interface Author {
 	name: string;
@@ -199,6 +201,11 @@ const blogs = [
 ];
 
 const ArticlesIndex = () => {
+	const [mounted, setMounted] = useState(false);
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+
 	const featuredBlogs = blogs.filter((blog) => blog.isFeatured);
 	const nonFeaturedBlogs = blogs.filter((blog) => !blog.isFeatured);
 	const [category, setCategory] = useQueryState("category", {
@@ -234,7 +241,7 @@ const ArticlesIndex = () => {
 
 			<div className="py-24 lg:py-30 flex gap-5 lg:gap-10 container ">
 				<aside className="hidden lg:flex flex-col max-w-xs w-full shrink-0 pt-35">
-					<div className="sticky top-[100px] flex flex-col space-y-5">
+					<div className="sticky top-25 flex flex-col space-y-5">
 						<FilterContent
 							category={category}
 							setCategory={setCategory}
@@ -252,26 +259,32 @@ const ArticlesIndex = () => {
 						<p className="text-secondary">
 							We provide tips resources from industry leaders. For real.
 						</p>
-						<Drawer direction="right">
-							<DrawerTrigger className="lg:hidden border border-border rounded-md flex items-center justify-center  px-3 py-1.5 mt-5 ms-auto">
+						{mounted ? (
+							<Drawer direction="right">
+								<DrawerTrigger className="lg:hidden border border-border rounded-md flex items-center justify-center  px-3 py-1.5 mt-5 ms-auto">
+									<ListFilter className="size-5 mr-1.5" /> Filter
+								</DrawerTrigger>
+								<DrawerContent className="border-none rounded-none!">
+									<DrawerHeader>
+										<DrawerTitle>Filter</DrawerTitle>
+										<DrawerDescription>
+											Filter the article list
+										</DrawerDescription>
+									</DrawerHeader>
+									<div className="px-4 py-5 space-y-5">
+										<FilterContent
+											category={category}
+											setCategory={setCategory}
+											categories={categories}
+										/>
+									</div>
+								</DrawerContent>
+							</Drawer>
+						) : (
+							<button type="button" className="lg:hidden border border-border rounded-md flex items-center justify-center px-3 py-1.5 mt-5 ms-auto">
 								<ListFilter className="size-5 mr-1.5" /> Filter
-							</DrawerTrigger>
-							<DrawerContent className="border-none rounded-none!">
-								<DrawerHeader>
-									<DrawerTitle>Filter</DrawerTitle>
-									<DrawerDescription>
-										Filter the article list
-									</DrawerDescription>
-								</DrawerHeader>
-								<div className="px-4 py-5 space-y-5">
-									<FilterContent
-										category={category}
-										setCategory={setCategory}
-										categories={categories}
-									/>
-								</div>
-							</DrawerContent>
-						</Drawer>
+							</button>
+						)}
 					</div>
 
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
@@ -395,6 +408,11 @@ const FilterContent = ({
 	setCategory: (value: string) => void;
 	categories: { label: string; value: string }[];
 }) => {
+	const [mounted, setMounted] = useState(false);
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+
 	return (
 		<>
 			{/* search  */}
@@ -418,24 +436,34 @@ const FilterContent = ({
 				<span className="block font-medium text-secondary mb-1">
 					Filter
 				</span>
-				<Select>
-					<SelectTrigger className="flex items-center justify-center rounded-full h-9 border border-border py-0.5 px-1.5 w-full">
-						<ListFilter className="size-3.5 shrink-0 text-black" />
-						<SelectValue placeholder="Filter articles..." />
-					</SelectTrigger>
-					<SelectContent
-						side="bottom"
-						align="start"
-						alignItemWithTrigger={false}
-						className={"bg-white p-2 rounded border ring-1 ring-border"}
-					>
-						{["Filter 1", "Filter 2", "Filter 3"].map((filter) => (
-							<SelectItem key={filter} value={filter}>
-								{filter}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+				{mounted ? (
+					<Select>
+						<SelectTrigger className="flex items-center justify-center rounded-full h-9 border border-border py-0.5 px-1.5 w-full">
+							<ListFilter className="size-3.5 shrink-0 text-black" />
+							<SelectValue placeholder="Filter articles..." />
+						</SelectTrigger>
+						<SelectContent
+							side="bottom"
+							align="start"
+							alignItemWithTrigger={false}
+							className={"bg-white p-2 rounded border ring-1 ring-border"}
+						>
+							{["Filter 1", "Filter 2", "Filter 3"].map((filter) => (
+								<SelectItem key={filter} value={filter}>
+									{filter}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				) : (
+					<div className="flex items-center justify-between rounded-full h-9 border border-border py-0.5 px-1.5 w-full text-sm text-secondary bg-transparent select-none">
+						<span className="flex items-center gap-1.5">
+							<ListFilter className="size-3.5 shrink-0 text-black" />
+							<span className="text-muted">Filter articles...</span>
+						</span>
+						<ChevronDownIcon className="pointer-events-none size-4 text-muted shrink-0" />
+					</div>
+				)}
 			</label>
 			<div className="space-y-1">
 				<h4 className="block text-primary font-medium">
