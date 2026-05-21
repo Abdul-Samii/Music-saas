@@ -1,6 +1,5 @@
 "use client";
-import React, { useEffect } from "react";
-// import Navbar from "./Navbar";
+import { useEffect } from "react";
 import Hero from "./Hero";
 import HowItWorks from "./HowItWorks";
 import Features from "./Features";

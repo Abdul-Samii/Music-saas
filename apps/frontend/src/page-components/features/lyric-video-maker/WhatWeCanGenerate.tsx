@@ -65,11 +65,14 @@ const WhatWeCanGenerate = () => {
           </h3>
         </FadeInUp>
       </div>
-      <Marquee>
-        {[...VIDEOS, ...VIDEOS].map((s, i) => (
-          <SlideDown key={`${s.id}-${i}`}>
-            <LazyVideoCard url={s.url} name={s.name} views={s.views} />
-          </SlideDown>
+      <Marquee autoFill>
+        {[...VIDEOS].map((s, i) => (
+          <LazyVideoCard
+            key={`${s.id}-${i}`}
+            url={s.url}
+            name={s.name}
+            views={s.views}
+          />
         ))}
       </Marquee>
     </section>
@@ -112,7 +115,7 @@ function LazyVideoCard({
   return (
     <div
       ref={containerRef}
-      className="relative rounded-[12px] overflow-hidden mr-4 md:mr-6"
+      className="relative rounded-[12px] overflow-hidden mr-4 md:mr-6 w-[200px] md:w-[300px]"
     >
       <div className="rounded-[12px] border border-primary">
         <video
@@ -130,7 +133,7 @@ function LazyVideoCard({
       {/* <div className="absolute w-full left-0 bottom-0 p-3 py-5 bg-linear-to-t from-primary to-transparent"> */}
       <div className="p-3 py-5">
         {/* <h4 className="text-center text-xs text-muted block"> */}
-        <h4 className="text-center text-lg font-semibold text-muted block text-secondary">
+        <h4 className="text-center text-sm md:text-lg font-semibold text-muted block text-secondary">
           <span className="text-primary">{views}</span> {name}
         </h4>
       </div>
