@@ -226,7 +226,7 @@ const ArticlesIndex = () => {
 	return (
 		<main className="bg-body-2">
 			<Navbar />
-			<div className="flex items-center justify-center pt-24 md:pt-30">
+			<div className="flex items-center justify-center pt-24 md:pt-30 relative overflow-hidden">
 				<div className="flex flex-col items-center justify-center w-full lg:w-fit">
 					<div
 						style={{
@@ -238,12 +238,13 @@ const ArticlesIndex = () => {
 					<DotGrid id="dots-pr1" />
 					<FadeInUp>
 						<div className="px-2 text-center relative">
-							<Chip label="read our blog" className="font-medium" />
+							<Chip label="" className="font-medium" />
+							<span className="sectionLabel">read our blog</span>
 							<h1 className="text-4xl lg:text-6xl lg:leading-[1.3] tracking-wide mb-4">
+								<TextAnimation text="Browse" />{" "}
 								<span className="text-primary block">
-									<TextAnimation text="Browse" />{" "}
+									<TextAnimation text="Our Resources" delay={0.4} />
 								</span>
-								<TextAnimation text="Our Resources" delay={0.4} />
 							</h1>
 
 							<p className="text-gray-400 mb-10 mx-auto max-w-[560px]">
@@ -293,19 +294,17 @@ const ArticlesIndex = () => {
 						/>
 					</div>
 				</aside>
-				<FadeInUp>
-					<section className="flex-1 grow space-y-3.5 lg:space-y-5">
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
-							{featuredBlogs.map((blog) => (
-								<FeaturedBlog key={blog.uuid} blog={blog} />
-							))}
+				<section className="flex-1 grow space-y-3.5 lg:space-y-5">
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
+						{featuredBlogs.map((blog) => (
+							<FeaturedBlog key={blog.uuid} blog={blog} />
+						))}
 
-							{nonFeaturedBlogs.map((blog) => (
-								<NonFeaturedBlog key={blog.uuid} blog={blog} />
-							))}
-						</div>
-					</section>
-				</FadeInUp>
+						{nonFeaturedBlogs.map((blog) => (
+							<NonFeaturedBlog key={blog.uuid} blog={blog} />
+						))}
+					</div>
+				</section>
 			</div>
 
 			<Footer />
