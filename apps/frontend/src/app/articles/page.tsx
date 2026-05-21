@@ -1,5 +1,6 @@
 import ArticlesIndex from "@/page-components/articles";
 import { Metadata } from "next";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://escalium.io"),
@@ -53,7 +54,11 @@ export const metadata: Metadata = {
 };
 
 const Page = () => {
-	return <ArticlesIndex />;
+	return (
+		<Suspense>
+			<ArticlesIndex />
+		</Suspense>
+	);
 };
 
 export default Page;
