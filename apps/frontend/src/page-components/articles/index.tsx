@@ -226,9 +226,65 @@ const ArticlesIndex = () => {
 	return (
 		<main className="bg-body-2">
 			<Navbar />
+			<div className="flex items-center justify-center pt-24 md:pt-30">
+				<div className="flex flex-col items-center justify-center w-full lg:w-fit">
+					<div
+						style={{
+							background:
+								"radial-gradient(circle, rgba(58,96,231,0.1) 0%, transparent 70%)",
+						}}
+						className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[500px] h-[400px] rounded-full pointer-events-none"
+					/>
+					<DotGrid id="dots-pr1" />
+					<FadeInUp>
+						<div className="px-2 text-center relative">
+							<Chip label="read our blog" className="font-medium" />
+							<h1 className="text-4xl lg:text-6xl lg:leading-[1.3] tracking-wide mb-4">
+								<span className="text-primary block">
+									<TextAnimation text="Browse" />{" "}
+								</span>
+								<TextAnimation text="Our Resources" delay={0.4} />
+							</h1>
 
-			<div className="py-24 lg:py-30 flex gap-5 lg:gap-10 container ">
-				<aside className="hidden lg:flex flex-col max-w-xs w-full shrink-0 pt-35">
+							<p className="text-gray-400 mb-10 mx-auto max-w-[560px]">
+								We provide tips resources from industry leaders. For
+								real.
+							</p>
+						</div>
+					</FadeInUp>
+					{mounted ? (
+						<Drawer direction="right">
+							<DrawerTrigger className="lg:hidden border border-border rounded-md flex items-center justify-center  px-3 py-1.5 mt-5 ms-auto">
+								<ListFilter className="size-5 mr-1.5" /> Filter
+							</DrawerTrigger>
+							<DrawerContent className="border-none rounded-none!">
+								<DrawerHeader>
+									<DrawerTitle>Filter</DrawerTitle>
+									<DrawerDescription>
+										Filter the article list
+									</DrawerDescription>
+								</DrawerHeader>
+								<div className="px-4 py-5 space-y-5">
+									<FilterContent
+										category={category}
+										setCategory={setCategory}
+										categories={categories}
+									/>
+								</div>
+							</DrawerContent>
+						</Drawer>
+					) : (
+						<button
+							type="button"
+							className="lg:hidden border border-border rounded-md flex items-center justify-center px-3 py-1.5 mt-5 ms-auto"
+						>
+							<ListFilter className="size-5 mr-1.5" /> Filter
+						</button>
+					)}
+				</div>
+			</div>
+			<div className="py-10 flex gap-5 lg:gap-10 container ">
+				<aside className="hidden lg:flex flex-col max-w-xs w-full shrink-0">
 					<div className="sticky top-25 flex flex-col space-y-5">
 						<FilterContent
 							category={category}
@@ -237,73 +293,19 @@ const ArticlesIndex = () => {
 						/>
 					</div>
 				</aside>
-				<section className="flex-1 grow space-y-3.5 lg:space-y-5">
-					<div className="flex flex-col items-center justify-center w-full lg:w-fit">
-						<div
-							style={{
-								background:
-									"radial-gradient(circle, rgba(58,96,231,0.1) 0%, transparent 70%)",
-							}}
-							className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[500px] h-[400px] rounded-full pointer-events-none"
-						/>
-						<DotGrid id="dots-pr1" />
-						<FadeInUp>
-							<div className="px-2 text-center relative">
-								<Chip label="read our blog" className="font-medium" />
-								<h1 className="text-4xl lg:text-6xl lg:leading-[1.3] tracking-wide mb-4">
-									<span className="text-primary block">
-										<TextAnimation text="Browse" />{" "}
-									</span>
-									<TextAnimation text="Our Resources" delay={0.4} />
-								</h1>
+				<FadeInUp>
+					<section className="flex-1 grow space-y-3.5 lg:space-y-5">
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
+							{featuredBlogs.map((blog) => (
+								<FeaturedBlog key={blog.uuid} blog={blog} />
+							))}
 
-								<p className="text-gray-400 mb-10 mx-auto max-w-[560px]">
-									We provide tips resources from industry leaders. For
-									real.
-								</p>
-							</div>
-						</FadeInUp>
-						{mounted ? (
-							<Drawer direction="right">
-								<DrawerTrigger className="lg:hidden border border-border rounded-md flex items-center justify-center  px-3 py-1.5 mt-5 ms-auto">
-									<ListFilter className="size-5 mr-1.5" /> Filter
-								</DrawerTrigger>
-								<DrawerContent className="border-none rounded-none!">
-									<DrawerHeader>
-										<DrawerTitle>Filter</DrawerTitle>
-										<DrawerDescription>
-											Filter the article list
-										</DrawerDescription>
-									</DrawerHeader>
-									<div className="px-4 py-5 space-y-5">
-										<FilterContent
-											category={category}
-											setCategory={setCategory}
-											categories={categories}
-										/>
-									</div>
-								</DrawerContent>
-							</Drawer>
-						) : (
-							<button
-								type="button"
-								className="lg:hidden border border-border rounded-md flex items-center justify-center px-3 py-1.5 mt-5 ms-auto"
-							>
-								<ListFilter className="size-5 mr-1.5" /> Filter
-							</button>
-						)}
-					</div>
-
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
-						{featuredBlogs.map((blog) => (
-							<FeaturedBlog key={blog.uuid} blog={blog} />
-						))}
-
-						{nonFeaturedBlogs.map((blog) => (
-							<NonFeaturedBlog key={blog.uuid} blog={blog} />
-						))}
-					</div>
-				</section>
+							{nonFeaturedBlogs.map((blog) => (
+								<NonFeaturedBlog key={blog.uuid} blog={blog} />
+							))}
+						</div>
+					</section>
+				</FadeInUp>
 			</div>
 
 			<Footer />
