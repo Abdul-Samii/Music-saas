@@ -2,9 +2,17 @@
 
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { CircleQuestionMark, User } from "lucide-react";
+import { CircleQuestionMark, ListFilter, User } from "lucide-react";
 import Image from "next/image";
+import { useQueryState } from "nuqs";
 
 export interface Author {
 	name: string;
@@ -179,30 +187,44 @@ const blogs = [
 const ArticlesIndex = () => {
 	const featuredBlogs = blogs.filter((blog) => blog.isFeatured);
 	const nonFeaturedBlogs = blogs.filter((blog) => !blog.isFeatured);
+	const [category, setCategory] = useQueryState("category", {
+		defaultValue: "all-category",
+	});
+
+	const categories = [
+		{
+			label: "All Category",
+			value: "all-category",
+		},
+		{
+			label: "Production & Engineering",
+			value: "production-engineering",
+		},
+		{
+			label: "Artist Spotlights",
+			value: "artist-spotlights",
+		},
+		{
+			label: "Industry News",
+			value: "industry-news",
+		},
+		{
+			label: "Gear Reviews",
+			value: "gear-reviews",
+		},
+	];
 
 	return (
 		<main className="bg-body-2">
 			<Navbar />
 
 			<div className="py-10 lg:py-30 flex gap-5 lg:gap-10 container ">
-				<aside className="hidden lg:flex flex-col max-w-xs shrink-0 space-y-3.5">
-					<label className="flex flex-col">
-						<span className="block font-medium text-secondary mb-1">
-							Label
-						</span>
-
-						<div className="flex items-center justify-center rounded-full h-9 border py-0.5 px-1.5">
-							<User className="size-4 shrink-0" />
-							<input
-								className="grow focus:ring-0 focus:outline-none px-1.5"
-								type="text"
-								name=""
-								id=""
-								placeholder="Search articles..."
-							/>
-							<CircleQuestionMark className="size-4 text-secondary/50 shrink-0" />
-						</div>
-					</label>
+				<aside className="hidden lg:flex flex-col max-w-xs w-full shrink-0 space-y-5">
+					<FilterContent
+						category={category}
+						setCategory={setCategory}
+						categories={categories}
+					/>
 				</aside>
 				<section className="flex-1 grow space-y-3.5 lg:space-y-5">
 					<div className="flex flex-col items-center justify-center w-fit">
@@ -319,6 +341,82 @@ const NonFeaturedBlog = ({ blog }: { blog: Blog }) => {
 				</div>
 			</div>
 		</div>
+	);
+};
+
+const FilterContent = ({
+	category,
+	setCategory,
+	categories,
+}: {
+	category: string;
+	setCategory: (value: string) => void;
+	categories: { label: string; value: string }[];
+}) => {
+	return (
+		<>
+			{/* search  */}
+			<label className="flex flex-col">
+				<span className="block font-medium text-secondary mb-1">Label</span>
+
+				<div className="flex items-center justify-center rounded-full h-9 border border-border py-0.5 px-1.5">
+					<User className="size-4 shrink-0" />
+					<input
+						className="grow focus-visible:outline-none! px-1.5 "
+						type="text"
+						name=""
+						id=""
+						placeholder="Search articles..."
+					/>
+					<CircleQuestionMark className="size-4 text-secondary/50 shrink-0" />
+				</div>
+			</label>
+			{/* filter  */}
+			<label className="flex flex-col">
+				<span className="block font-medium text-secondary mb-1">
+					Filter
+				</span>
+				<Select>
+					<SelectTrigger className="flex items-center justify-center rounded-full h-9 border border-border py-0.5 px-1.5 w-full">
+						<ListFilter className="size-3.5 shrink-0 text-black" />
+						<SelectValue placeholder="Filter articles..." />
+					</SelectTrigger>
+					<SelectContent
+						side="bottom"
+						align="start"
+						alignItemWithTrigger={false}
+						className={"bg-white p-2 rounded border ring-1 ring-border"}
+					>
+						{["Filter 1", "Filter 2", "Filter 3"].map((filter) => (
+							<SelectItem key={filter} value={filter}>
+								{filter}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+			</label>
+			<div className="space-y-1">
+				<h4 className="block text-primary font-medium">
+					Browse By Categories
+				</h4>
+				<ul className="border-s-2 border-border space-y-2.5 relative">
+					{categories.map((c) => (
+						<li
+							key={c.value}
+							className={cn(
+								"relative ps-4 cursor-pointer",
+								c.value === category
+									? "before:absolute before:inset-y-0 before:-inset-s-0.5 before:border-s-2 before:border-primary"
+									: "border-transparent text-secondary",
+							)}
+							onClick={() => setCategory(c.value)}
+						>
+							<p>{c.label}</p>
+						</li>
+					))}
+				</ul>
+			</div>
+		</>
 	);
 };
 
