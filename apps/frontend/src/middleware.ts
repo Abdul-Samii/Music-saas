@@ -13,15 +13,30 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  // Auth guard for dashboard routes
-  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-  if (!token) {
-    return NextResponse.redirect(new URL("/landing", request.url));
-  }
+  // 1️⃣ Root redirect (must run globally)
+	if (pathname === "/") {
+		return NextResponse.redirect(new URL("/landing", request.url));
+	}
+
+	// 2️⃣ Auth check only for dashboard
+	if (pathname.startsWith("/dashboard")) {
+		const token = await getToken({
+			req: request,
+			secret: process.env.NEXTAUTH_SECRET,
+		});
+
+		if (!token) {
+			return NextResponse.redirect(new URL("/landing", request.url));
+		}
+	}
 
   return NextResponse.next();
 }
 
+// export const config = {
+//   matcher: ["/dashboard/:path*", "/:artist/:song"],
+// };
+
 export const config = {
-  matcher: ["/dashboard/:path*", "/:artist/:song"],
+	matcher: ["/:path*"],
 };
