@@ -1,5 +1,7 @@
 "use client";
 
+import FadeInUp from "@/components/animations/FadeInUp";
+import TextAnimation from "@/components/animations/TextAnimation";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import {
@@ -29,6 +31,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useQueryState } from "nuqs";
 import { useEffect, useState } from "react";
+import { DotGrid } from "../pricing/DotGrid";
 
 export interface Author {
 	name: string;
@@ -76,21 +79,6 @@ const blogs = [
 			name: "Sarah Jenkins",
 			avatar: "https://randomuser.me/api/portraits/women/44.jpg",
 			avg_read_in_minutes: 5,
-		},
-	},
-	{
-		uuid: "e1a2b3c4-d5e6-4f7g-8h9i-0j1k2l3m4n5o",
-		slug: "how-streaming-algorithms-shape-modern-song-structures",
-		title: "The 30-Second Rule: How Streaming Algorithms Altered Songwriting",
-		description:
-			"An in-depth look at why modern intros are getting shorter, choruses are hitting faster, and the traditional bridge might be dead.",
-		image: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17",
-		category: "Industry News",
-		isFeatured: true,
-		author: {
-			name: "Elena Rostova",
-			avatar: "https://randomuser.me/api/portraits/women/65.jpg",
-			avg_read_in_minutes: 6,
 		},
 	},
 	{
@@ -251,14 +239,30 @@ const ArticlesIndex = () => {
 				</aside>
 				<section className="flex-1 grow space-y-3.5 lg:space-y-5">
 					<div className="flex flex-col items-center justify-center w-full lg:w-fit">
-						<Chip label="read our blog" className="font-medium" />
+						<div
+							style={{
+								background:
+									"radial-gradient(circle, rgba(58,96,231,0.1) 0%, transparent 70%)",
+							}}
+							className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[500px] h-[400px] rounded-full pointer-events-none"
+						/>
+						<DotGrid id="dots-pr1" />
+						<FadeInUp>
+							<div className="px-2 text-center relative">
+								<Chip label="read our blog" className="font-medium" />
+								<h1 className="text-4xl lg:text-6xl lg:leading-[1.3] tracking-wide mb-4">
+									<span className="text-primary block">
+										<TextAnimation text="Browse" />{" "}
+									</span>
+									<TextAnimation text="Our Resources" delay={0.4} />
+								</h1>
 
-						<h1 className="text-2xl lg:text-4xl my-3.5 lg:my-5 font-semibold">
-							Browse Our Resources
-						</h1>
-						<p className="text-secondary">
-							We provide tips resources from industry leaders. For real.
-						</p>
+								<p className="text-gray-400 mb-10 mx-auto max-w-[560px]">
+									We provide tips resources from industry leaders. For
+									real.
+								</p>
+							</div>
+						</FadeInUp>
 						{mounted ? (
 							<Drawer direction="right">
 								<DrawerTrigger className="lg:hidden border border-border rounded-md flex items-center justify-center  px-3 py-1.5 mt-5 ms-auto">
@@ -281,7 +285,10 @@ const ArticlesIndex = () => {
 								</DrawerContent>
 							</Drawer>
 						) : (
-							<button type="button" className="lg:hidden border border-border rounded-md flex items-center justify-center px-3 py-1.5 mt-5 ms-auto">
+							<button
+								type="button"
+								className="lg:hidden border border-border rounded-md flex items-center justify-center px-3 py-1.5 mt-5 ms-auto"
+							>
 								<ListFilter className="size-5 mr-1.5" /> Filter
 							</button>
 						)}
@@ -446,7 +453,9 @@ const FilterContent = ({
 							side="bottom"
 							align="start"
 							alignItemWithTrigger={false}
-							className={"bg-white p-2 rounded border ring-1 ring-border"}
+							className={
+								"bg-white p-2 rounded border ring-1 ring-border"
+							}
 						>
 							{["Filter 1", "Filter 2", "Filter 3"].map((filter) => (
 								<SelectItem key={filter} value={filter}>
